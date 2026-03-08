@@ -1,19 +1,19 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
-import AdminLayout from "../Admin/AdminLayout";
-import AdminDashboard from "../Admin/AdminDashboard";
-import ManagerPosts from "../Admin/Manager/ManagerPosts";
-import ManagerStaff from "../Admin/Manager/ManagerStaff";
-import ManagerInventory from "../Admin/Manager/ManagerInventory";
-import ManagerCustomer from "../Admin/Manager/ManagerCustomer";
-import ManagerPayment from "../Admin/Manager/ManagerPayment";
-import ManagerReport from "../Admin/Manager/ManagerReport";
-import ManagerBuyer from "../Admin/Manager/ManagerBuyer";
-import ManagerInspector from "../Admin/Manager/ManagerInspector";
-import Login from "../home/Login";
-import Register from "../home/Register";
-import SellerPage from "../Seller/SellerPage";
-import InspectorPage from "../Inspector/InspectorPage";
-import BuyerPage from "../Buyer/BuyerPage";
+import AdminLayout from "../components/Admin/AdminLayout";
+import AdminDashboard from "../components/Admin/AdminDashboard.tsx";
+import ManagerPosts from "../components/Admin/Manager/ManagerPosts.tsx";
+import ManagerStaff from "../components/Admin/Manager/ManagerStaff.tsx";
+import ManagerInventory from "../components/Admin/Manager/ManagerInventory.tsx";
+import ManagerCustomer from "../components/Admin/Manager/ManagerCustomer.tsx";
+import ManagerPayment from "../components/Admin/Manager/ManagerPayment.tsx";
+import ManagerReport from "../components/Admin/Manager/ManagerReport.tsx";
+import ManagerBuyer from "../components/Admin/Manager/ManagerBuyer.tsx";
+import ManagerInspector from "../components/Admin/Manager/ManagerInspector.tsx";
+import Login from "../components/home/Login";
+import Register from "../components/home/Register";
+import SellerPage from "../components/Seller/SellerPage.tsx";
+import InspectorPage from "../components/Inspector/InspectorPage.tsx";
+import BuyerPage from "../components/Buyer/BuyerPage.tsx";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {

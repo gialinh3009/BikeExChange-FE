@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import AppRoutes from "./components/Routes/AppRoutes";
+import AppRoutes from "./Routes/AppRoutes";
 
 function getUser() {
     try {
