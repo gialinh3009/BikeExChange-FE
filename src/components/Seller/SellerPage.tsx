@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
     Bike,
     LogOut,
     Plus,
-    Search,
     CreditCard,
     ShieldCheck,
     X,
@@ -11,8 +11,7 @@ import {
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
-import { getBuyerListAPI } from "../../services/Buyer/BuyerList";
-import { getBikeDetailAPI, createBikeAPI } from "../../services/bikeService";
+import { createBikeAPI } from "../../services/bikeService";
 import { listSellerPostsAPI, createSellerPostAPI } from "../../services/sellerPostService";
 import { createVnPayPaymentURLAPI } from "../../services/vnpayService";
 import { requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/inspectionService";
@@ -38,7 +37,7 @@ type PostItem = {
     bikeId?: number;
 };
 
-type TabKey = "browse" | "posts" | "create" | "inspection" | "wallet";
+type TabKey = "posts" | "create" | "inspection" | "wallet";
 
 type InspectionDetail = {
     inspection?: unknown;
@@ -86,12 +85,6 @@ export default function SellerPage() {
     const token = useMemo(() => getToken(), []);
 
     const [tab, setTab] = useState<TabKey>("posts");
-
-    // Browse like buyer
-    const [browseKeyword, setBrowseKeyword] = useState("");
-    const [browseLoading, setBrowseLoading] = useState(false);
-    const [browseError, setBrowseError] = useState<string | null>(null);
-    const [browseBikes, setBrowseBikes] = useState<BikeBrowseItem[]>([]);
     const [bikeDetail, setBikeDetail] = useState<BikeBrowseItem | null>(null);
 
     // Seller posts
@@ -240,39 +233,7 @@ export default function SellerPage() {
         }
     };
 
-    const refreshBrowse = async (keyword: string) => {
-        try {
-            setBrowseLoading(true);
-            setBrowseError(null);
-            const page = (await getBuyerListAPI({ keyword, page: 0, size: 12 })) as PageResponse<BikeBrowseItem> | BikeBrowseItem[];
-            const content =
-                (page as PageResponse<BikeBrowseItem>)?.content ??
-                (page as PageResponse<BikeBrowseItem>)?.data?.content ??
-                (Array.isArray(page) ? page : []);
-            if (Array.isArray(content)) {
-                setBrowseBikes(
-                    (content as unknown[]).map((b) => {
-                        const obj = asRecord(b);
-                        return {
-                            id: Number(obj.id ?? 0),
-                            title: String(obj.title ?? ""),
-                            pricePoints: Number(obj.pricePoints ?? 0),
-                            condition: (obj.condition as string | undefined) ?? null,
-                            status: obj.status as string | undefined,
-                            inspectionStatus: obj.inspectionStatus as string | undefined,
-                            media: (obj.media as BikeBrowseItem["media"]) ?? [],
-                        };
-                    })
-                );
-            } else {
-                setBrowseBikes([]);
-            }
-        } catch (e) {
-            setBrowseError((e as Error).message || "Không thể tải danh sách xe.");
-        } finally {
-            setBrowseLoading(false);
-        }
-    };
+    // Browse-like-buyer tab removed by request.
 
     useEffect(() => {
         void refreshPosts();
@@ -286,15 +247,7 @@ export default function SellerPage() {
         window.location.href = "/login";
     };
 
-    const openBikeDetail = async (id: number) => {
-        try {
-            const detail = await getBikeDetailAPI(id, token || undefined);
-            setBikeDetail(detail as BikeBrowseItem);
-            setDetailIdx(0);
-        } catch (e) {
-            setBrowseError((e as Error).message || "Không thể tải chi tiết xe.");
-        }
-    };
+    // product detail modal is currently opened from elsewhere (future)
 
     const handlePayPackage = async () => {
         try {
@@ -494,14 +447,16 @@ export default function SellerPage() {
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center">
+                <Link to="/home" className="flex items-center gap-3 group">
+                    <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center group-hover:bg-blue-700 transition">
                         <Bike size={18} className="text-white" />
                     </div>
-                    <span className="font-bold text-gray-900 text-lg">BikeExchange</span>
+                    <span className="font-bold text-gray-900 text-lg group-hover:text-blue-700 transition">
+                        BikeExchange
+                    </span>
                     <span className="text-gray-300 mx-1">|</span>
                     <span className="text-sm text-gray-500">Người bán</span>
-                </div>
+                </Link>
                 <div className="flex items-center gap-4">
                     <span className="text-sm text-gray-600">{user?.email ?? "Người bán"}</span>
                     <button
@@ -526,7 +481,6 @@ export default function SellerPage() {
                     {[
                         { key: "posts", label: "Bài đăng của tôi" },
                         { key: "create", label: "Đăng tin bán xe" },
-                        { key: "browse", label: "Lướt như người mua" },
                         { key: "inspection", label: "Kiểm định" },
                         { key: "wallet", label: "Ví & điểm" },
                     ].map((t) => (
@@ -535,7 +489,6 @@ export default function SellerPage() {
                             onClick={() => {
                                 const k = t.key as TabKey;
                                 setTab(k);
-                                if (k === "browse") void refreshBrowse(browseKeyword);
                                 if (k === "posts") void refreshPosts();
                                 if (k === "wallet") void refreshWallet();
                             }}
@@ -1037,59 +990,7 @@ export default function SellerPage() {
                     </div>
                 )}
 
-                {/* BROWSE TAB */}
-                {tab === "browse" && (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="font-semibold text-gray-800">Lướt như người mua</h2>
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    void refreshBrowse(browseKeyword);
-                                }}
-                                className="flex items-center gap-2"
-                            >
-                                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                                    <Search size={16} className="text-gray-400" />
-                                    <input
-                                        value={browseKeyword}
-                                        onChange={(e) => setBrowseKeyword(e.target.value)}
-                                        className="bg-transparent text-sm outline-none"
-                                        placeholder="Tìm kiếm..."
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                                >
-                                    Tìm
-                                </button>
-                            </form>
-                        </div>
-
-                        {browseError && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{browseError}</div>}
-                        {browseLoading && <div className="text-sm text-gray-500">Đang tải...</div>}
-
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {browseBikes.map((b) => (
-                                <button
-                                    key={b.id}
-                                    type="button"
-                                    onClick={() => void openBikeDetail(b.id)}
-                                    className="text-left rounded-2xl border border-gray-200 bg-white p-4 hover:shadow-sm transition"
-                                >
-                                    <div className="font-semibold text-gray-900 line-clamp-1">{b.title}</div>
-                                    <div className="text-sm text-emerald-700 font-semibold mt-1">
-                                        {b.pricePoints?.toLocaleString("vi-VN")} điểm
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {b.condition ?? "—"} · {b.status ?? "—"}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* Browse tab removed */}
 
                 {/* INSPECTION TAB */}
                 {tab === "inspection" && (

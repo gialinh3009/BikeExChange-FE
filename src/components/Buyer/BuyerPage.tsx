@@ -11,6 +11,7 @@ import {
     ShieldCheck,
     ArrowRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import Rating from "./Rating";
 
 const stats = [
@@ -117,18 +118,18 @@ export default function BuyerPage() {
             {/* Header */}
             <header className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/85 backdrop-blur-md">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md">
+                    <Link to="/home" className="flex items-center gap-3 group">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md transition group-hover:shadow-lg">
                             <Bike size={20} className="text-white" />
                         </div>
 
                         <div>
-                            <div className="text-lg font-bold tracking-tight text-gray-900">
+                            <div className="text-lg font-bold tracking-tight text-gray-900 group-hover:text-emerald-700 transition">
                                 BikeExchange
                             </div>
                             <div className="text-xs text-gray-500">Dashboard người mua</div>
                         </div>
-                    </div>
+                    </Link>
 
                     {/* Search */}
                     <div className="hidden w-full max-w-md px-8 lg:block">
