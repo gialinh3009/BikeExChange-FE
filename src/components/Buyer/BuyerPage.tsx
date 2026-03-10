@@ -4,6 +4,7 @@ import {
     Sparkles, ArrowRight, Star, Eye, Wallet, Settings, Package,
     ChevronDown, X, SlidersHorizontal, RotateCcw, MapPin, Image,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import WishList from "./WishList";
 import WalletPage from "./WalletPage";
 import { getBuyerListAPI } from "../../services/Buyer/BuyerList";
@@ -98,6 +99,7 @@ export default function BuyerPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [filterOpen, setFilterOpen] = useState(true);
     const [wishCount,  setWishCount]  = useState<number>(0);
+    const [wishedIds,   setWishedIds]   = useState<Set<number>>(new Set());
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
@@ -114,6 +116,11 @@ export default function BuyerPage() {
                         : Array.isArray(d?.data) ? d.data
                             : Array.isArray(d?.content) ? d.content : [];
                 setWishCount(list.length);
+                // Lưu ids để BikeCard biết xe nào đã wish
+                const ids = new Set<number>(list.map((w: { bikeId?: number; bike?: { id: number }; id?: number }) =>
+                    w.bikeId ?? w.bike?.id ?? w.id
+                ).filter(Boolean));
+                setWishedIds(ids);
             })
             .catch(() => {}); // eslint-disable-line react-hooks/exhaustive-deps
     }, [activeTab]); // re-fetch khi switch tab về wishlist
@@ -471,7 +478,7 @@ export default function BuyerPage() {
                                         </div>
                                     ) : (
                                         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:13 }}>
-                                            {bikes.map(bike=><BikeCard key={bike.id} bike={bike}/>)}
+                                            {bikes.map(bike=><BikeCard key={bike.id} bike={bike} initWished={wishedIds.has(bike.id)} onWishChange={(id,w)=>setWishedIds(prev=>{const s=new Set(prev);w?s.add(id):s.delete(id);setWishCount(s.size);return s;})}/>)}
                                         </div>
                                     )}
                                 </div>
@@ -511,9 +518,18 @@ function EmptyTab({ icon, title, sub }: { icon: React.ReactNode; title: string; 
 }
 
 // ─── BikeCard — dùng đúng fields từ BE ───────────────────────────────────────
-function BikeCard({ bike }: { bike: BikeItem }) {
-    const [wished,  setWished]  = useState(false);
+function BikeCard({ bike, initWished = false, onWishChange }: {
+    bike: BikeItem;
+    initWished?: boolean;
+    onWishChange?: (id: number, wished: boolean) => void;
+}) {
+    const navigate  = useNavigate();
+    const [wished,  setWished]  = useState(initWished);
     const [wishing, setWishing] = useState(false);
+
+    // Sync khi initWished thay đổi (lần đầu load)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { setWished(initWished); }, [initWished]);
 
     const price = bike.pricePoints ?? bike.price ?? 0;
     const img   = bike.media?.[0]?.url;
@@ -531,9 +547,16 @@ function BikeCard({ bike }: { bike: BikeItem }) {
         e.stopPropagation();
         setWishing(true);
         try {
-            if (wished) { await removeFromWishlistAPI(bike.id); } else { await addToWishlistAPI(bike.id); }
-            setWished(!wished);
-        } catch { setWished(!wished); }
+            if (wished) {
+                await removeFromWishlistAPI(bike.id);
+                setWished(false);
+                onWishChange?.(bike.id, false);
+            } else {
+                await addToWishlistAPI(bike.id);
+                setWished(true);
+                onWishChange?.(bike.id, true);
+            }
+        } catch { /* silent */ }
         finally  { setWishing(false); }
     };
 
@@ -587,9 +610,11 @@ function BikeCard({ bike }: { bike: BikeItem }) {
                         <span style={{ fontSize:11, color:"#64748b", fontWeight:500 }}>4.8</span>
                     </div>
                 </div>
-                <button style={{ width:"100%", padding:"8px 0", background:"#0f172a", color:"white", border:"none", borderRadius:8, fontSize:12.5, fontWeight:600, cursor:"pointer", transition:"background .15s" }}
-                        onMouseEnter={e=>e.currentTarget.style.background="#2563eb"}
-                        onMouseLeave={e=>e.currentTarget.style.background="#0f172a"}>
+                <button
+                    onClick={() => navigate(`/bikes/${bike.id}`)}
+                    style={{ width:"100%", padding:"8px 0", background:"#0f172a", color:"white", border:"none", borderRadius:8, fontSize:12.5, fontWeight:600, cursor:"pointer", transition:"background .15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="#2563eb"}
+                    onMouseLeave={e=>e.currentTarget.style.background="#0f172a"}>
                     Xem chi tiết
                 </button>
             </div>
