@@ -92,6 +92,7 @@ const navItems = [
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function BuyerPage() {
+    const navigate = useNavigate();
     const [activeTab,  setActiveTab]  = useState("home");
     const [bikes,      setBikes]      = useState<BikeItem[]>([]);
     const [loading,    setLoading]    = useState(false);
@@ -294,7 +295,7 @@ export default function BuyerPage() {
                                     </div>
                                     {/* Xem hồ sơ */}
                                     <button
-                                        onClick={()=>{ setSettingsOpen(false); /* TODO: navigate profile */ }}
+                                        onClick={()=>{ setSettingsOpen(false); navigate("/profile"); }}
                                         style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 14px", border:"none", background:"none", cursor:"pointer", fontSize:13, color:"#374151", fontWeight:500, textAlign:"left" }}
                                         onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
                                         onMouseLeave={e=>e.currentTarget.style.background="none"}
@@ -533,7 +534,7 @@ export default function BuyerPage() {
                                         </div>
                                     ) : (
                                         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:13 }}>
-                                            {bikes.map(bike=><BikeCard key={bike.id} bike={bike} initWished={wishedIds.has(bike.id)} onWishChange={(id,w)=>setWishedIds(prev=>{const s=new Set(prev);w?s.add(id):s.delete(id);setWishCount(s.size);return s;})}/>)}
+                                            {bikes.map(bike=><BikeCard key={bike.id} bike={bike} initWished={wishedIds.has(bike.id)} onWishChange={(id,w)=>setWishedIds(prev=>{const s=new Set(prev);void(w?s.add(id):s.delete(id));setWishCount(s.size);return s;})}/>)}
                                         </div>
                                     )}
                                 </div>

@@ -16,6 +16,7 @@ import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage      from "../components/Buyer/BuyerPage.tsx";
 import BikedetailPage from "../components/Buyer/BikedetailPage";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
+import ProfilePage    from "../components/Buyer/Profilepage";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -94,9 +95,10 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route element={<PrivateRoute roles={["BUYER"]} />}>
                 <Route path="/buyer"     element={<BuyerPage />} />
                 <Route path="/bikes/:id" element={<BikedetailPage />} />
+                <Route path="/profile"   element={<ProfilePage />} />
             </Route>
 
-            {/* VNPay return — public (BE redirect về đây) */}
+            {/* VNPay return — public */}
             <Route path="/payment/return" element={<PaymentSuccess />} />
 
             {/* Fallback */}
