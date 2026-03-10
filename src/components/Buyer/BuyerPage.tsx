@@ -101,6 +101,12 @@ export default function BuyerPage() {
     const [wishCount,  setWishCount]  = useState<number>(0);
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
+    const role  = user?.role as string | undefined;
+    const isSeller = role === "SELLER";
+    const roleLabel =
+        role === "SELLER" ? "Người bán"
+        : role === "BUYER" ? "Người mua"
+        : "Thành viên";
     const token = localStorage.getItem("token") ?? "";
 
     // Fetch wishlist count
@@ -223,7 +229,7 @@ export default function BuyerPage() {
                     </div>
                     <div style={{ minWidth:0 }}>
                         <div style={{ color:"white", fontSize:12, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email || "Người dùng"}</div>
-                        <div style={{ color:"#475569", fontSize:10.5, marginTop:1 }}>Người mua</div>
+                        <div style={{ color:"#475569", fontSize:10.5, marginTop:1 }}>{roleLabel}</div>
                     </div>
                 </div>
 
@@ -260,6 +266,24 @@ export default function BuyerPage() {
                         {filters.keyword && <button onClick={()=>setFilter("keyword","")} style={{border:"none",background:"none",cursor:"pointer",display:"flex",color:"#94a3b8"}}><X size={12}/></button>}
                     </div>
                     <button onClick={fetchBikes} style={{ padding:"8px 16px", background:"#1e293b", color:"white", border:"none", borderRadius:9, fontSize:12.5, fontWeight:700, cursor:"pointer" }}>Tìm</button>
+                    {isSeller && (
+                        <Link
+                            to="/seller"
+                            style={{
+                                padding:"8px 16px",
+                                background:"#3b82f6",
+                                color:"white",
+                                border:"none",
+                                borderRadius:9,
+                                fontSize:12.5,
+                                fontWeight:700,
+                                cursor:"pointer",
+                                textDecoration:"none",
+                            }}
+                        >
+                            Bài đăng
+                        </Link>
+                    )}
                     <button style={{ width:36, height:36, borderRadius:9, border:"1.5px solid #e8ecf4", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
                         <Bell size={15} color="#64748b"/>
                         <span style={{ position:"absolute", top:7, right:7, width:6, height:6, background:"#ef4444", borderRadius:"50%", border:"1.5px solid white" }}/>

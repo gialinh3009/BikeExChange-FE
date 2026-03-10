@@ -96,7 +96,9 @@ export default function HomeMarket() {
   const dashboardPath = useMemo(() => {
     const role = currentUser?.role;
     if (role === "ADMIN") return "/admin";
-    if (role === "SELLER") return "/seller";
+    // Seller dùng chung dashboard Buyer tại /buyer,
+    // trang quản lý bài đăng riêng vẫn là /seller.
+    if (role === "SELLER") return "/buyer";
     if (role === "INSPECTOR") return "/inspector";
     if (role === "BUYER") return "/buyer";
     return "/home";
