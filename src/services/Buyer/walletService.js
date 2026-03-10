@@ -3,100 +3,77 @@ import { BASE_URL } from "../../config/apiConfig";
 const authHeaders = (json = false) => {
     const token = localStorage.getItem("token");
     return {
-        "accept": "*/*",
+        accept: "*/*",
         ...(json ? { "Content-Type": "application/json" } : {}),
-        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 };
 
-const getUserId = () => {
-    try {
-        const user = JSON.parse(localStorage.getItem("user") || "null");
-        return user?.id ?? user?.userId ?? null;
-    } catch { return null; }
-};
-
-/**
- * GET /wallet?userId=xxx
- * Returns: { data: { availablePoints, frozenPoints, user, ... }, success }
- */
+// ── GET /wallet ────────────────────────────────────────────────────────────
 export async function getWalletAPI() {
-    const userId = getUserId();
-    const url = userId ? `${BASE_URL}/wallet?userId=${userId}` : `${BASE_URL}/wallet`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
+    const userId = user?.id ?? user?.userId;
+
+    if (!userId) throw new Error("User not authenticated");
+
+    const res = await fetch(`${BASE_URL}/wallet?userId=${userId}`, {
+        method: "GET",
+        headers: authHeaders(),
+    });
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Không thể lấy thông tin ví.");
-    return data.data; // { availablePoints, frozenPoints, user, ... }
+    if (!res.ok) throw new Error(data.message || "Không thể lấy ví.");
+
+    // BE trả về { data: { availablePoints, frozenPoints, userId, ... }, success: true }
+    return data.data;
 }
 
-/**
- * GET /wallet/transactions?userId=xxx&type=DEPOSIT|WITHDRAW
- * Returns: { data: [...], summary: { totalAmount, totalCount, byType } }
- */
+// ── GET /wallet/transactions ───────────────────────────────────────────────
 export async function getTransactionsAPI(type = "") {
-    const userId = getUserId();
-    const params = new URLSearchParams();
-    if (userId) params.append("userId", String(userId));
-    if (type)   params.append("type", type);
-    const res = await fetch(`${BASE_URL}/wallet/transactions?${params}`, { headers: authHeaders() });
+    const url = type ? `${BASE_URL}/wallet/transactions?type=${type}` : `${BASE_URL}/wallet/transactions`;
+    const res = await fetch(url, {
+        method: "GET",
+        headers: authHeaders(),
+    });
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Không thể lấy lịch sử giao dịch.");
-    return { list: data.data ?? [], summary: data.summary ?? {} };
+    if (!res.ok) {
+        console.warn("Could not fetch transactions:", data.message);
+        return [];
+    }
+
+    // BE trả về { data: [...], success: true, summary: {...} }
+    const transactions = data.data || [];
+    return Array.isArray(transactions) ? transactions : [];
 }
 
+// ── GET /vnpay/create-payment ──────────────────────────────────────────────
 /**
- * GET /vnpay/create-payment?amount=xxx
- * BE trả về { paymentUrl: "https://sandbox.vnpayment.vn/..." }
- * Tham khảo từ project cũ cùng BE: data.paymentUrl
+ * Tạo link thanh toán VNPay
+ * @param {number} amount - Số tiền (đơn vị VND)
+ * @returns {Promise<string>} - URL thanh toán để redirect
  */
 export async function createVNPayPaymentURL(amount) {
-    const res = await fetch(
-        `${BASE_URL}/vnpay/create-payment?amount=${amount}`,
-        { headers: authHeaders() }
-    );
-
-    // Nếu BE redirect thẳng (302) thì lấy URL đó
-    if (res.redirected) return res.url;
-
-    const data = await res.json();
-
-    if (!res.ok) {
-        throw new Error(data.message || "Không thể tạo link thanh toán.");
+    if (!amount || amount < 10000) {
+        throw new Error("Số tiền tối thiểu là 10,000đ");
     }
 
-    // Project cũ cùng BE dùng: data.paymentUrl
-    const url = data.paymentUrl
-        ?? data.data?.paymentUrl
-        ?? data.data
-        ?? data.url;
-
-    if (!url || typeof url !== "string") {
-        console.error("VNPay response:", data);
-        throw new Error("Không nhận được link thanh toán hợp lệ.");
-    }
-
-    return url;
-}
-
-/**
- * POST /wallet/deposit
- * Gọi sau khi VNPay callback thành công
- * Body: { amount, referenceId }
- */
-export async function depositWalletAPI(amount, referenceId) {
-    const res = await fetch(`${BASE_URL}/wallet/deposit`, {
-        method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify({ amount, referenceId }),
+    const res = await fetch(`${BASE_URL}/vnpay/create-payment?amount=${amount}`, {
+        method: "GET",
+        headers: authHeaders(),
     });
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Nạp tiền thất bại.");
-    return data;
+    if (!res.ok || !data.success) throw new Error(data.message || "Tạo link thanh toán thất bại.");
+
+    // BE trả về { success: true, paymentUrl: "https://sandbox.vnpayment.vn/..." }
+    return data.paymentUrl;
 }
 
+// ── POST /wallet/withdraw-request ──────────────────────────────────────────
 /**
- * POST /wallet/withdraw-request
- * Body: { amount, bankAccount, bankName, ... } — cần hỏi BE team
+ * Yêu cầu rút tiền
+ * @param {Object} payload - { amount, bankName, bankAccount, accountName }
  */
 export async function withdrawWalletAPI(payload) {
     const res = await fetch(`${BASE_URL}/wallet/withdraw-request`, {
@@ -104,7 +81,9 @@ export async function withdrawWalletAPI(payload) {
         headers: authHeaders(true),
         body: JSON.stringify(payload),
     });
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Yêu cầu rút tiền thất bại.");
-    return data;
+
+    return data.data;
 }
