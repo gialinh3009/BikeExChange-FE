@@ -11,12 +11,10 @@ import ManagerBuyer from "../components/Admin/Manager/ManagerBuyer.tsx";
 import ManagerInspector from "../components/Admin/Manager/ManagerInspector.tsx";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
+import HomeMarket from "../components/home/HomeMarket";
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
-import BuyerPage      from "../components/Buyer/BuyerPage.tsx";
-import BikedetailPage from "../components/Buyer/BikedetailPage";
-import PaymentSuccess from "../components/Buyer/PaymentSuccess";
-import ProfilePage    from "../components/Buyer/Profilepage";
+import BuyerPage from "../components/Buyer/BuyerPage.tsx";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -33,14 +31,6 @@ function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: stri
     return <Outlet />;
 }
 
-// ─── Route map ───────────────────────────────────────────────────────────────
-const ROLE_ROUTES: Record<string, string> = {
-    ADMIN: "/admin",
-    SELLER: "/seller",
-    INSPECTOR: "/inspector",
-    BUYER: "/buyer",
-};
-
 // ─── AppRoutes ───────────────────────────────────────────────────────────────
 interface AppRoutesProps {
     user: { role: string } | null;
@@ -51,6 +41,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
     return (
         <Routes>
             {/* Public */}
+            <Route path="/home" element={<HomeMarket />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
@@ -58,11 +49,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route
                 path="/"
                 element={
-                    user ? (
-                        <Navigate to={ROLE_ROUTES[user.role] ?? "/login"} replace />
-                    ) : (
-                        <Navigate to="/login" replace />
-                    )
+                    <Navigate to="/home" replace />
                 }
             />
 
@@ -91,15 +78,10 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                 <Route path="/inspector" element={<InspectorPage />} />
             </Route>
 
-            {/* Buyer — protected */}
-            <Route element={<PrivateRoute roles={["BUYER"]} />}>
-                <Route path="/buyer"     element={<BuyerPage />} />
-                <Route path="/bikes/:id" element={<BikedetailPage />} />
-                <Route path="/profile"   element={<ProfilePage />} />
+            {/* Buyer dashboard — cho cả BUYER và SELLER */}
+            <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
+                <Route path="/buyer" element={<BuyerPage />} />
             </Route>
-
-            {/* VNPay return — public */}
-            <Route path="/payment/return" element={<PaymentSuccess />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />

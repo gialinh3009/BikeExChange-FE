@@ -26,7 +26,11 @@ export async function getBuyerListAPI({
     if (keyword) params.append("keyword", keyword);
     if (category_id !== undefined && category_id !== null)
         params.append("category_id", String(category_id));
-    if (status) params.append("status", status);
+    if (Array.isArray(status)) {
+        status.forEach((s) => params.append("status", String(s)));
+    } else if (status) {
+        params.append("status", String(status));
+    }
     if (price_min !== undefined && price_min !== null)
         params.append("price_min", String(price_min));
     if (price_max !== undefined && price_max !== null)

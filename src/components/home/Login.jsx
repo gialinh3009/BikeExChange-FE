@@ -13,7 +13,9 @@ import { loginAPI } from "../../services/authService";
 
 const ROLE_REDIRECT = {
   ADMIN: "/admin",
-  SELLER: "/seller",
+  // Seller dùng chung dashboard Buyer tại /buyer,
+  // còn trang quản lý bài đăng riêng là /seller.
+  SELLER: "/buyer",
   INSPECTOR: "/inspector",
   BUYER: "/buyer",
 };
