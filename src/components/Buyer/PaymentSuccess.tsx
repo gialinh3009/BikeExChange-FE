@@ -43,31 +43,34 @@ export default function PaymentSuccess() {
         setAmount(actualAmount);
         setTxRef(txnRef);
 
+        if (!responseCode) {
+            // Không có params → có thể BE redirect với custom params
+            // hoặc user vào trực tiếp URL → redirect về buyer
+            navigate("/buyer");
+            return;
+        }
+
         if (responseCode === "00") {
-            // Thanh toán thành công — gọi deposit để cộng điểm
-            confirmDeposit(actualAmount, txnRef, orderInfo);
+            void confirmDeposit(actualAmount, txnRef, orderInfo);
         } else {
             setStatus("failed");
-            setMessage(getVNPayMessage(responseCode ?? ""));
+            setMessage(getVNPayMessage(responseCode));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const confirmDeposit = async (amount: number, referenceId: string, _orderInfo: string) => {
+    const confirmDeposit = async (amt: number, referenceId: string, _orderInfo: string) => {
         try {
-            // Gọi POST /wallet/deposit để xác nhận với BE
-            // (một số BE xử lý qua IPN tự động, nếu đã xử lý rồi thì endpoint này có thể báo duplicate — cũng không sao)
-            await depositWalletAPI(amount, referenceId);
+            // Thử gọi POST /wallet/deposit để xác nhận
+            // Nếu BE đã xử lý qua IPN rồi → có thể báo duplicate, vẫn show success
+            await depositWalletAPI(amt, referenceId);
             setStatus("success");
         } catch (err: unknown) {
-            // Nếu BE đã xử lý qua IPN rồi thì deposit có thể throw, nhưng tiền vẫn vào ví
-            // → vẫn show success
-            const msg = err instanceof Error ? err.message : "";
-            if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("already")) {
-                setStatus("success"); // đã xử lý bởi IPN
-            } else {
-                setStatus("success"); // VNPay trả 00 → ưu tiên show success
-                console.warn("deposit confirm:", msg);
-            }
+            const msg = (err instanceof Error ? err.message : "").toLowerCase();
+            // VNPay trả 00 = tiền đã rời ngân hàng → luôn show success
+            // BE có thể đã tự xử lý qua IPN webhook
+            console.warn("deposit confirm (có thể BE đã xử lý qua IPN):", msg);
+            setStatus("success");
         }
     };
 

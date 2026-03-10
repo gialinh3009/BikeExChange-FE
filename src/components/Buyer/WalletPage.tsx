@@ -140,10 +140,12 @@ export default function WalletPage() {
         setWithdrawLoading(true);
         setWithdrawError("");
         try {
-            await withdrawWalletAPI({ amount, bankName: withdrawBank, bankAccount: withdrawAccount, accountName: withdrawName });
+            const updatedWallet = await withdrawWalletAPI({ amount, bankName: withdrawBank, bankAccountNumber: withdrawAccount, bankAccountName: withdrawName });
+            // Cập nhật wallet state ngay từ response (frozenPoints tăng, availablePoints giảm)
+            if (updatedWallet?.availablePoints !== undefined) setWallet(updatedWallet);
+            else void fetchWallet();
             setWithdrawSuccess(true);
             setWithdrawAmount(""); setWithdrawBank(""); setWithdrawAccount(""); setWithdrawName("");
-            fetchWallet();
         } catch (err: unknown) {
             setWithdrawError(err instanceof Error ? err.message : "Có lỗi xảy ra");
         } finally {
