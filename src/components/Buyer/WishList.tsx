@@ -42,7 +42,8 @@ export default function WishList({ formatPrice }: WishlistProps) {
     const [removing, setRemoving] = useState<number | null>(null);
     const [error, setError] = useState("");
 
-    useEffect(() => { fetchWishlist(); }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { void fetchWishlist(); }, []);
 
     const fetchWishlist = async () => {
         setLoading(true);
@@ -212,7 +213,7 @@ export default function WishList({ formatPrice }: WishlistProps) {
                                         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4, fontWeight: 500 }}>{bike.brand ?? "Xe đạp"}</div>
                                         <h3 style={{ fontSize: 14, fontWeight: 700, color: "#1a1a2e", marginBottom: 8, lineHeight: 1.3 }}>{bike.name ?? "Không có tên"}</h3>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                                            <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmtPrice(bike.price)}</span>
+                                            <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmtPrice(bike.price ?? 0)}</span>
                                             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                                                 <Star size={12} color="#f59e0b" fill="#f59e0b" />
                                                 <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>4.8</span>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-    Bike, Heart, ShoppingBag, Truck, LogOut, Search, Bell,
-    Sparkles, ArrowRight, Star, Eye, Wallet, Settings, Package,
-    ChevronDown, X, SlidersHorizontal, RotateCcw, MapPin, Image,
+    Bike, Heart, LogOut, Search, Star, Wallet, Bell, Settings,
+    Package, ChevronDown, X, SlidersHorizontal, RotateCcw, MapPin, Image,
+    Tag, Layers, User, TrendingUp, ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import WishList from "./WishList";
@@ -98,7 +98,8 @@ export default function BuyerPage() {
     const [filters,    setFilters]    = useState<FilterState>(DEFAULT_FILTERS);
     const [categories, setCategories] = useState<Category[]>([]);
     const [filterOpen, setFilterOpen] = useState(true);
-    const [wishCount,  setWishCount]  = useState<number>(0);
+    const [wishCount,    setWishCount]    = useState<number>(0);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [wishedIds,   setWishedIds]   = useState<Set<number>>(new Set());
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
@@ -122,7 +123,7 @@ export default function BuyerPage() {
                 ).filter(Boolean));
                 setWishedIds(ids);
             })
-            .catch(() => {}); // eslint-disable-line react-hooks/exhaustive-deps
+            .catch(() => {});
     }, [activeTab]); // re-fetch khi switch tab về wishlist
 
     // Fetch categories: GET /categories → data.content[]
@@ -138,7 +139,7 @@ export default function BuyerPage() {
                 setCategories(Array.isArray(list) ? list : []);
             })
             .catch(() => setCategories([]));
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
     const fetchBikes = useCallback(async () => {
         setLoading(true);
@@ -262,7 +263,7 @@ export default function BuyerPage() {
                         <Search size={14} color="#94a3b8"/>
                         <input className="search-box" placeholder="Tìm xe theo tên, thương hiệu, loại xe..."
                                value={filters.keyword} onChange={e=>setFilter("keyword",e.target.value)}
-                               onKeyDown={e=>e.key==="Enter"&&fetchBikes()} />
+                               onKeyDown={e=>{if(e.key==="Enter") void fetchBikes();}} />
                         {filters.keyword && <button onClick={()=>setFilter("keyword","")} style={{border:"none",background:"none",cursor:"pointer",display:"flex",color:"#94a3b8"}}><X size={12}/></button>}
                     </div>
                     <button onClick={fetchBikes} style={{ padding:"8px 16px", background:"#1e293b", color:"white", border:"none", borderRadius:9, fontSize:12.5, fontWeight:700, cursor:"pointer" }}>Tìm</button>
@@ -270,9 +271,81 @@ export default function BuyerPage() {
                         <Bell size={15} color="#64748b"/>
                         <span style={{ position:"absolute", top:7, right:7, width:6, height:6, background:"#ef4444", borderRadius:"50%", border:"1.5px solid white" }}/>
                     </button>
-                    <button style={{ width:36, height:36, borderRadius:9, border:"1.5px solid #e8ecf4", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <Settings size={15} color="#64748b"/>
-                    </button>
+                    <div style={{ position:"relative" }}>
+                        <button
+                            onClick={()=>setSettingsOpen(v=>!v)}
+                            style={{ width:36, height:36, borderRadius:9, border:"1.5px solid #e8ecf4", background:settingsOpen?"#f0f4ff":"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"background .15s" }}>
+                            <Settings size={15} color={settingsOpen?"#3b82f6":"#64748b"}/>
+                        </button>
+                        {settingsOpen && (
+                            <>
+                                {/* Overlay để click ngoài đóng */}
+                                <div onClick={()=>setSettingsOpen(false)} style={{ position:"fixed", inset:0, zIndex:29 }}/>
+                                <div style={{ position:"absolute", right:0, top:44, width:220, background:"white", borderRadius:13, border:"1.5px solid #e8ecf4", boxShadow:"0 8px 32px rgba(0,0,0,.1)", zIndex:30, overflow:"hidden" }}>
+                                    {/* User info mini */}
+                                    <div style={{ padding:"12px 14px", borderBottom:"1px solid #f1f5f9", display:"flex", alignItems:"center", gap:9 }}>
+                                        <div style={{ width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#6366f1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800, color:"white", flexShrink:0 }}>
+                                            {(user?.email?.[0]||"U").toUpperCase()}
+                                        </div>
+                                        <div style={{ minWidth:0 }}>
+                                            <div style={{ fontSize:12.5, fontWeight:600, color:"#0f172a", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email||"Người dùng"}</div>
+                                            <div style={{ fontSize:11, color:"#94a3b8", marginTop:1 }}>Người mua</div>
+                                        </div>
+                                    </div>
+                                    {/* Xem hồ sơ */}
+                                    <button
+                                        onClick={()=>{ setSettingsOpen(false); /* TODO: navigate profile */ }}
+                                        style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 14px", border:"none", background:"none", cursor:"pointer", fontSize:13, color:"#374151", fontWeight:500, textAlign:"left" }}
+                                        onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                                        onMouseLeave={e=>e.currentTarget.style.background="none"}
+                                    >
+                                        <div style={{ width:30, height:30, borderRadius:8, background:"#eff6ff", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                            <User size={14} color="#3b82f6"/>
+                                        </div>
+                                        <div style={{ flex:1 }}>
+                                            <div style={{ fontWeight:600, fontSize:12.5 }}>Hồ sơ cá nhân</div>
+                                            <div style={{ fontSize:11, color:"#94a3b8", marginTop:1 }}>Xem & chỉnh sửa thông tin</div>
+                                        </div>
+                                        <ChevronRight size={13} color="#cbd5e1"/>
+                                    </button>
+                                    {/* Divider */}
+                                    <div style={{ height:1, background:"#f1f5f9", margin:"0 14px" }}/>
+                                    {/* Nâng cấp Seller */}
+                                    <button
+                                        onClick={()=>{ setSettingsOpen(false); /* TODO: upgrade modal */ }}
+                                        style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 14px", border:"none", background:"none", cursor:"pointer", fontSize:13, color:"#374151", fontWeight:500, textAlign:"left" }}
+                                        onMouseEnter={e=>e.currentTarget.style.background="#fffbeb"}
+                                        onMouseLeave={e=>e.currentTarget.style.background="none"}
+                                    >
+                                        <div style={{ width:30, height:30, borderRadius:8, background:"#fffbeb", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                            <TrendingUp size={14} color="#d97706"/>
+                                        </div>
+                                        <div style={{ flex:1 }}>
+                                            <div style={{ fontWeight:600, fontSize:12.5, color:"#d97706" }}>Nâng cấp lên Seller</div>
+                                            <div style={{ fontSize:11, color:"#94a3b8", marginTop:1 }}>Đăng bán xe của bạn</div>
+                                        </div>
+                                        <span style={{ background:"#fef3c7", color:"#d97706", borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700 }}>MỚI</span>
+                                    </button>
+                                    {/* Divider */}
+                                    <div style={{ height:1, background:"#f1f5f9", margin:"0 14px" }}/>
+                                    {/* Đăng xuất */}
+                                    <button
+                                        onClick={()=>{ setSettingsOpen(false); handleLogout(); }}
+                                        style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 14px", border:"none", background:"none", cursor:"pointer", fontSize:13, color:"#ef4444", fontWeight:500, textAlign:"left" }}
+                                        onMouseEnter={e=>e.currentTarget.style.background="#fff1f2"}
+                                        onMouseLeave={e=>e.currentTarget.style.background="none"}
+                                    >
+                                        <div style={{ width:30, height:30, borderRadius:8, background:"#fff1f2", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                            <LogOut size={14} color="#ef4444"/>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight:600, fontSize:12.5 }}>Đăng xuất</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </header>
 
                 <main style={{ flex:1, padding:"22px", overflowY:"auto" }}>
@@ -280,49 +353,29 @@ export default function BuyerPage() {
                     {/* HOME */}
                     {activeTab==="home" && (
                         <div className="fade-in">
-                            {/* Hero */}
-                            <div style={{ background:"linear-gradient(120deg,#1e3a5f,#0f172a 55%,#1e1b4b)", borderRadius:16, padding:"26px 30px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center", position:"relative", overflow:"hidden" }}>
-                                <div style={{ position:"absolute", right:-20, top:-20, width:180, height:180, borderRadius:"50%", background:"rgba(99,102,241,.07)" }}/>
-                                <div style={{ position:"absolute", right:110, bottom:-40, width:120, height:120, borderRadius:"50%", background:"rgba(59,130,246,.08)" }}/>
-                                <div style={{ position:"relative", zIndex:1 }}>
-                                    <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(59,130,246,.18)", borderRadius:18, padding:"3px 10px", marginBottom:10 }}>
-                                        <Sparkles size={11} color="#60a5fa"/><span style={{ color:"#60a5fa", fontSize:11, fontWeight:600 }}>Gợi ý cho bạn</span>
-                                    </div>
-                                    <h1 style={{ color:"white", fontSize:24, fontWeight:800, lineHeight:1.25, marginBottom:7 }}>Xin chào, {user?.email?.split("@")[0]||"bạn"} 👋</h1>
-                                    <p style={{ color:"#64748b", fontSize:13, maxWidth:360, lineHeight:1.6 }}>Khám phá xe đạp chất lượng, được kiểm định rõ ràng.</p>
-                                    <div style={{ display:"flex", gap:8, marginTop:16 }}>
-                                        <button style={{ background:"#3b82f6", color:"white", border:"none", borderRadius:8, padding:"8px 16px", fontSize:12, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>Khám phá <ArrowRight size={12}/></button>
-                                        <button onClick={()=>setActiveTab("wishlist")} style={{ background:"rgba(255,255,255,.07)", color:"white", border:"1px solid rgba(255,255,255,.12)", borderRadius:8, padding:"8px 16px", fontSize:12, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}><Heart size={12}/> Yêu thích</button>
-                                    </div>
-                                </div>
-                                <div style={{ position:"relative", zIndex:1, display:"flex", gap:20 }}>
-                                    {[{v:"2.4K+",l:"Xe đã bán"},{v:"1.8K+",l:"Người dùng"},{v:"99%",l:"Hài lòng"}].map(s=>(
-                                        <div key={s.l} style={{ textAlign:"center" }}>
-                                            <div style={{ color:"white", fontSize:19, fontWeight:800 }}>{s.v}</div>
-                                            <div style={{ color:"#475569", fontSize:10.5, marginTop:3 }}>{s.l}</div>
-                                        </div>
-                                    ))}
-                                </div>
+                            {/* Page header */}
+                            <div style={{ marginBottom:18 }}>
+                                <h2 style={{ fontSize:18, fontWeight:800, color:"#0f172a", marginBottom:2 }}>Mua xe đạp</h2>
+                                <p style={{ fontSize:12.5, color:"#94a3b8" }}>{bikes.length} xe đang bán — lọc theo loại, giá, tình trạng</p>
                             </div>
 
-                            {/* Stats */}
-                            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:13, marginBottom:20 }}>
-                                {[
-                                    { label:"Đơn đã mua",      value:"5",  icon:ShoppingBag, bg:"#eff6ff", color:"#2563eb", trend:"+2 tháng này"   },
-                                    { label:"Yêu thích",        value:String(wishCount), icon:Heart,       bg:"#fff1f2", color:"#e11d48", trend:""       },
-                                    { label:"Đang vận chuyển",  value:"1",  icon:Truck,       bg:"#fffbeb", color:"#d97706", trend:"Hôm nay"        },
-                                    { label:"Đã xem",           value:"38", icon:Eye,         bg:"#f0fdf4", color:"#16a34a", trend:"Tuần này"       },
-                                ].map(s=>(
-                                    <div key={s.label} style={{ background:"white", borderRadius:13, padding:"16px", border:"1.5px solid #e8ecf4", transition:"transform .18s,box-shadow .18s" }}
-                                         onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,.07)"}}
-                                         onMouseLeave={e=>{e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow="none"}}>
-                                        <div style={{ width:38, height:38, borderRadius:10, background:s.bg, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:10 }}>
-                                            <s.icon size={18} color={s.color}/>
-                                        </div>
-                                        <div style={{ fontSize:22, fontWeight:800, color:"#0f172a", lineHeight:1 }}>{s.value}</div>
-                                        <div style={{ fontSize:12, color:"#64748b", marginTop:3 }}>{s.label}</div>
-                                        <div style={{ fontSize:11, color:s.color, marginTop:5, fontWeight:500 }}>{s.trend}</div>
-                                    </div>
+                            {/* Quick filter chips (bike types) */}
+                            <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginBottom:16 }}>
+                                <button className={`chip${filters.frame_size===""?" on":""}`}
+                                        onClick={()=>{setFilter("frame_size","");setTimeout(fetchBikes,50);}}>
+                                    <Layers size={11} style={{marginRight:4}}/> Tất cả
+                                </button>
+                                {BIKE_TYPES.map(t=>(
+                                    <button key={t} className={`chip${filters.frame_size===t?" on":""}`}
+                                            onClick={()=>{setFilter("frame_size",filters.frame_size===t?"":t);setTimeout(fetchBikes,50);}}>
+                                        {t}
+                                    </button>
+                                ))}
+                                {categories.slice(0,6).map(c=>(
+                                    <button key={c.id} className={`chip${filters.category_id===String(c.id)?" on":""}`}
+                                            onClick={()=>{setFilter("category_id",filters.category_id===String(c.id)?"":String(c.id));setTimeout(fetchBikes,50);}}>
+                                        <Tag size={10} style={{marginRight:3}}/>{c.name}
+                                    </button>
                                 ))}
                             </div>
 
@@ -330,7 +383,7 @@ export default function BuyerPage() {
                             <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
 
                                 {/* ── Filter Panel ── */}
-                                <div style={{ width:232, flexShrink:0, background:"white", borderRadius:14, border:"1.5px solid #e8ecf4", overflow:"hidden", position:"sticky", top:76 }}>
+                                <div style={{ width:232, flexShrink:0, background:"white", borderRadius:14, border:"1.5px solid #e8ecf4", overflow:"hidden", position:"sticky", top:76, maxHeight:"calc(100vh - 90px)", overflowY:"auto" }}>
                                     <div style={{ padding:"14px 16px", borderBottom:"1px solid #f1f5f9", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                                         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                                             <SlidersHorizontal size={14} color="#3b82f6"/>
@@ -445,8 +498,10 @@ export default function BuyerPage() {
                                 <div style={{ flex:1, minWidth:0 }}>
                                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
                                         <div>
-                                            <span style={{ fontSize:14.5, fontWeight:700, color:"#0f172a" }}>Xe đề xuất</span>
-                                            <span style={{ fontSize:12.5, color:"#94a3b8", marginLeft:7 }}>({bikes.length} kết quả)</span>
+                                            <span style={{ fontSize:14.5, fontWeight:700, color:"#0f172a" }}>
+                                                {activeFilterCount > 0 ? "Kết quả lọc" : "Tất cả xe"}
+                                            </span>
+                                            <span style={{ fontSize:12.5, color:"#94a3b8", marginLeft:7 }}>({bikes.length} xe)</span>
                                         </div>
                                         {activeFilterCount>0 && (
                                             <div style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", background:"#eff6ff", borderRadius:18, fontSize:11.5, color:"#2563eb", fontWeight:600 }}>
@@ -528,7 +583,6 @@ function BikeCard({ bike, initWished = false, onWishChange }: {
     const [wishing, setWishing] = useState(false);
 
     // Sync khi initWished thay đổi (lần đầu load)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { setWished(initWished); }, [initWished]);
 
     const price = bike.pricePoints ?? bike.price ?? 0;

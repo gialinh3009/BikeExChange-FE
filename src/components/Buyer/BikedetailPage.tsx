@@ -5,8 +5,8 @@ import {
     CheckCircle, Clock, AlertCircle, ShieldCheck, ShoppingCart,
     ChevronLeft, ChevronRight, Bike, Eye, Loader2, X, Coins, Star
 } from "lucide-react";
-import { getBikeDetailAPI } from "../../services/Buyer/bikeService";
-import { createOrderAPI } from "../../services/Buyer/orderService";
+import { getBikeDetailAPI } from "../../services/Buyer/Bikeservice";
+import { createOrderAPI } from "../../services/Buyer/Orderservice";
 import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ function ConfirmModal({ bike, onConfirm, onCancel, loading }: {
                 <div className="bg-gray-50 rounded-xl p-4 mb-4 flex gap-3">
                     <img
                         src={bike.media?.[0]?.url || FALLBACK_IMG}
+                        alt={bike.title}
                         onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMG; }}
                         className="w-20 h-20 rounded-lg object-cover shrink-0"
                     />
