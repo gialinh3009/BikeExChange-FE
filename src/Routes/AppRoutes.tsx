@@ -78,8 +78,8 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                 <Route path="/inspector" element={<InspectorPage />} />
             </Route>
 
-            {/* Buyer — protected */}
-            <Route element={<PrivateRoute roles={["BUYER"]} />}>
+            {/* Buyer dashboard — cho cả BUYER và SELLER */}
+            <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
                 <Route path="/buyer" element={<BuyerPage />} />
             </Route>
 

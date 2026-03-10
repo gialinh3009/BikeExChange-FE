@@ -94,6 +94,7 @@ export default function SellerPage() {
 
     // Create post modal/form
     const [credits, setCredits] = useState<number>(getPostCredits());
+    const [paymentMode, setPaymentMode] = useState<"wallet" | "credits">("wallet");
     const [packageChoice, setPackageChoice] = useState<"single" | "pack10">("single");
     const [paymentPending, setPaymentPending] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
@@ -276,12 +277,23 @@ export default function SellerPage() {
             setCreateError("Bạn cần đăng nhập để đăng bài.");
             return;
         }
-        if (credits <= 0) {
+        if (paymentMode === "credits" && credits <= 0) {
             setCreateError("Bạn chưa có lượt đăng tin. Vui lòng mua gói và thanh toán.");
             return;
         }
         if (!form.title.trim() || !form.brand.trim() || !form.bikeType.trim() || !form.priceVnd.trim()) {
             setCreateError("Vui lòng nhập tối thiểu: Tiêu đề, Loại xe, Hãng, Giá.");
+            return;
+        }
+
+        // Kiểm tra ví có đủ điểm trước khi gọi BE để tránh lỗi 500
+        const walletAvailable =
+            wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
+        const requiredPoints = form.listingType === "VERIFIED" ? 30 : 10;
+        if (walletAvailable < requiredPoints) {
+            setCreateError(
+                `Ví của bạn không đủ điểm để đăng bài này. Cần khoảng ${requiredPoints} points, hiện có ${walletAvailable} points. Vui lòng nạp thêm điểm trước khi đăng.`
+            );
             return;
         }
 
@@ -350,9 +362,11 @@ export default function SellerPage() {
                 );
             }
 
-            const nextCredits = credits - 1;
-            setCredits(nextCredits);
-            setPostCredits(nextCredits);
+            if (paymentMode === "credits") {
+                const nextCredits = credits - 1;
+                setCredits(nextCredits);
+                setPostCredits(nextCredits);
+            }
 
             setCreateSuccess("Đăng bài thành công. Hệ thống sẽ trừ thêm điểm theo quy định backend.");
             setForm((prev) => ({
@@ -583,19 +597,60 @@ export default function SellerPage() {
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900">Đăng tin bán xe</h2>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    Chọn gói, thanh toán VNPay, sau đó đăng bài.
+                                    Bạn có thể trừ trực tiếp phí đăng tin từ ví điểm, hoặc dùng gói VNPay (credits tạm thời).
                                 </p>
                             </div>
-                            <div className="text-right">
-                                <div className="text-xs text-gray-500">Lượt đăng còn lại</div>
-                                <div className="text-xl font-extrabold text-gray-900">{credits}</div>
+                            <div className="text-right space-y-1">
+                                <div className="text-xs text-gray-500">Điểm khả dụng trong ví</div>
+                                <div className="text-xl font-extrabold text-gray-900">
+                                    {(wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0).toLocaleString("vi-VN")}
+                                </div>
+                                <div className="text-[11px] text-gray-400">
+                                    Credits (gói VNPay tạm thời): <span className="font-semibold text-gray-700">{credits}</span>
+                                </div>
                             </div>
                         </div>
 
                         {createError && <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{createError}</div>}
                         {createSuccess && <div className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{createSuccess}</div>}
 
-                        {/* Package */}
+                        <div className="mb-4 rounded-2xl border border-dashed border-blue-200 bg-blue-50/60 p-4 text-xs text-blue-800">
+                            <div className="font-semibold text-blue-900 text-sm mb-1">Phí đăng tin</div>
+                            <p>
+                                Backend thu phí trực tiếp từ <strong>điểm (points) trong ví</strong> khi tạo bài đăng:
+                                <br />- STANDARD: khoảng <strong>10 points</strong>
+                                <br />- VERIFIED: khoảng <strong>30 points</strong>
+                            </p>
+                            <p className="mt-2">
+                                Nếu chọn <strong>Thanh toán bằng ví</strong>, hệ thống sẽ kiểm tra và trừ điểm tự động (cần đủ points trước khi đăng).
+                                Nếu chọn <strong>Gói VNPay</strong>, bạn nạp points qua VNPay và dùng credits để kiểm soát lượt đăng.
+                            </p>
+                        </div>
+
+                        <div className="mb-4 flex flex-wrap gap-3 text-sm">
+                            <label className="inline-flex items-center gap-2 rounded-full border border-blue-500 bg-blue-50 px-3 py-1.5 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="paymentMode"
+                                    value="wallet"
+                                    checked={paymentMode === "wallet"}
+                                    onChange={() => setPaymentMode("wallet")}
+                                />
+                                <span>Thanh toán bằng ví (trừ điểm trực tiếp)</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-3 py-1.5 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="paymentMode"
+                                    value="credits"
+                                    checked={paymentMode === "credits"}
+                                    onChange={() => setPaymentMode("credits")}
+                                />
+                                <span>Dùng gói VNPay (credits)</span>
+                            </label>
+                        </div>
+
+                        {/* Package (chỉ dùng khi chọn VNPay) */}
                         <div className="grid gap-3 md:grid-cols-2 mb-6">
                             <button
                                 type="button"
@@ -623,32 +678,34 @@ export default function SellerPage() {
                             </button>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 mb-8">
-                            <button
-                                type="button"
-                                onClick={handlePayPackage}
-                                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                            >
-                                <CreditCard size={16} />
-                                Thanh toán VNPay ({postPriceVnd.toLocaleString("vi-VN")} VNĐ)
-                            </button>
-                            <button
-                                type="button"
-                                disabled={!paymentPending}
-                                onClick={handleConfirmPaid}
-                                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                                    paymentPending
-                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                }`}
-                            >
-                                <CheckCircle2 size={16} />
-                                Tôi đã thanh toán
-                            </button>
-                            <div className="text-xs text-gray-500">
-                                Lưu ý: Backend đang thu phí bằng điểm (points). Gói ở đây là lớp thanh toán VNPay cho Seller.
+                        {paymentMode === "credits" && (
+                            <div className="flex flex-wrap items-center gap-3 mb-8">
+                                <button
+                                    type="button"
+                                    onClick={handlePayPackage}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                                >
+                                    <CreditCard size={16} />
+                                    Thanh toán VNPay ({postPriceVnd.toLocaleString("vi-VN")} VNĐ)
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!paymentPending}
+                                    onClick={handleConfirmPaid}
+                                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                                        paymentPending
+                                            ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    }`}
+                                >
+                                    <CheckCircle2 size={16} />
+                                    Tôi đã thanh toán
+                                </button>
+                                <div className="text-xs text-gray-500">
+                                    Credits chỉ là lớp tạm thời phía frontend. Phí thực tế vẫn trừ từ ví khi tạo bài đăng.
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Form */}
                         <div className="grid gap-6">
