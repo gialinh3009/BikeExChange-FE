@@ -4,6 +4,7 @@ import {
     Sparkles, ArrowRight, Star, Eye, Wallet, Settings, Package,
     ChevronDown, X, SlidersHorizontal, RotateCcw, MapPin, Image,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import WishList from "./WishList";
 import WalletPage from "./WalletPage";
 import { getBuyerListAPI } from "../../services/Buyer/BuyerList";
@@ -115,7 +116,7 @@ export default function BuyerPage() {
                             : Array.isArray(d?.content) ? d.content : [];
                 setWishCount(list.length);
             })
-            .catch(() => {}); // eslint-disable-line react-hooks/exhaustive-deps
+            .catch(() => {});
     }, [activeTab]); // re-fetch khi switch tab về wishlist
 
     // Fetch categories: GET /categories → data.content[]
@@ -131,7 +132,7 @@ export default function BuyerPage() {
                 setCategories(Array.isArray(list) ? list : []);
             })
             .catch(() => setCategories([]));
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
     const fetchBikes = useCallback(async () => {
         setLoading(true);
@@ -209,12 +210,12 @@ export default function BuyerPage() {
 
             {/* ── Sidebar ── */}
             <aside style={{ width:224, background:"#0f172a", display:"flex", flexDirection:"column", padding:"22px 13px", position:"sticky", top:0, height:"100vh", flexShrink:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:26, paddingLeft:5 }}>
+                <Link to="/home" style={{ display:"flex", alignItems:"center", gap:8, marginBottom:26, paddingLeft:5, textDecoration:"none" }}>
                     <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#3b82f6,#6366f1)", display:"flex", alignItems:"center", justifyContent:"center" }}>
                         <Bike size={16} color="white" />
                     </div>
                     <span style={{ color:"white", fontWeight:800, fontSize:15.5, letterSpacing:"-0.3px" }}>BikeExchange</span>
-                </div>
+                </Link>
 
                 <div style={{ background:"rgba(255,255,255,.06)", borderRadius:11, padding:"10px 11px", marginBottom:22, display:"flex", alignItems:"center", gap:8 }}>
                     <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#6366f1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800, color:"white", flexShrink:0 }}>
