@@ -20,12 +20,15 @@ interface Transaction {
 type TabType = "overview" | "deposit" | "history";
 
 const fmtPrice = (p: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(p);
-const fmtDate = (d: string) => new Date(d).toLocaleDateString("vi-VN", { dateStyle: "short", timeStyle: "short" });
+const fmtDate = (d: string) => {
+    const date = new Date(d);
+    return date.toLocaleDateString("vi-VN") + " " + date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+};
 
 const QUICK_AMOUNTS = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
-export default function WalletPage() {
-    const [tab, setTab] = useState<TabType>("overview");
+export default function WalletPage({ initialTab = "overview" }: { initialTab?: TabType }) {
+    const [tab, setTab] = useState<TabType>(initialTab as TabType);
     const [wallet, setWallet] = useState<WalletData | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);

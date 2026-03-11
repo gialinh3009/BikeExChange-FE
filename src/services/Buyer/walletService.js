@@ -58,10 +58,16 @@ export async function createVNPayPaymentURL(amount) {
         throw new Error("Số tiền tối thiểu là 10,000đ");
     }
 
-    const res = await fetch(`${BASE_URL}/vnpay/create-payment?amount=${amount}`, {
-        method: "GET",
-        headers: authHeaders(),
-    });
+    // returnUrl: trang FE nhận callback sau khi VNPay xử lý xong
+    const returnUrl = `${window.location.origin}/payment-success`;
+
+    const res = await fetch(
+        `${BASE_URL}/vnpay/create-payment?amount=${amount}&returnUrl=${encodeURIComponent(returnUrl)}`,
+        {
+            method: "GET",
+            headers: authHeaders(),
+        }
+    );
 
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.message || "Tạo link thanh toán thất bại.");

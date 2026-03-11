@@ -38,7 +38,7 @@ export default function PaymentSuccess() {
             setStatus("failed");
             setMessage(getVNPayMessage(responseCode));
         }
-    }, []);
+    }, [searchParams, navigate]);
 
     const confirmDeposit = async (amt: number, referenceId: string) => {
         try {
@@ -219,7 +219,7 @@ export default function PaymentSuccess() {
                         <div className="fade-up-3" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <button
                                 className="btn-primary"
-                                onClick={() => navigate("/wallet")}
+                                onClick={() => navigate("/buyer", { state: { tab: "wallet" } })}
                                 style={{
                                     width: "100%",
                                     padding: "14px 0",
@@ -299,7 +299,7 @@ export default function PaymentSuccess() {
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <button
                                 className="btn-primary"
-                                onClick={() => navigate("/wallet")}
+                                onClick={() => navigate("/buyer", { state: { tab: "wallet" } })}
                                 style={{
                                     width: "100%",
                                     padding: "14px 0",

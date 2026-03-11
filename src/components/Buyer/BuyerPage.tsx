@@ -3,9 +3,10 @@ import {
     Bike, Heart, Search, Star, Wallet, Package,
     ChevronDown, X, SlidersHorizontal, RotateCcw, MapPin, Image, Settings,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import WishList from "./WishList";
 import WalletPage from "./WalletPage";
+import UpgradeToSellerModal from "./UpgradeToSellerModal";
 import { getBuyerListAPI } from "../../services/Buyer/BuyerList";
 import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 
@@ -88,13 +89,16 @@ const navItems = [
 
 // ─── Main ────────────────────────────────────────────────────────────────
 export default function BuyerPage() {
-    const [activeTab, setActiveTab] = useState("home");
+    const location = useLocation();
+    const locationState = location.state as { tab?: string; walletTab?: string } | null;
+    const [activeTab, setActiveTab] = useState(locationState?.tab === "wallet" ? "wallet" : "home");
     const [bikes, setBikes] = useState<BikeItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
     const [categories, setCategories] = useState<Category[]>([]);
     const [filterOpen, setFilterOpen] = useState(true);
     const [wishCount, setWishCount] = useState<number>(0);
+    const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
     const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const role = user?.role as string | undefined;
@@ -796,7 +800,11 @@ export default function BuyerPage() {
                             <p style={{ color: "#94a3b8", fontSize: 13 }}>Chưa có đơn hàng nào.</p>
                         </div>
                     )}
-                    {activeTab === "wallet" && <div className="fade-in"><WalletPage /></div>}
+                    {activeTab === "wallet" && (
+                        <div className="fade-in">
+                            <WalletPage initialTab={locationState?.walletTab === "deposit" ? "deposit" : "overview"} />
+                        </div>
+                    )}
 
                     {activeTab === "settings" && (
                         <div className="fade-in" style={{ maxWidth: 600 }}>
@@ -855,7 +863,7 @@ export default function BuyerPage() {
                                              e.currentTarget.style.borderColor = "#bbf7d0";
                                              e.currentTarget.style.boxShadow = "none";
                                          }}
-                                         onClick={() => alert("Tính năng nâng cấp lên người bán sẽ sớm được phát hành")}
+                                         onClick={() => setUpgradeModalOpen(true)}
                                     >
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                             <div>
@@ -863,7 +871,7 @@ export default function BuyerPage() {
                                                     📈 Nâng cấp lên người bán
                                                 </h3>
                                                 <p style={{ fontSize: 13, color: "#16a34a", margin: 0 }}>
-                                                    Bạn có thể bắt đầu bán xe trên nền tảng của chúng tôi
+                                                    Chi phí: 10,000 điểm - Bắt đầu bán xe trên nền tảng
                                                 </p>
                                             </div>
                                             <div style={{ fontSize: 20, color: "#16a34a" }}>→</div>
@@ -911,6 +919,22 @@ export default function BuyerPage() {
                     )}
                 </main>
             </div>
+
+            {/* Upgrade Modal */}
+            <UpgradeToSellerModal
+                isOpen={upgradeModalOpen}
+                onClose={() => setUpgradeModalOpen(false)}
+                userId={user?.id ?? user?.userId}
+                onSuccess={(updatedUser) => {
+                    localStorage.setItem("user", JSON.stringify({
+                        ...user,
+                        role: "SELLER",
+                        shopName: updatedUser.shopName,
+                        shopDescription: updatedUser.shopDescription,
+                    }));
+                    window.location.reload();
+                }}
+            />
         </div>
     );
 }
