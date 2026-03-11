@@ -19,6 +19,13 @@ export async function getWalletAPI({ userId, token } = {}) {
   const res = await fetch(url, {
     headers: authHeaders(token),
   });
+
+  // Khi BE chưa bật đầy đủ auth hoặc user chưa có ví, có thể trả 403/404.
+  // Để tránh vỡ màn hình, fallback về ví 0 điểm.
+  if (res.status === 403 || res.status === 404) {
+    return { availablePoints: 0, frozenPoints: 0 };
+  }
+
   const data = await res.json();
   if (!res.ok || data.success === false) {
     throw new Error(data.message || "Lấy thông tin ví thất bại.");

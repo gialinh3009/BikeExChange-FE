@@ -125,11 +125,25 @@ export default function SellerPage() {
         notes: "",
     });
 
-    // Inspection sticker modal
+    // Inspection sticker modal (xem báo cáo đã có)
     const [inspectionOpen, setInspectionOpen] = useState(false);
     const [inspectionLoading, setInspectionLoading] = useState(false);
     const [inspectionError, setInspectionError] = useState<string | null>(null);
     const [inspectionDetail, setInspectionDetail] = useState<InspectionDetail | null>(null);
+
+    // Request inspection for existing bikes
+    const [requestOpen, setRequestOpen] = useState(false);
+    const [requestBike, setRequestBike] = useState<BikeBrowseItem | null>(null);
+    const [requestLoading, setRequestLoading] = useState(false);
+    const [requestError, setRequestError] = useState<string | null>(null);
+    const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+    const [requestForm, setRequestForm] = useState({
+        preferredDate: "",
+        preferredTimeSlot: "",
+        address: "",
+        contactPhone: "",
+        notes: "",
+    });
 
     // Wallet
     const [walletLoading, setWalletLoading] = useState(false);
@@ -457,11 +471,57 @@ export default function SellerPage() {
     const detailImages = detailMedias.filter((m) => (m.type ?? "").toUpperCase() === "IMAGE" && m.url);
     const detailCurrent = detailImages[detailIdx]?.url;
 
+    const canRequestInspection = (bike?: BikeBrowseItem | null) => {
+        if (!bike) return false;
+        const status = (bike.inspectionStatus ?? "").toUpperCase();
+        return status === "" || status === "NONE" || status === "REJECTED";
+    };
+
+    const openRequestForBike = (bike: BikeBrowseItem) => {
+        setRequestBike(bike);
+        setRequestForm({
+            preferredDate: "",
+            preferredTimeSlot: "",
+            address: "",
+            contactPhone: "",
+            notes: "",
+        });
+        setRequestError(null);
+        setRequestSuccess(null);
+        setRequestOpen(true);
+    };
+
+    const handleSubmitInspectionRequest = async () => {
+        if (!requestBike) return;
+        try {
+            setRequestLoading(true);
+            setRequestError(null);
+            setRequestSuccess(null);
+            await requestInspectionAPI(
+                {
+                    bikeId: requestBike.id,
+                    preferredDate: requestForm.preferredDate || null,
+                    preferredTimeSlot: requestForm.preferredTimeSlot || null,
+                    address: requestForm.address || null,
+                    contactPhone: requestForm.contactPhone || null,
+                    notes: requestForm.notes || null,
+                },
+                token
+            );
+            setRequestSuccess("Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ điểm từ ví của bạn.");
+            void refreshPosts();
+        } catch (e) {
+            setRequestError((e as Error).message || "Không thể gửi yêu cầu kiểm định.");
+        } finally {
+            setRequestLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <Link to="/home" className="flex items-center gap-3 group">
+                <Link to="/buyer" className="flex items-center gap-3 group">
                     <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center group-hover:bg-blue-700 transition">
                         <Bike size={18} className="text-white" />
                     </div>
@@ -551,11 +611,12 @@ export default function SellerPage() {
                                     const bike = p.bike;
                                     const isVerified =
                                         bike?.status === "VERIFIED" || bike?.inspectionStatus === "APPROVED";
+                                    const requestedStatus = (bike?.inspectionStatus ?? "").toUpperCase();
                                     return (
                                         <div key={p.id} className="px-6 py-4 flex items-center justify-between gap-4">
                                             <div className="min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="font-semibold text-gray-900 truncate">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <div className="font-semibold text-gray-900 truncate max-w-xs">
                                                         {bike?.title ?? `Bài #${p.id}`}
                                                     </div>
                                                     {isVerified && (
@@ -569,17 +630,42 @@ export default function SellerPage() {
                                                             Đã kiểm định
                                                         </button>
                                                     )}
+                                                    {!isVerified && requestedStatus === "REQUESTED" && (
+                                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                                            Đang chờ kiểm định
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-sm text-gray-500 truncate">
                                                     {p.caption || "—"}
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-right space-y-2">
                                                 <div className="text-sm font-semibold text-emerald-700">
                                                     {bike?.pricePoints?.toLocaleString("vi-VN")} điểm
                                                 </div>
                                                 <div className="text-xs text-gray-500">
                                                     {p.postType ?? "STANDARD"} · {p.status ?? "ACTIVE"}
+                                                </div>
+                                                <div className="flex justify-end gap-2">
+                                                    {bike?.id && canRequestInspection(bike) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openRequestForBike(bike)}
+                                                            className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                                                        >
+                                                            Đăng ký kiểm định
+                                                        </button>
+                                                    )}
+                                                    {bike?.id && (isVerified || requestedStatus === "REQUESTED") && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void openInspectionForBike(bike.id)}
+                                                            className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                                        >
+                                                            Xem kiểm định
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -1054,7 +1140,10 @@ export default function SellerPage() {
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                         <h2 className="font-semibold text-gray-800 mb-2">Kiểm định</h2>
                         <p className="text-sm text-gray-500">
-                            Bạn có thể mở bài đăng và bấm sticker “Đã kiểm định” để xem báo cáo. Với bài STANDARD, bạn có thể nhập thông tin và gửi yêu cầu khi đăng tin.
+                            Mỗi bài đăng có thể gửi yêu cầu kiểm định bất cứ lúc nào. Vào tab{" "}
+                            <span className="font-semibold text-gray-700">Bài đăng của tôi</span>, chọn{" "}
+                            <span className="font-semibold text-gray-700">Đăng ký kiểm định</span> để tạo yêu cầu mới
+                            hoặc <span className="font-semibold text-gray-700">Xem kiểm định</span> để xem báo cáo.
                         </p>
                     </div>
                 )}
@@ -1213,6 +1302,119 @@ export default function SellerPage() {
 {JSON.stringify(inspectionDetail, null, 2)}
                                 </pre>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Request inspection modal */}
+            {requestOpen && requestBike && (
+                <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                    <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                            <div>
+                                <div className="font-semibold text-gray-900">Đăng ký kiểm định</div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                    Xe: <span className="font-semibold">{requestBike.title}</span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRequestOpen(false);
+                                    setRequestBike(null);
+                                }}
+                                className="h-9 w-9 rounded-xl flex items-center justify-center hover:bg-gray-50"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            {requestError && (
+                                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                                    {requestError}
+                                </div>
+                            )}
+                            {requestSuccess && (
+                                <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                                    {requestSuccess}
+                                </div>
+                            )}
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700">Ngày ưu tiên</label>
+                                    <input
+                                        value={requestForm.preferredDate}
+                                        onChange={(e) =>
+                                            setRequestForm((p) => ({ ...p, preferredDate: e.target.value }))
+                                        }
+                                        placeholder="2026-03-15"
+                                        className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700">Khung giờ</label>
+                                    <input
+                                        value={requestForm.preferredTimeSlot}
+                                        onChange={(e) =>
+                                            setRequestForm((p) => ({ ...p, preferredTimeSlot: e.target.value }))
+                                        }
+                                        placeholder="Sáng / Chiều / 09:00-12:00"
+                                        className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700">Địa chỉ</label>
+                                    <input
+                                        value={requestForm.address}
+                                        onChange={(e) => setRequestForm((p) => ({ ...p, address: e.target.value }))}
+                                        placeholder="123 Lê Lợi, Q1"
+                                        className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700">SĐT liên hệ</label>
+                                    <input
+                                        value={requestForm.contactPhone}
+                                        onChange={(e) =>
+                                            setRequestForm((p) => ({ ...p, contactPhone: e.target.value }))
+                                        }
+                                        placeholder="0901 234 567"
+                                        className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="text-sm font-medium text-gray-700">Ghi chú cho kiểm định viên</label>
+                                    <textarea
+                                        value={requestForm.notes}
+                                        onChange={(e) => setRequestForm((p) => ({ ...p, notes: e.target.value }))}
+                                        placeholder="Ghi rõ tình trạng, mong muốn kiểm định, lưu ý về giấy tờ..."
+                                        className="mt-1 w-full min-h-24 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setRequestOpen(false);
+                                        setRequestBike(null);
+                                    }}
+                                    className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                                    disabled={requestLoading}
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleSubmitInspectionRequest()}
+                                    disabled={requestLoading}
+                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                                >
+                                    {requestLoading ? "Đang gửi..." : "Gửi yêu cầu kiểm định"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

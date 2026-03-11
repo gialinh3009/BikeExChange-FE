@@ -216,7 +216,7 @@ export default function BuyerPage() {
 
             {/* ── Sidebar ── */}
             <aside style={{ width:224, background:"#0f172a", display:"flex", flexDirection:"column", padding:"22px 13px", position:"sticky", top:0, height:"100vh", flexShrink:0 }}>
-                <Link to="/home" style={{ display:"flex", alignItems:"center", gap:8, marginBottom:26, paddingLeft:5, textDecoration:"none" }}>
+                <Link to="/buyer" style={{ display:"flex", alignItems:"center", gap:8, marginBottom:26, paddingLeft:5, textDecoration:"none" }}>
                     <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#3b82f6,#6366f1)", display:"flex", alignItems:"center", justifyContent:"center" }}>
                         <Bike size={16} color="white" />
                     </div>
