@@ -11,7 +11,6 @@ import ManagerBuyer from "../components/Admin/Manager/ManagerBuyer.tsx";
 import ManagerInspector from "../components/Admin/Manager/ManagerInspector.tsx";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
-import HomeMarket from "../components/home/HomeMarket";
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage from "../components/Buyer/BuyerPage.tsx";
@@ -41,7 +40,6 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
     return (
         <Routes>
             {/* Public */}
-            <Route path="/home" element={<HomeMarket />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
@@ -49,7 +47,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route
                 path="/"
                 element={
-                    <Navigate to="/home" replace />
+                    user ? <Navigate to="/buyer" replace /> : <Navigate to="/login" replace />
                 }
             />
 
