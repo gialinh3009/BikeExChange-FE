@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Bike, Heart, Search, Star, Wallet, Package, X, MapPin, Image, Settings } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import WishList from "./WishList";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
@@ -42,6 +42,7 @@ const navItems = [
 
 export default function BuyerPage() {
     const location = useLocation();
+    const navigate  = useNavigate();
     const locationState = location.state as { tab?: string; walletTab?: string } | null;
 
     const [activeTab, setActiveTab]               = useState(locationState?.tab === "wallet" ? "wallet" : "home");
@@ -339,7 +340,7 @@ export default function BuyerPage() {
                                 <div style={{ background: "white", borderRadius: 14, border: "1.5px solid #e8ecf4", padding: "18px 20px", cursor: "pointer", transition: "all .15s" }}
                                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(59,130,246,.1)"; }}
                                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#e8ecf4"; e.currentTarget.style.boxShadow = "none"; }}
-                                     onClick={() => window.location.href = "/profile"}>
+                                     onClick={() => navigate("/profile")}>
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                         <div>
                                             <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>Xem hồ sơ người dùng</h3>

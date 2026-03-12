@@ -16,6 +16,7 @@ import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage from "../components/Buyer/BuyerPage.tsx";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess.tsx";
+import ProfilePage from "../components/Buyer/Profilepage.tsx";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -83,6 +84,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             {/* Buyer dashboard — cho cả BUYER và SELLER */}
             <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
                 <Route path="/buyer" element={<BuyerPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             {/* Fallback */}
