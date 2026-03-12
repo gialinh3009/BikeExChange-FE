@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     CheckCircle, XCircle, Wallet, Bike, ArrowRight,
@@ -16,11 +16,12 @@ export default function PaymentSuccess() {
     const [amount, setAmount] = useState(0);
     const [txRef, setTxRef] = useState("");
     const [message, setMessage] = useState("");
+    const calledRef = useRef(false);
 
     useEffect(() => {
         const responseCode = searchParams.get("vnp_ResponseCode");
-        const rawAmount = searchParams.get("vnp_Amount") ?? "0";
-        const txnRef = searchParams.get("vnp_TxnRef") ?? "";
+        const rawAmount    = searchParams.get("vnp_Amount") ?? "0";
+        const txnRef       = searchParams.get("vnp_TxnRef") ?? "";
 
         // VNPay trả amount * 100
         const actualAmount = Math.floor(Number(rawAmount) / 100);
@@ -32,15 +33,25 @@ export default function PaymentSuccess() {
             return;
         }
 
+        // Guard: mỗi txnRef chỉ deposit đúng 1 lần
+        // sessionStorage survive StrictMode double-invoke (useRef thì không)
+        const storageKey = `deposit_done_${txnRef}`;
+        const saved = sessionStorage.getItem(storageKey);
+        if (saved === "success") { setStatus("success"); return; }
+        if (saved === "failed")  { setStatus("failed");  return; }
+        if (calledRef.current) return;
+        calledRef.current = true;
+
         if (responseCode === "00") {
-            void confirmDeposit(actualAmount, txnRef);
+            void confirmDeposit(actualAmount, txnRef, storageKey);
         } else {
+            sessionStorage.setItem(storageKey, "failed");
             setStatus("failed");
             setMessage(getVNPayMessage(responseCode));
         }
     }, [searchParams, navigate]);
 
-    const confirmDeposit = async (amt: number, referenceId: string) => {
+    const confirmDeposit = async (amt: number, referenceId: string, storageKey: string) => {
         try {
             const token = localStorage.getItem("token");
             const res = await fetch(`${BASE_URL}/wallet/deposit`, {
@@ -60,10 +71,12 @@ export default function PaymentSuccess() {
                 throw new Error(data.message || "Lỗi xác nhận deposit");
             }
 
+            sessionStorage.setItem(storageKey, "success");
             setStatus("success");
         } catch (err) {
             // VNPay đã lấy tiền → luôn show success
             console.warn("Deposit confirm (BE có thể đã xử lý qua IPN):", err);
+            sessionStorage.setItem(storageKey, "success");
             setStatus("success");
         }
     };

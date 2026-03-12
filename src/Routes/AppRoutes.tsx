@@ -15,6 +15,7 @@ import VerifyEmail from "../components/home/VerifyEmail";  // ← THÊM
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage from "../components/Buyer/BuyerPage.tsx";
+import PaymentSuccess from "../components/Buyer/PaymentSuccess.tsx";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -44,6 +45,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify" element={<VerifyEmail />} />  {/* ← THÊM */}
+            <Route path="/payment-success" element={<PaymentSuccess />} />
 
             {/* Root: redirect theo role */}
             <Route
