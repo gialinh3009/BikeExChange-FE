@@ -1,60 +1,60 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-const getAuthHeaders = () => {
+const authHeaders = () => {
     const token = localStorage.getItem("token");
     return {
-        "Content-Type": "application/json",
+        accept: "*/*",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 };
 
-/**
- * GET /wishlist
- */
+// ── GET /buyer/wishlist ────────────────────────────────────────────────────
 export async function getWishlistAPI() {
-    const res = await fetch(`${BASE_URL}/wishlist`, {
+    const res = await fetch(`${BASE_URL}/buyer/wishlist`, {
         method: "GET",
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
     });
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Lấy wishlist thất bại.");
-    return data;
+
+    if (!res.ok) {
+        console.warn("Could not fetch wishlist:", data.message);
+        return [];
+    }
+
+    const content = data.data?.content ?? data.data ?? data ?? [];
+    return Array.isArray(content) ? content : [];
 }
 
-/**
- * POST /wishlist?bikeId=xxx
- * 400 = xe đã có trong wishlist → không throw, coi như thành công
- */
+// ── POST /buyer/wishlist/{bikeId} ──────────────────────────────────────────
 export async function addToWishlistAPI(bikeId) {
-    const res = await fetch(`${BASE_URL}/wishlist?bikeId=${bikeId}`, {
+    const res = await fetch(`${BASE_URL}/buyer/wishlist/${bikeId}`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
+        // Không cần body - bikeId nằm trong URL
     });
 
-    if (res.status === 400) {
-        console.warn("addToWishlist 400 - đã có trong wishlist");
-        return { alreadyAdded: true };
+    const data = await res.json();
+
+    if (!res.ok) {
+        throw new Error(data.message || "Thêm vào yêu thích thất bại.");
     }
 
-    const text = await res.text();
-    if (!res.ok) {
-        const parsed = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-        throw new Error(parsed.message || "Thêm wishlist thất bại.");
-    }
-    return text ? JSON.parse(text) : { success: true };
+    return data.data ?? data;
 }
 
-/**
- * DELETE /wishlist/{bikeId}
- */
+// ── DELETE /buyer/wishlist/{bikeId} ────────────────────────────────────────
 export async function removeFromWishlistAPI(bikeId) {
-    const res = await fetch(`${BASE_URL}/wishlist/${bikeId}`, {
+    const res = await fetch(`${BASE_URL}/buyer/wishlist/${bikeId}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
+        headers: authHeaders(),
     });
+
+    const data = await res.json();
+
     if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Xóa wishlist thất bại.");
+        throw new Error(data.message || "Xóa khỏi yêu thích thất bại.");
     }
-    return true;
+
+    return data.data ?? data;
 }

@@ -1,110 +1,104 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-const authHeaders = (json = false) => {
+const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return {
-        "accept": "*/*",
-        ...(json ? { "Content-Type": "application/json" } : {}),
-        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 };
 
-const getUserId = () => {
-    try {
-        const user = JSON.parse(localStorage.getItem("user") || "null");
-        return user?.id ?? user?.userId ?? null;
-    } catch { return null; }
-};
-
 /**
- * GET /wallet?userId=xxx
- * Returns: { data: { availablePoints, frozenPoints, user, ... }, success }
+ * GET /wallet → { availablePoints, frozenPoints, userId }
  */
 export async function getWalletAPI() {
-    const userId = getUserId();
-    const url = userId ? `${BASE_URL}/wallet?userId=${userId}` : `${BASE_URL}/wallet`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const res = await fetch(`${BASE_URL}/wallet`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Không thể lấy thông tin ví.");
-    return data.data; // { availablePoints, frozenPoints, user, ... }
+    if (!res.ok) throw new Error(data.message || "Không thể tải ví.");
+    return data.data ?? data;
 }
 
 /**
- * GET /wallet/transactions?userId=xxx&type=DEPOSIT|WITHDRAW
- * Returns: { data: [...], summary: { totalAmount, totalCount, byType } }
+ * GET /wallet/transactions?type=xxx
+ * Returns { list: [], summary: { totalAmount, totalCount } }
  */
 export async function getTransactionsAPI(type = "") {
-    const userId = getUserId();
     const params = new URLSearchParams();
-    if (userId) params.append("userId", String(userId));
-    if (type)   params.append("type", type);
-    const res = await fetch(`${BASE_URL}/wallet/transactions?${params}`, { headers: authHeaders() });
+    if (type) params.append("type", type);
+
+    const res = await fetch(`${BASE_URL}/wallet/transactions?${params.toString()}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Không thể lấy lịch sử giao dịch.");
-    return { list: data.data ?? [], summary: data.summary ?? {} };
+    if (!res.ok) throw new Error(data.message || "Không thể tải lịch sử giao dịch.");
+
+    const raw = data.data ?? data;
+    const list = Array.isArray(raw)
+        ? raw
+        : raw?.content ?? raw?.transactions ?? raw?.items ?? [];
+    const summary = {
+        totalAmount: raw?.totalAmount ?? null,
+        totalCount:  raw?.totalCount  ?? list.length,
+    };
+    return { list, summary };
 }
 
 /**
- * GET /vnpay/create-payment?amount=xxx
- * BE trả về { paymentUrl: "https://sandbox.vnpayment.vn/..." }
- * Tham khảo từ project cũ cùng BE: data.paymentUrl
+ * GET /vnpay/create-payment?amount=xxx&returnUrl=xxx
+ * Returns VNPay payment URL string
  */
 export async function createVNPayPaymentURL(amount) {
-    const res = await fetch(
-        `${BASE_URL}/vnpay/create-payment?amount=${amount}`,
-        { headers: authHeaders() }
-    );
+    const token = localStorage.getItem("token");
+    const returnUrl = `${window.location.origin}/payment-success`;
 
-    // Nếu BE redirect thẳng (302) thì lấy URL đó
-    if (res.redirected) return res.url;
+    const params = new URLSearchParams({
+        amount: String(amount),
+        returnUrl,
+    });
+
+    const res = await fetch(`${BASE_URL}/vnpay/create-payment?${params.toString()}`, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+    });
 
     const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Không thể tạo link thanh toán.");
 
-    if (!res.ok) {
-        throw new Error(data.message || "Không thể tạo link thanh toán.");
-    }
-
-    // Project cũ cùng BE dùng: data.paymentUrl
-    const url = data.paymentUrl
-        ?? data.data?.paymentUrl
-        ?? data.data
-        ?? data.url;
-
-    if (!url || typeof url !== "string") {
-        console.error("VNPay response:", data);
-        throw new Error("Không nhận được link thanh toán hợp lệ.");
-    }
-
-    return url;
+    // BE trả về { data: "https://..." } hoặc { paymentUrl: "..." } hoặc string
+    return data.data ?? data.paymentUrl ?? data.url ?? data;
 }
 
 /**
- * POST /wallet/deposit
- * Gọi sau khi VNPay callback thành công
- * Body: { amount, referenceId }
+ * POST /wallet/deposit — xác nhận nạp tiền sau VNPay callback
  */
 export async function depositWalletAPI(amount, referenceId) {
     const res = await fetch(`${BASE_URL}/wallet/deposit`, {
         method: "POST",
-        headers: authHeaders(true),
+        headers: getAuthHeaders(),
         body: JSON.stringify({ amount, referenceId }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Nạp tiền thất bại.");
-    return data;
+    if (!res.ok) throw new Error(data.message || "Lỗi xác nhận deposit.");
+    return data.data ?? data;
 }
 
 /**
- * POST /wallet/withdraw-request
- * Body: { amount, bankAccount, bankName, ... } — cần hỏi BE team
+ * POST /wallet/withdraw
  */
-export async function withdrawWalletAPI(payload) {
-    const res = await fetch(`${BASE_URL}/wallet/withdraw-request`, {
+export async function withdrawWalletAPI({ amount, bankName, bankAccount, accountName }) {
+    const res = await fetch(`${BASE_URL}/wallet/withdraw`, {
         method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify(payload),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount, bankName, bankAccount, accountName }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Yêu cầu rút tiền thất bại.");
-    return data;
+    return data.data ?? data;
 }
