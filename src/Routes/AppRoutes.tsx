@@ -14,10 +14,6 @@ import Register from "../components/home/Register";
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage from "../components/Buyer/BuyerPage.tsx";
-import BikedetailPage from "../components/Buyer/BikedetailPage.tsx";
-import PaymentSuccess from "../components/Buyer/PaymentSuccess.tsx";
-import WalletPage from "../components/Buyer/WalletPage.tsx";
-import ProfilePage from "../components/Buyer/Profilepage";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -33,14 +29,6 @@ function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: stri
     if (roles.length > 0 && !roles.includes(user.role)) return <Navigate to="/login" replace />;
     return <Outlet />;
 }
-
-// ─── Route map ───────────────────────────────────────────────────────────────
-const ROLE_ROUTES: Record<string, string> = {
-    ADMIN: "/admin",
-    SELLER: "/seller",
-    INSPECTOR: "/inspector",
-    BUYER: "/buyer",
-};
 
 // ─── AppRoutes ───────────────────────────────────────────────────────────────
 interface AppRoutesProps {
@@ -59,11 +47,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route
                 path="/"
                 element={
-                    user ? (
-                        <Navigate to={ROLE_ROUTES[user.role] ?? "/login"} replace />
-                    ) : (
-                        <Navigate to="/login" replace />
-                    )
+                    user ? <Navigate to="/buyer" replace /> : <Navigate to="/login" replace />
                 }
             />
 
@@ -92,16 +76,10 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                 <Route path="/inspector" element={<InspectorPage />} />
             </Route>
 
-            {/* Buyer — protected */}
-            <Route element={<PrivateRoute roles={["BUYER"]} />}>
+            {/* Buyer dashboard — cho cả BUYER và SELLER */}
+            <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
                 <Route path="/buyer" element={<BuyerPage />} />
-                <Route path="/bikes/:id" element={<BikedetailPage />} />
-                <Route path="/wallet" element={<WalletPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
             </Route>
-
-            {/* VNPay return — public (no auth required) */}
-            <Route path="/payment/return" element={<PaymentSuccess />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />

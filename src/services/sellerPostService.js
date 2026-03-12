@@ -20,6 +20,13 @@ export async function listSellerPostsAPI({ status, page = 0, size = 20 } = {}, t
   const res = await fetch(`${BASE_URL}/seller/posts?${params.toString()}`, {
     headers: authHeader(token),
   });
+
+  // BE cho path này chưa hoàn chỉnh / bị chặn bởi security.
+  // Nếu 403 / 404 thì trả về danh sách rỗng thay vì throw lỗi làm vỡ UI.
+  if (res.status === 403 || res.status === 404) {
+    return { content: [] };
+  }
+
   const data = await res.json();
   if (!res.ok || data.success === false) {
     throw new Error(data.message || "Lấy danh sách bài đăng người bán thất bại.");
