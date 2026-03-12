@@ -1,33 +1,68 @@
-import { BASE_URL } from "../../config/apiConfig";
+/**
+ * Categoryservice.js — Category API service
+ * Khớp 100% với CategoryController.java
+ *
+ * GET /categories
+ *   - Không có auth required (public)
+ *   - Response: { success: true, data: Category[] }  ← List, KHÔNG phải Page
+ *   - Category fields: id (Long), name (String), description (String), imgUrl (String), createdAt (LocalDateTime)
+ *
+ * GET /categories/:id/bikes
+ *   - Response: { success: true, data: BikeResponse[] }  ← List
+ */
+
+const BASE = import.meta.env.VITE_API_BASE_URL;
+
+function authHeaders() {
+    const token = localStorage.getItem("token") ?? "";
+    return {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+}
 
 /**
- * GET /categories?page=0&size=50
- * Response: { success: true, data: { content: [{id, name, description, imgUrl, createdAt}] } }
+ * GET /categories — List all categories (no pagination)
+ * @returns {Promise<Array<{ id: number, name: string, description?: string, imgUrl?: string, createdAt?: string }>>}
  */
 export async function getCategoriesAPI() {
-    const token = localStorage.getItem("token") ?? "";
-
-    const res = await fetch(`${BASE_URL}/categories?page=0&size=50`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+    const res = await fetch(`${BASE}/categories`, {
+        headers: authHeaders(),
     });
 
-    const data = await res.json();
-
-    if (!res.ok || data.success === false) {
-        throw new Error(data.message || "Lấy danh mục thất bại.");
+    if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        throw new Error(`getCategoriesAPI ${res.status}: ${msg}`);
     }
 
-    // BE trả: data.data.content (Page object)
-    const content = data?.data?.content ?? data?.data ?? [];
-    if (!Array.isArray(content)) return [];
+    const json = await res.json();
 
-    return content.map((c) => ({
-        id:     c.id,
-        name:   c.name,
-        imgUrl: c.imgUrl ?? null,
-    }));
+    // Response: { success: true, data: Category[] }
+    // data là List<Category> — KHÔNG phải Page
+    if (Array.isArray(json?.data))    return json.data;
+    if (Array.isArray(json))          return json;
+    return [];
+}
+
+/**
+ * GET /categories/:id/bikes — List all bikes belonging to a category (no pagination)
+ * @param {number} categoryId
+ * @returns {Promise<BikeResponse[]>}
+ */
+export async function getCategoryBikesAPI(categoryId) {
+    const res = await fetch(`${BASE}/categories/${categoryId}/bikes`, {
+        headers: authHeaders(),
+    });
+
+    if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        throw new Error(`getCategoryBikesAPI ${res.status}: ${msg}`);
+    }
+
+    const json = await res.json();
+
+    // Response: { success: true, data: BikeResponse[] }
+    if (Array.isArray(json?.data)) return json.data;
+    if (Array.isArray(json))       return json;
+    return [];
 }

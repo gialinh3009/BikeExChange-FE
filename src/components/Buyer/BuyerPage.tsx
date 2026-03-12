@@ -15,10 +15,33 @@ interface BikeItem {
     inspectionStatus?: string; location?: string; views?: number; mileage?: number;
     sellerId?: number; media?: MediaItem[];
 }
-interface Category { id: number; name: string; imgUrl?: string | null; }
+interface Category {
+    id:          number;
+    name:        string;
+    description?: string | null;
+    imgUrl?:     string | null;   // mapped from img_url column
+    createdAt?:  string | null;
+}
 interface FilterState { keyword: string; category_id: string; }
+interface BrowseFilterState {
+    keyword:        string;   // → keyword
+    category_id:    string;   // → category_id (Long)
+    status:         string;   // → status comma-separated: "ACTIVE" | "ACTIVE,RESERVED" | ""=all
+    price_min:      string;   // → price_min (Long)
+    price_max:      string;   // → price_max (Long)
+    brand_id:       string;   // → brand_id (Long)
+    min_year:       string;   // → min_year (Integer)
+    frame_size:     string;   // → frame_size
+    sort_by_rating: boolean;  // → sort_by_rating
+    verifiedOnly:   boolean;  // FE-only: nếu true → status="ACTIVE" + inspectionStatus check FE-side
+}
 
 const DEFAULT_FILTERS: FilterState = { keyword: "", category_id: "" };
+const DEFAULT_BROWSE: BrowseFilterState = {
+    keyword: "", category_id: "", status: "ACTIVE",
+    price_min: "", price_max: "", brand_id: "", min_year: "",
+    frame_size: "", sort_by_rating: true, verifiedOnly: false,
+};
 
 const fmtPrice = (p: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(p);
@@ -48,6 +71,11 @@ export default function BuyerPage() {
     const [wishlistIds,      setWishlistIds]      = useState<Set<number>>(new Set());
     const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
     const [searchFocused,    setSearchFocused]    = useState(false);
+    // Browse tab — separate state & data
+    const [browseFilters,  setBrowseFilters]  = useState<BrowseFilterState>(DEFAULT_BROWSE);
+    const [browseResults,  setBrowseResults]  = useState<BikeItem[]>([]);
+    const [browseLoading,  setBrowseLoading]  = useState(false);
+    const [browseTotal,    setBrowseTotal]    = useState(0);
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
@@ -71,7 +99,7 @@ export default function BuyerPage() {
     const roleLabel = role === "SELLER" ? "Người bán" : role === "BUYER" ? "Người mua" : "Thành viên";
     const initials  = (user?.fullName || user?.email || "U").slice(0, 1).toUpperCase();
 
-    const fetchWishlist = () => {
+    const fetchWishlist = useCallback(() => {
         const BASE = import.meta.env.VITE_API_BASE_URL as string;
         fetch(`${BASE}/buyer/wishlist`, { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.json())
@@ -82,9 +110,9 @@ export default function BuyerPage() {
                 setWishCount(list.length);
                 setWishlistIds(new Set(list.map(i => i.bikeId ?? i.bike?.id ?? i.id ?? 0).filter(Boolean)));
             }).catch(() => {});
-    };
+    }, [token]);
 
-    useEffect(() => { fetchWishlist(); }, [activeTab, token]);
+    useEffect(() => { fetchWishlist(); }, [activeTab, fetchWishlist]);
 
     useEffect(() => {
         let mounted = true;
@@ -103,10 +131,43 @@ export default function BuyerPage() {
 
     useEffect(() => { if (activeTab === "home") void fetchBikes(); }, [activeTab, fetchBikes]);
 
-    const selectCategory = (id: string) => setFilters(p => ({ ...p, category_id: p.category_id === id ? "" : id }));
+    // Browse — fetch với full filter params
+    const fetchBrowse = useCallback(async () => {
+        setBrowseLoading(true);
+        try {
+            const raw = await getBuyerListAPI({
+                keyword:        browseFilters.keyword        || undefined,
+                category_id:    browseFilters.category_id   || undefined,
+                // status: nếu verifiedOnly thì chỉ lấy ACTIVE, ngược lại lấy ACTIVE (mặc định hiển thị xe đang bán)
+                status:         browseFilters.status        || "ACTIVE",
+                price_min:      browseFilters.price_min     ? Number(browseFilters.price_min)  : undefined,
+                price_max:      browseFilters.price_max     ? Number(browseFilters.price_max)  : undefined,
+                brand_id:       browseFilters.brand_id      ? Number(browseFilters.brand_id)   : undefined,
+                min_year:       browseFilters.min_year      ? Number(browseFilters.min_year)   : undefined,
+                frame_size:     browseFilters.frame_size    || undefined,
+                sort_by_rating: browseFilters.sort_by_rating,
+                size: 100,
+                page: 0,
+            });
+            // verifiedOnly = filter FE-side vì BE không có inspectionStatus param trong GET /bikes
+            const content = browseFilters.verifiedOnly
+                ? (raw.content ?? []).filter((b: BikeItem) => b.inspectionStatus === "APPROVED")
+                : (raw.content ?? []);
+            setBrowseResults(content);
+            setBrowseTotal(browseFilters.verifiedOnly ? content.length : (raw.totalElements ?? content.length));
+        } catch (e) {
+            console.error("fetchBrowse error:", e);
+            setBrowseResults([]);
+        } finally {
+            setBrowseLoading(false);
+        }
+    }, [browseFilters]);
+
+    useEffect(() => { void fetchBrowse(); }, [fetchBrowse]);
 
     const navItems = [
-        { id: "home",     icon: ShoppingBag, label: "Khám phá" },
+        { id: "home",     icon: ShoppingBag, label: "Trang chủ" },
+        { id: "browse",   icon: Search,      label: "Tất cả xe"  },
         { id: "wishlist", icon: Heart,       label: "Yêu thích", badge: wishCount },
         { id: "orders",   icon: Package,     label: "Đơn hàng"  },
         { id: "wallet",   icon: Wallet,      label: "Ví tiền"   },
@@ -319,32 +380,25 @@ export default function BuyerPage() {
                     {/* ── HOME ── */}
                     {activeTab === "home" && (
                         <div className="fade-up">
-                            {/* ── HERO ── */}
-                            <div style={{ borderRadius: 20, marginBottom: 10, overflow: "hidden", position: "relative" }}>
-
-                                {/* Photo zone */}
+                            {/* ── HERO IMAGE BLOCK ── */}
+                            <div style={{ borderRadius: 20, marginBottom: 20, overflow: "hidden", position: "relative" }}>
                                 <div style={{ position: "relative", height: 340, overflow: "hidden" }}>
                                     <img
                                         src="https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=1400&q=90&auto=format&fit=crop&crop=center"
                                         alt="Road bike"
                                         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(.72) grayscale(.1)" }}
                                     />
-                                    {/* Left text overlay only */}
+                                    {/* Left text overlay only — right side shows natural bike photo */}
                                     <div style={{
                                         position: "absolute", inset: 0,
-                                        background: "linear-gradient(100deg, rgba(10,15,35,.88) 0%, rgba(10,15,35,.5) 35%, rgba(10,15,35,.05) 58%, transparent 72%)",
-                                    }}/>
-                                    {/* Bottom fade */}
-                                    <div style={{
-                                        position: "absolute", bottom: 0, left: 0, right: 0, height: 60,
-                                        background: "linear-gradient(to bottom, transparent, #f5f7ff)",
+                                        background: "linear-gradient(100deg, rgba(10,15,35,.9) 0%, rgba(10,15,35,.55) 35%, rgba(10,15,35,.08) 58%, transparent 72%)",
                                     }}/>
 
                                     {/* Content */}
                                     <div style={{ position: "relative", zIndex: 1, padding: "0 36px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                                         <h1 style={{ color: "white", fontSize: 38, fontWeight: 900, letterSpacing: "-1.2px", lineHeight: 1.12, marginBottom: 14, maxWidth: 500 }}>
                                             Find Your Perfect{" "}
-                                            <span style={{ color: "#2563eb", textShadow: "0 0 30px rgba(37,99,235,.6)" }}>Ride</span>
+                                            <span style={{ color: "#2563eb", textShadow: "0 0 30px rgba(37,99,235,.5)" }}>Ride</span>
                                         </h1>
                                         <p style={{ color: "rgba(255,255,255,.58)", fontSize: 14, maxWidth: 340, lineHeight: 1.65 }}>
                                             Nền tảng mua bán xe đạp uy tín hàng đầu Việt Nam.<br/>
@@ -352,171 +406,317 @@ export default function BuyerPage() {
                                         </p>
                                     </div>
                                 </div>
-
-                                {/* ── Feature strip ── */}
-                                <div style={{
-                                    background: "white",
-                                    border: "1px solid #e8ecf5",
-                                    borderTop: "none",
-                                    borderBottomLeftRadius: 20,
-                                    borderBottomRightRadius: 20,
-                                    padding: "22px 32px",
-                                    display: "grid",
-                                    gridTemplateColumns: "repeat(4, 1fr)",
-                                    gap: 0,
-                                }}>
-                                    {[
-                                        {
-                                            icon: (
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                                </svg>
-                                            ),
-                                            title: "Xe đã kiểm định",
-                                            desc: "Chuyên gia kiểm tra từng linh kiện",
-                                        },
-                                        {
-                                            icon: (
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                                                </svg>
-                                            ),
-                                            title: "Tìm kiếm thông minh",
-                                            desc: "Lọc xe theo loại, giá, tình trạng",
-                                        },
-                                        {
-                                            icon: (
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                                                </svg>
-                                            ),
-                                            title: "Người bán uy tín",
-                                            desc: "Đánh giá thực từ người mua",
-                                        },
-                                        {
-                                            icon: (
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-                                                </svg>
-                                            ),
-                                            title: "Giao dịch an toàn",
-                                            desc: "Thanh toán bảo mật qua ví điện tử",
-                                        },
-                                    ].map((f, i) => (
-                                        <div key={f.title} style={{
-                                            display: "flex", flexDirection: "column", alignItems: "center",
-                                            textAlign: "center", padding: "4px 16px",
-                                            borderLeft: i > 0 ? "1px solid #f1f5f9" : "none",
-                                        }}>
-                                            <div style={{
-                                                width: 44, height: 44, borderRadius: 12,
-                                                background: "linear-gradient(135deg, #eff6ff, #eef2ff)",
-                                                border: "1px solid #c7d2fe",
-                                                display: "flex", alignItems: "center", justifyContent: "center",
-                                                marginBottom: 10,
-                                            }}>
-                                                {f.icon}
-                                            </div>
-                                            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 3 }}>{f.title}</div>
-                                            <div style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.4 }}>{f.desc}</div>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
 
-                            {/* Category filter */}
-                            <div className="cat-scroll" style={{ display: "flex", gap: 8, paddingBottom: 4, marginBottom: 20, marginTop: 20 }}>
-                                <button className={`cat-chip${filters.category_id === "" ? " active" : ""}`}
-                                        onClick={() => selectCategory("")}>
-                                    Tất cả
-                                </button>
-                                {categories.map(c => (
-                                    <button key={c.id}
-                                            className={`cat-chip${filters.category_id === String(c.id) ? " active" : ""}`}
-                                            onClick={() => selectCategory(String(c.id))}>
-                                        {c.name}
-                                    </button>
+                            {/* ── FEATURE STRIP — separate block ── */}
+                            <div style={{
+                                background: "white",
+                                borderRadius: 16,
+                                border: "1px solid #e8ecf5",
+                                padding: "28px 32px",
+                                marginBottom: 24,
+                                display: "grid",
+                                gridTemplateColumns: "repeat(4, 1fr)",
+                                gap: 0,
+                                boxShadow: "0 1px 4px rgba(0,0,0,.04)",
+                            }}>
+                                {[
+                                    {
+                                        icon: (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                            </svg>
+                                        ),
+                                        title: "Xe đã kiểm định",
+                                        desc: "Chuyên gia kiểm tra từng linh kiện",
+                                    },
+                                    {
+                                        icon: (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                                            </svg>
+                                        ),
+                                        title: "Tìm kiếm thông minh",
+                                        desc: "Lọc xe theo loại, giá, tình trạng",
+                                    },
+                                    {
+                                        icon: (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                            </svg>
+                                        ),
+                                        title: "Người bán uy tín",
+                                        desc: "Đánh giá thực từ người mua",
+                                    },
+                                    {
+                                        icon: (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                                            </svg>
+                                        ),
+                                        title: "Giao dịch an toàn",
+                                        desc: "Thanh toán bảo mật qua ví điện tử",
+                                    },
+                                ].map((f, i) => (
+                                    <div key={f.title} style={{
+                                        display: "flex", flexDirection: "column", alignItems: "center",
+                                        textAlign: "center", padding: "4px 16px",
+                                        borderLeft: i > 0 ? "1px solid #f1f5f9" : "none",
+                                    }}>
+                                        <div style={{
+                                            width: 48, height: 48, borderRadius: 14,
+                                            background: "linear-gradient(135deg, #eff6ff, #eef2ff)",
+                                            border: "1px solid #c7d2fe",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            marginBottom: 12,
+                                        }}>
+                                            {f.icon}
+                                        </div>
+                                        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{f.title}</div>
+                                        <div style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.4 }}>{f.desc}</div>
+                                    </div>
                                 ))}
                             </div>
 
-                            {/* Section header */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                                <div>
-                                    <span style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>
-                                        {filters.category_id
-                                            ? categories.find(c => String(c.id) === filters.category_id)?.name ?? "Xe đạp"
-                                            : "Tất cả xe đạp"}
-                                    </span>
-                                    <span style={{ fontSize: 12.5, color: "#94a3b8", marginLeft: 8 }}>
-                                        ({bikes.length} kết quả)
-                                    </span>
-                                </div>
-                                {(filters.keyword || filters.category_id) && (
-                                    <button onClick={() => setFilters(DEFAULT_FILTERS)} style={{
-                                        fontSize: 12, color: "#2563eb", background: "#eff6ff",
-                                        border: "1px solid #bfdbfe", borderRadius: 8,
-                                        padding: "5px 12px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
-                                    }}>
-                                        Xóa lọc
+                            {/* ── FEATURED BIKES ── */}
+                            <div style={{ marginBottom: 32 }}>
+                                {/* Section header */}
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                                    <div>
+                                        <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.4px" }}>Featured Bikes</h2>
+                                        <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 3 }}>Xe đạp đã được kiểm định chất lượng</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setActiveTab("browse")}
+                                        style={{
+                                            display: "flex", alignItems: "center", gap: 6,
+                                            padding: "8px 16px", borderRadius: 10,
+                                            border: "1.5px solid #e2e8f0", background: "white",
+                                            fontSize: 13, fontWeight: 600, color: "#374151",
+                                            cursor: "pointer", fontFamily: "inherit",
+                                            transition: "all .15s",
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#2563eb"; e.currentTarget.style.color = "#2563eb"; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#374151"; }}
+                                    >
+                                        View All
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                                        </svg>
                                     </button>
+                                </div>
+
+                                {/* Grid — chỉ xe APPROVED, max 8 */}
+                                {loading ? (
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
+                                        {[1,2,3,4].map(i => (
+                                            <div key={i} style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", overflow: "hidden" }}>
+                                                <div className="sk" style={{ height: 220, borderRadius: 0 }}/>
+                                                <div style={{ padding: "16px" }}>
+                                                    <div className="sk" style={{ height: 14, marginBottom: 8 }}/>
+                                                    <div className="sk" style={{ height: 18, width: "40%", marginBottom: 12 }}/>
+                                                    <div className="sk" style={{ height: 10, width: "60%" }}/>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
+                                        {bikes
+                                            .filter(b => b.inspectionStatus === "APPROVED")
+                                            .slice(0, 8)
+                                            .map((bike, i) => (
+                                                <BikeCard
+                                                    key={bike.id} bike={bike} index={i}
+                                                    initialWished={wishlistIds.has(bike.id)}
+                                                    onWishChange={(bikeId, wished) => {
+                                                        setWishlistIds(prev => {
+                                                            const next = new Set(prev);
+                                                            if (wished) { next.add(bikeId); } else { next.delete(bikeId); }
+                                                            return next;
+                                                        });
+                                                        setWishCount(prev => wished ? prev + 1 : Math.max(0, prev - 1));
+                                                    }}
+                                                />
+                                            ))}
+                                        {bikes.filter(b => b.inspectionStatus === "APPROVED").length === 0 && !loading && (
+                                            <div style={{ gridColumn: "1/-1", background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "48px 24px", textAlign: "center" }}>
+                                                <div style={{ width: 56, height: 56, borderRadius: 16, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                                                    <Bike size={24} color="#cbd5e1"/>
+                                                </div>
+                                                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 14 }}>Chưa có xe đã kiểm định</p>
+                                                <button onClick={() => setActiveTab("browse")} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                                                    Xem tất cả xe
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
+                        </div>
+                    )}
 
-                            {/* Grid */}
-                            {loading ? (
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-                                    {[1,2,3,4,5,6,7,8].map(i => (
-                                        <div key={i} style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", overflow: "hidden" }}>
-                                            <div className="sk" style={{ height: 176, borderRadius: 0 }}/>
-                                            <div style={{ padding: "14px" }}>
-                                                <div className="sk" style={{ height: 10, width: "45%", marginBottom: 8 }}/>
-                                                <div className="sk" style={{ height: 14, marginBottom: 6 }}/>
-                                                <div className="sk" style={{ height: 14, width: "80%", marginBottom: 14 }}/>
-                                                <div className="sk" style={{ height: 20, width: "50%" }}/>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : bikes.length === 0 ? (
-                                <div style={{
-                                    background: "white", borderRadius: 20,
-                                    border: "1px solid #e8ecf5",
-                                    padding: "60px 24px", textAlign: "center",
-                                }}>
-                                    <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                                        <Bike size={28} color="#cbd5e1" />
+                    {/* ── BROWSE ALL (with filters) ── */}
+                    {activeTab === "browse" && (
+                        <div className="fade-up" style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+
+                            {/* ── Filter Sidebar ── */}
+                            <div style={{ width: 230, flexShrink: 0, background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "20px", position: "sticky", top: 20 }}>
+                                {/* Header */}
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Filters</span>
                                     </div>
-                                    <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Không tìm thấy xe</h3>
-                                    <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>Thử thay đổi từ khóa hoặc danh mục</p>
-                                    <button onClick={() => setFilters(DEFAULT_FILTERS)} style={{
-                                        padding: "9px 22px",
-                                        background: "linear-gradient(135deg, #2563eb, #4f46e5)",
-                                        color: "white", border: "none", borderRadius: 10,
-                                        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                                    }}>
-                                        Xem tất cả
+                                    <button onClick={() => setBrowseFilters(DEFAULT_BROWSE)}
+                                            style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+                                        Clear all
                                     </button>
                                 </div>
-                            ) : (
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-                                    {bikes.map((bike, i) => (
-                                        <BikeCard
-                                            key={bike.id}
-                                            bike={bike}
-                                            index={i}
-                                            initialWished={wishlistIds.has(bike.id)}
-                                            onWishChange={(bikeId, wished) => {
-                                                setWishlistIds(prev => {
-                                                    const next = new Set(prev);
-                                                    if (wished) { next.add(bikeId); } else { next.delete(bikeId); }
-                                                    return next;
-                                                });
-                                                setWishCount(prev => wished ? prev + 1 : Math.max(0, prev - 1));
+
+                                {/* Verified Only */}
+                                <div style={{ marginBottom: 20, padding: "10px 12px", borderRadius: 10, background: browseFilters.verifiedOnly ? "#eff6ff" : "#f8fafc", border: `1.5px solid ${browseFilters.verifiedOnly ? "#93c5fd" : "#e2e8f0"}`, cursor: "pointer" }}
+                                     onClick={() => setBrowseFilters(p => ({ ...p, verifiedOnly: !p.verifiedOnly }))}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ width: 16, height: 16, borderRadius: 4, background: browseFilters.verifiedOnly ? "#2563eb" : "white", border: `2px solid ${browseFilters.verifiedOnly ? "#2563eb" : "#cbd5e1"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                            {browseFilters.verifiedOnly && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: browseFilters.verifiedOnly ? "#1d4ed8" : "#374151" }}>Verified Only</div>
+                                            <div style={{ fontSize: 11, color: "#94a3b8" }}>Xe đã được kiểm định</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Type / Category — maps to category_id (Long) từ GET /categories */}
+                                <div style={{ marginBottom: 20 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Type</div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                        {[{ id: "", name: "Tất cả", imgUrl: null, description: null, createdAt: null }, ...categories.map(c => ({ ...c, id: String(c.id) }))].map(c => {
+                                            const active = browseFilters.category_id === String(c.id);
+                                            return (
+                                                <button key={String(c.id)}
+                                                        onClick={() => setBrowseFilters(p => ({ ...p, category_id: p.category_id === String(c.id) ? "" : String(c.id) }))}
+                                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: active ? "#eff6ff" : "transparent", color: active ? "#2563eb" : "#374151", fontWeight: active ? 700 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
+                                                    {/* imgUrl thumbnail nếu category có ảnh */}
+                                                    {c.imgUrl ? (
+                                                        <img src={c.imgUrl} alt={c.name} style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover", flexShrink: 0, border: "1px solid #e2e8f0" }}
+                                                             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}/>
+                                                    ) : (
+                                                        <div style={{ width: 7, height: 7, borderRadius: "50%", border: `2px solid ${active ? "#2563eb" : "#cbd5e1"}`, background: active ? "#2563eb" : "transparent", flexShrink: 0, marginLeft: 2 }}/>
+                                                    )}
+                                                    <span style={{ flex: 1 }}>{c.name}</span>
+                                                    {active && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Price Range — maps to price_min / price_max */}
+                                <div style={{ marginBottom: 20 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Price Range (điểm)</div>
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                        <input type="number" placeholder="Min" value={browseFilters.price_min}
+                                               onChange={e => setBrowseFilters(p => ({ ...p, price_min: e.target.value }))}
+                                               style={{ width: "50%", padding: "7px 8px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", outline: "none" }}/>
+                                        <input type="number" placeholder="Max" value={browseFilters.price_max}
+                                               onChange={e => setBrowseFilters(p => ({ ...p, price_max: e.target.value }))}
+                                               style={{ width: "50%", padding: "7px 8px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", outline: "none" }}/>
+                                    </div>
+                                </div>
+
+                                {/* Min Year — maps to min_year */}
+                                <div style={{ marginBottom: 20 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Năm sản xuất từ</div>
+                                    <input type="number" placeholder="VD: 2018" value={browseFilters.min_year}
+                                           onChange={e => setBrowseFilters(p => ({ ...p, min_year: e.target.value }))}
+                                           style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}/>
+                                </div>
+
+                                {/* Sort by rating toggle */}
+                                <div style={{ padding: "10px 12px", borderRadius: 10, background: browseFilters.sort_by_rating ? "#eff6ff" : "#f8fafc", border: `1.5px solid ${browseFilters.sort_by_rating ? "#93c5fd" : "#e2e8f0"}`, cursor: "pointer" }}
+                                     onClick={() => setBrowseFilters(p => ({ ...p, sort_by_rating: !p.sort_by_rating }))}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ width: 16, height: 16, borderRadius: 4, background: browseFilters.sort_by_rating ? "#2563eb" : "white", border: `2px solid ${browseFilters.sort_by_rating ? "#2563eb" : "#cbd5e1"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                            {browseFilters.sort_by_rating && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: browseFilters.sort_by_rating ? "#1d4ed8" : "#374151" }}>Top Rated Sellers</div>
+                                            <div style={{ fontSize: 11, color: "#94a3b8" }}>Sort theo đánh giá người bán</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ── Main Grid ── */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* Header */}
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                                    <div>
+                                        <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.4px" }}>Marketplace</h2>
+                                        <p style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 2 }}>
+                                            {browseLoading ? "Đang tải..." : `${browseTotal || browseResults.length} xe đang có mặt`}
+                                        </p>
+                                    </div>
+                                    {/* Keyword search */}
+                                    <div style={{ position: "relative" }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={browseFilters.keyword}
+                                            onChange={e => setBrowseFilters(p => ({ ...p, keyword: e.target.value }))}
+                                            style={{
+                                                padding: "9px 14px 9px 36px",
+                                                borderRadius: 10, border: "1.5px solid #e2e8f0",
+                                                fontSize: 13, outline: "none", fontFamily: "inherit",
+                                                background: "white", width: 200,
                                             }}
                                         />
-                                    ))}
+                                        <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                    </div>
                                 </div>
-                            )}
+
+                                {browseLoading ? (
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 18 }}>
+                                        {[1,2,3,4,5,6].map(i => (
+                                            <div key={i} style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", overflow: "hidden" }}>
+                                                <div className="sk" style={{ height: 210, borderRadius: 0 }}/>
+                                                <div style={{ padding: "16px" }}>
+                                                    <div className="sk" style={{ height: 14, marginBottom: 8 }}/>
+                                                    <div className="sk" style={{ height: 18, width: "40%", marginBottom: 10 }}/>
+                                                    <div className="sk" style={{ height: 10, width: "60%" }}/>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : browseResults.length === 0 ? (
+                                    <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
+                                        <Bike size={32} color="#cbd5e1" style={{ margin: "0 auto 12px" }}/>
+                                        <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 14 }}>Không tìm thấy xe phù hợp</p>
+                                        <button onClick={() => setBrowseFilters(DEFAULT_BROWSE)} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                                            Xóa bộ lọc
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 18 }}>
+                                        {browseResults.map((bike, i) => (
+                                            <BikeCard
+                                                key={bike.id} bike={bike} index={i}
+                                                initialWished={wishlistIds.has(bike.id)}
+                                                onWishChange={(bikeId, wished) => {
+                                                    setWishlistIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (wished) { next.add(bikeId); } else { next.delete(bikeId); }
+                                                        return next;
+                                                    });
+                                                    setWishCount(prev => wished ? prev + 1 : Math.max(0, prev - 1));
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -636,6 +836,7 @@ function BikeCard({ bike, index = 0, initialWished = false, onWishChange }: {
     const price  = bike.pricePoints ?? 0;
     const img    = bike.media?.[0]?.url;
     const condM  = CONDITION_META[bike.condition ?? ""];
+    const isVerified = bike.inspectionStatus === "APPROVED";
 
     const toggleWish = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
@@ -654,123 +855,104 @@ function BikeCard({ bike, index = 0, initialWished = false, onWishChange }: {
     };
 
     return (
-        <div className="bike-card" style={{ animationDelay: `${index * 0.04}s` }}>
+        <div
+            className="bike-card"
+            style={{ animationDelay: `${index * 0.04}s` }}
+            onClick={() => { window.location.href = `/bikes/${bike.id}`; }}
+        >
             {/* Image */}
-            <div style={{ height: 176, background: "linear-gradient(135deg, #f0f4ff, #e8effe)", position: "relative", overflow: "hidden", flexShrink: 0 }}>
+            <div style={{ height: 210, background: "linear-gradient(135deg, #f8faff, #eef2ff)", position: "relative", overflow: "hidden", flexShrink: 0 }}>
                 {img ? (
-                    <img src={img} alt={bike.title} style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <img src={img} alt={bike.title}
+                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
                 ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                        <ImageIcon size={28} color="#c7d2e8" />
-                        <span style={{ fontSize: 11, color: "#c7d2e8" }}>Chưa có ảnh</span>
+                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        <ImageIcon size={32} color="#c7d2e8" />
+                        <span style={{ fontSize: 11.5, color: "#c7d2e8" }}>Chưa có ảnh</span>
                     </div>
                 )}
 
-                {/* Condition badge */}
-                {condM && (
-                    <span className={condM.cls} style={{
-                        position: "absolute", top: 10, left: 10,
-                        padding: "3px 8px", borderRadius: 99,
-                        fontSize: 10.5, fontWeight: 700,
+                {/* Verified / condition badge — top left */}
+                {isVerified ? (
+                    <div style={{
+                        position: "absolute", top: 12, left: 12,
+                        display: "flex", alignItems: "center", gap: 5,
+                        background: "#16a34a", color: "white",
+                        padding: "4px 10px", borderRadius: 99,
+                        fontSize: 11, fontWeight: 700,
+                        boxShadow: "0 2px 8px rgba(22,163,74,.35)",
+                    }}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        Verified
+                    </div>
+                ) : condM ? (
+                    <div className={condM.cls} style={{
+                        position: "absolute", top: 12, left: 12,
+                        padding: "4px 10px", borderRadius: 99,
+                        fontSize: 11, fontWeight: 700,
                     }}>
                         {condM.label}
-                    </span>
-                )}
+                    </div>
+                ) : null}
 
-                {/* Bike type */}
-                {bike.bikeType && (
-                    <span style={{
-                        position: "absolute", bottom: 10, left: 10,
-                        background: "rgba(255,255,255,.92)", backdropFilter: "blur(4px)",
-                        color: "#374151", borderRadius: 6,
-                        padding: "3px 8px", fontSize: 10.5, fontWeight: 600,
-                        border: "1px solid rgba(255,255,255,.7)",
-                    }}>
-                        {bike.bikeType}
-                    </span>
-                )}
-
-                {/* Wishlist */}
+                {/* Wishlist btn — top right */}
                 <button className="wish-btn" onClick={toggleWish} disabled={wishing}>
-                    <Heart size={14} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />
+                    <Heart size={15} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />
                 </button>
             </div>
 
             {/* Info */}
-            <div style={{ padding: "14px", display: "flex", flexDirection: "column", flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        {bike.brand ?? "—"}
-                    </span>
-                    {bike.year && <span style={{ fontSize: 10.5, color: "#cbd5e1", fontWeight: 500 }}>{bike.year}</span>}
-                </div>
+            <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1 }}>
 
+                {/* Title */}
                 <h3 style={{
-                    fontSize: 13.5, fontWeight: 700, color: "#0f172a", marginBottom: 8,
-                    lineHeight: 1.35,
+                    fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 6,
+                    lineHeight: 1.3,
                     display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
                 }}>
                     {bike.title ?? "Không có tên"}
                 </h3>
 
-                {bike.location && bike.location !== "Not specified" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}>
-                        <MapPin size={10} color="#94a3b8" />
-                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{bike.location}</span>
-                    </div>
-                )}
+                {/* Price */}
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#2563eb", letterSpacing: "-0.5px", marginBottom: 12 }}>
+                    {fmtPrice(price)}
+                </div>
 
-                {/* Inspection */}
-                <div style={{ marginBottom: 12 }}>
-                    {bike.inspectionStatus === "APPROVED" ? (
-                        <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            padding: "3px 9px", borderRadius: 99,
-                            background: "#dcfce7", border: "1px solid #bbf7d0",
-                            color: "#15803d", fontSize: 10.5, fontWeight: 700,
-                        }}>
-                            <span>✓</span> Đã kiểm định
+                {/* Tags row */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                    {bike.bikeType && (
+                        <span style={{ padding: "3px 9px", borderRadius: 6, background: "#f1f5f9", color: "#374151", fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0" }}>
+                            {bike.bikeType}
                         </span>
-                    ) : (
-                        <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            padding: "3px 9px", borderRadius: 99,
-                            background: "#f8fafc", border: "1px solid #e2e8f0",
-                            color: "#94a3b8", fontSize: 10.5, fontWeight: 600,
-                        }}>
-                            <span>○</span> Chưa kiểm định
+                    )}
+                    {condM && !isVerified && (
+                        <span style={{ padding: "3px 9px", borderRadius: 6, background: "#f1f5f9", color: "#374151", fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0" }}>
+                            {condM.label}
+                        </span>
+                    )}
+                    {bike.year && (
+                        <span style={{ padding: "3px 9px", borderRadius: 6, background: "#f1f5f9", color: "#374151", fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0" }}>
+                            {bike.year}
                         </span>
                     )}
                 </div>
 
-                {/* Price & CTA */}
-                <div style={{ marginTop: "auto" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb", letterSpacing: "-0.3px" }}>
-                            {fmtPrice(price)}
+                {/* Location + rating */}
+                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <MapPin size={11} color="#94a3b8" />
+                        <span style={{ fontSize: 11.5, color: "#94a3b8" }}>
+                            {bike.location && bike.location !== "Not specified" ? bike.location : "Việt Nam"}
                         </span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                            <Star size={11} color="#f59e0b" fill="#f59e0b" />
-                            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>4.8</span>
-                        </div>
                     </div>
-
-                    <button
-                        onClick={() => window.location.href = `/bikes/${bike.id}`}
-                        style={{
-                            width: "100%", padding: "9px 0",
-                            background: "#0f172a",
-                            color: "white", border: "none", borderRadius: 10,
-                            fontSize: 13, fontWeight: 600, cursor: "pointer",
-                            fontFamily: "inherit",
-                            transition: "background .15s",
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = "linear-gradient(135deg, #2563eb, #4f46e5)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "#0f172a"}
-                    >
-                        Xem chi tiết
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                        <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>4.8</span>
+                    </div>
                 </div>
             </div>
         </div>
