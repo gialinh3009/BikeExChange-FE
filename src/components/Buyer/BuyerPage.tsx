@@ -323,53 +323,33 @@ export default function BuyerPage() {
                             <div style={{ borderRadius: 20, marginBottom: 10, overflow: "hidden", position: "relative" }}>
 
                                 {/* Photo zone */}
-                                <div style={{ position: "relative", height: 260, overflow: "hidden" }}>
+                                <div style={{ position: "relative", height: 340, overflow: "hidden" }}>
                                     <img
-                                        src="https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=1400&q=85&auto=format&fit=crop&crop=center"
+                                        src="https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=1400&q=90&auto=format&fit=crop&crop=center"
                                         alt="Road bike"
-                                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(.75) grayscale(.15)" }}
+                                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(.72) grayscale(.1)" }}
                                     />
-                                    {/* Left text overlay only — right side stays natural dark gray */}
+                                    {/* Left text overlay only */}
                                     <div style={{
                                         position: "absolute", inset: 0,
-                                        background: "linear-gradient(100deg, rgba(10,15,35,.82) 0%, rgba(10,15,35,.55) 38%, rgba(10,15,35,.1) 60%, transparent 75%)",
+                                        background: "linear-gradient(100deg, rgba(10,15,35,.88) 0%, rgba(10,15,35,.5) 35%, rgba(10,15,35,.05) 58%, transparent 72%)",
                                     }}/>
-                                    {/* Bottom fade into white feature strip */}
+                                    {/* Bottom fade */}
                                     <div style={{
-                                        position: "absolute", bottom: 0, left: 0, right: 0, height: 55,
+                                        position: "absolute", bottom: 0, left: 0, right: 0, height: 60,
                                         background: "linear-gradient(to bottom, transparent, #f5f7ff)",
                                     }}/>
 
                                     {/* Content */}
-                                    <div style={{ position: "relative", zIndex: 1, padding: "32px 36px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
-                                            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 10px #4ade80" }}/>
-                                            <span style={{ color: "rgba(255,255,255,.7)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px" }}>
-                                                The Trusted Marketplace
-                                            </span>
-                                        </div>
-                                        <h1 style={{ color: "white", fontSize: 32, fontWeight: 900, letterSpacing: "-1px", lineHeight: 1.15, marginBottom: 14, maxWidth: 480 }}>
+                                    <div style={{ position: "relative", zIndex: 1, padding: "0 36px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                                        <h1 style={{ color: "white", fontSize: 38, fontWeight: 900, letterSpacing: "-1.2px", lineHeight: 1.12, marginBottom: 14, maxWidth: 500 }}>
                                             Find Your Perfect{" "}
-                                            <span style={{ color: "#4ade80" }}>Ride</span>
+                                            <span style={{ color: "#2563eb", textShadow: "0 0 30px rgba(37,99,235,.6)" }}>Ride</span>
                                         </h1>
-                                        <p style={{ color: "rgba(255,255,255,.6)", fontSize: 13.5, marginBottom: 22, maxWidth: 360, lineHeight: 1.6 }}>
-                                            Nền tảng mua bán xe đạp uy tín hàng đầu Việt Nam. Kiểm định chuyên nghiệp — giao dịch an toàn.
+                                        <p style={{ color: "rgba(255,255,255,.58)", fontSize: 14, maxWidth: 340, lineHeight: 1.65 }}>
+                                            Nền tảng mua bán xe đạp uy tín hàng đầu Việt Nam.<br/>
+                                            Kiểm định chuyên nghiệp — giao dịch an toàn.
                                         </p>
-                                        <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
-                                            {[
-                                                { label: "Xe đã bán", value: "2.4K+" },
-                                                { label: "Người dùng", value: "1.8K+" },
-                                                { label: "Hài lòng",   value: "99%"   },
-                                            ].map((s, i) => (
-                                                <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
-                                                    {i > 0 && <div style={{ width: 1, height: 28, background: "rgba(255,255,255,.18)", margin: "0 20px" }}/>}
-                                                    <div>
-                                                        <div style={{ color: "white", fontSize: 18, fontWeight: 800, letterSpacing: "-0.5px" }}>{s.value}</div>
-                                                        <div style={{ color: "rgba(255,255,255,.45)", fontSize: 11 }}>{s.label}</div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
                                     </div>
                                 </div>
 
