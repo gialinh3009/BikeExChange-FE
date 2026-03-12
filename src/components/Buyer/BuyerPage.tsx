@@ -40,7 +40,7 @@ const DEFAULT_FILTERS: FilterState = { keyword: "", category_id: "" };
 const DEFAULT_BROWSE: BrowseFilterState = {
     keyword: "", category_id: "", status: "ACTIVE",
     price_min: "", price_max: "", brand_id: "", min_year: "",
-    frame_size: "", sort_by_rating: true, verifiedOnly: false,
+    frame_size: "", sort_by_rating: false, verifiedOnly: false,
 };
 
 const fmtPrice = (p: number) =>
@@ -135,24 +135,33 @@ export default function BuyerPage() {
     const fetchBrowse = useCallback(async () => {
         setBrowseLoading(true);
         try {
+            // Khi verifiedOnly=true: KHÔNG gửi status param để lấy tất cả bikes từ BE
+            // (DB có status=VERIFIED, DRAFT không thuộc enum ACTIVE|RESERVED|SOLD|CANCELLED)
+            // → filter inspectionStatus=APPROVED hoàn toàn FE-side sau khi nhận đủ data
+            // Khi verifiedOnly=false: chỉ lấy ACTIVE (xe đang bán)
+            const statusParam = browseFilters.verifiedOnly
+                ? undefined                       // lấy tất cả status → FE tự filter APPROVED
+                : (browseFilters.status || "ACTIVE");
+
             const raw = await getBuyerListAPI({
-                keyword:        browseFilters.keyword        || undefined,
-                category_id:    browseFilters.category_id   || undefined,
-                // status: nếu verifiedOnly thì chỉ lấy ACTIVE, ngược lại lấy ACTIVE (mặc định hiển thị xe đang bán)
-                status:         browseFilters.status        || "ACTIVE",
-                price_min:      browseFilters.price_min     ? Number(browseFilters.price_min)  : undefined,
-                price_max:      browseFilters.price_max     ? Number(browseFilters.price_max)  : undefined,
-                brand_id:       browseFilters.brand_id      ? Number(browseFilters.brand_id)   : undefined,
-                min_year:       browseFilters.min_year      ? Number(browseFilters.min_year)   : undefined,
-                frame_size:     browseFilters.frame_size    || undefined,
+                keyword:        browseFilters.keyword      || undefined,
+                category_id:    browseFilters.category_id || undefined,
+                status:         statusParam,
+                price_min:      browseFilters.price_min   ? Number(browseFilters.price_min)  : undefined,
+                price_max:      browseFilters.price_max   ? Number(browseFilters.price_max)  : undefined,
+                brand_id:       browseFilters.brand_id    ? Number(browseFilters.brand_id)   : undefined,
+                min_year:       browseFilters.min_year    ? Number(browseFilters.min_year)   : undefined,
+                frame_size:     browseFilters.frame_size  || undefined,
                 sort_by_rating: browseFilters.sort_by_rating,
-                size: 100,
+                size: 200,   // tăng size để không miss xe khi filter FE-side
                 page: 0,
             });
-            // verifiedOnly = filter FE-side vì BE không có inspectionStatus param trong GET /bikes
+
+            // verifiedOnly — BE không có inspectionStatus filter param → filter FE-side
             const content = browseFilters.verifiedOnly
                 ? (raw.content ?? []).filter((b: BikeItem) => b.inspectionStatus === "APPROVED")
                 : (raw.content ?? []);
+
             setBrowseResults(content);
             setBrowseTotal(browseFilters.verifiedOnly ? content.length : (raw.totalElements ?? content.length));
         } catch (e) {
@@ -487,7 +496,10 @@ export default function BuyerPage() {
                                         <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 3 }}>Xe đạp đã được kiểm định chất lượng</p>
                                     </div>
                                     <button
-                                        onClick={() => setActiveTab("browse")}
+                                        onClick={() => {
+                                            setBrowseFilters(DEFAULT_BROWSE); // reset filter, không cứng verifiedOnly
+                                            setActiveTab("browse");
+                                        }}
                                         style={{
                                             display: "flex", alignItems: "center", gap: 6,
                                             padding: "8px 16px", borderRadius: 10,
@@ -545,7 +557,7 @@ export default function BuyerPage() {
                                                     <Bike size={24} color="#cbd5e1"/>
                                                 </div>
                                                 <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 14 }}>Chưa có xe đã kiểm định</p>
-                                                <button onClick={() => setActiveTab("browse")} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                                                <button onClick={() => { setBrowseFilters(DEFAULT_BROWSE); setActiveTab("browse"); }} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                                                     Xem tất cả xe
                                                 </button>
                                             </div>
