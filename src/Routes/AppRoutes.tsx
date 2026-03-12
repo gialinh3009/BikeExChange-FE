@@ -11,6 +11,7 @@ import ManagerBuyer from "../components/Admin/Manager/ManagerBuyer.tsx";
 import ManagerInspector from "../components/Admin/Manager/ManagerInspector.tsx";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
+import VerifyEmail from "../components/home/VerifyEmail";  // ← THÊM
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage from "../components/Buyer/BuyerPage.tsx";
@@ -42,6 +43,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             {/* Public */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify" element={<VerifyEmail />} />  {/* ← THÊM */}
 
             {/* Root: redirect theo role */}
             <Route
