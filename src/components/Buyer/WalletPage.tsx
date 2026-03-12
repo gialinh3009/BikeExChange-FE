@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Wallet, ArrowDownLeft, ArrowUpRight, Clock, CheckCircle, XCircle, Plus, History, RefreshCw } from "lucide-react";
-import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL } from "../../services/Buyer/walletService";
+import { Wallet, ArrowDownLeft, ArrowUpRight, Clock, CheckCircle, XCircle, Plus, History, RefreshCw, Banknote } from "lucide-react";
+import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL, withdrawWalletAPI } from "../../services/Buyer/walletService";
 
 interface WalletData {
     userId: number;
@@ -17,7 +17,7 @@ interface Transaction {
     referenceId?: string;
 }
 
-type TabType = "overview" | "deposit" | "history";
+type TabType = "overview" | "deposit" | "withdraw" | "history";
 
 const fmtPrice = (p: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(p);
 const fmtDate = (d: string) => {
@@ -35,6 +35,10 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
     const [depositAmount, setDepositAmount] = useState("100000");
     const [depositing, setDepositing] = useState(false);
     const [depositError, setDepositError] = useState("");
+    const [withdrawForm, setWithdrawForm] = useState({ amount: "", bankName: "", bankAccount: "", accountName: "" });
+    const [withdrawing, setWithdrawing] = useState(false);
+    const [withdrawError, setWithdrawError] = useState("");
+    const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
     // Fetch wallet
     useEffect(() => {
@@ -56,9 +60,8 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         if (tab === "history") {
             const fetchTx = async () => {
                 try {
-                    const data = await getTransactionsAPI();
-                    // Ensure data is always an array
-                    setTransactions(Array.isArray(data) ? data : []);
+                    const { list } = await getTransactionsAPI();
+                    setTransactions(Array.isArray(list) ? list : []);
                 } catch (e) {
                     console.error("Error fetching transactions:", e);
                     setTransactions([]);
@@ -87,6 +90,29 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
             setDepositError(e instanceof Error ? e.message : "Có lỗi xảy ra");
         } finally {
             setDepositing(false);
+        }
+    };
+
+    const handleWithdraw = async () => {
+        const amount = parseInt(withdrawForm.amount);
+        if (!amount || amount <= 0) { setWithdrawError("Vui lòng nhập số tiền hợp lệ"); return; }
+        if (!withdrawForm.bankName.trim()) { setWithdrawError("Vui lòng nhập tên ngân hàng"); return; }
+        if (!withdrawForm.bankAccount.trim()) { setWithdrawError("Vui lòng nhập số tài khoản"); return; }
+        if (!withdrawForm.accountName.trim()) { setWithdrawError("Vui lòng nhập tên chủ tài khoản"); return; }
+        if (amount > (wallet?.availablePoints ?? 0)) { setWithdrawError("Số dư không đủ"); return; }
+        setWithdrawing(true);
+        setWithdrawError("");
+        try {
+            await withdrawWalletAPI({ amount, bankName: withdrawForm.bankName, bankAccount: withdrawForm.bankAccount, accountName: withdrawForm.accountName });
+            setWithdrawSuccess(true);
+            setWithdrawForm({ amount: "", bankName: "", bankAccount: "", accountName: "" });
+            // Refresh wallet balance
+            const data = await getWalletAPI();
+            setWallet(data);
+        } catch (e) {
+            setWithdrawError(e instanceof Error ? e.message : "Có lỗi xảy ra");
+        } finally {
+            setWithdrawing(false);
         }
     };
 
@@ -162,6 +188,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     {[
                         { id: "overview", label: "Tổng quan", icon: "📋" },
                         { id: "deposit", label: "Nạp tiền", icon: "⬇️" },
+                        { id: "withdraw", label: "Rút tiền", icon: "⬆️" },
                         { id: "history", label: "Lịch sử", icon: "📜" },
                     ].map(t => (
                         <button
@@ -190,7 +217,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                             <div style={{ background: "#f0fdf4", borderRadius: 12, padding: "18px" }}>
                                 <div style={{ fontSize: 12, color: "#16a34a", marginBottom: 8, fontWeight: 600 }}>🏦 Rút tiền về ngân hàng</div>
                                 <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: 0 }}>Yêu cầu rút tiền. Admin xét duyệt trong 1-3 ngày.</p>
-                                <button style={{ marginTop: 12, padding: "8px 14px", background: "#0f172a", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                                <button onClick={() => setTab("withdraw")} style={{ marginTop: 12, padding: "8px 14px", background: "#0f172a", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
                                     Rút tiền →
                                 </button>
                             </div>
@@ -274,6 +301,73 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                                     </>
                                 )}
                             </button>
+                        </div>
+                    )}
+
+
+                    {/* Withdraw Tab */}
+                    {tab === "withdraw" && (
+                        <div className="fade-in" style={{ maxWidth: 480 }}>
+                            {withdrawSuccess ? (
+                                <div style={{ textAlign: "center", padding: "32px 0" }}>
+                                    <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", boxShadow: "0 8px 24px rgba(34,197,94,.25)" }}>
+                                        <CheckCircle size={36} color="white" />
+                                    </div>
+                                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>Yêu cầu đã gửi!</h3>
+                                    <p style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>Admin sẽ xét duyệt trong 1-3 ngày làm việc.</p>
+                                    <button onClick={() => { setWithdrawSuccess(false); setTab("overview"); }} style={{ padding: "10px 24px", background: "#0f172a", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                                        Về tổng quan
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                                        <Banknote size={18} color="#0f172a" />
+                                        <h3 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>Rút tiền về ngân hàng</h3>
+                                    </div>
+                                    <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>
+                                        Số dư khả dụng: <strong style={{ color: "#0f172a" }}>{fmtPrice(wallet?.availablePoints ?? 0)}</strong>
+                                    </p>
+
+                                    {[
+                                        { label: "SỐ TIỀN RÚT (VNĐ)", key: "amount", type: "number", placeholder: "Nhập số tiền muốn rút" },
+                                        { label: "TÊN NGÂN HÀNG", key: "bankName", type: "text", placeholder: "VD: Vietcombank, Techcombank..." },
+                                        { label: "SỐ TÀI KHOẢN", key: "bankAccount", type: "text", placeholder: "Nhập số tài khoản" },
+                                        { label: "TÊN CHỦ TÀI KHOẢN", key: "accountName", type: "text", placeholder: "Nhập đúng tên chủ tài khoản" },
+                                    ].map(field => (
+                                        <div key={field.key} style={{ marginBottom: 16 }}>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>{field.label}</p>
+                                            <input
+                                                className="wl-input"
+                                                type={field.type}
+                                                placeholder={field.placeholder}
+                                                value={withdrawForm[field.key as keyof typeof withdrawForm]}
+                                                onChange={e => { setWithdrawForm(f => ({ ...f, [field.key]: e.target.value })); setWithdrawError(""); }}
+                                            />
+                                        </div>
+                                    ))}
+
+                                    {withdrawForm.amount && Number(withdrawForm.amount) > 0 && (
+                                        <p style={{ fontSize: 12, color: "#e11d48", marginBottom: 16, fontWeight: 500 }}>
+                                            Bạn sẽ rút <strong>{fmtPrice(Number(withdrawForm.amount))}</strong> ra khỏi ví
+                                        </p>
+                                    )}
+
+                                    {withdrawError && (
+                                        <div style={{ marginBottom: 16, padding: "10px 13px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 9, color: "#e11d48", fontSize: 13 }}>
+                                            ⚠️ {withdrawError}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleWithdraw}
+                                        disabled={withdrawing}
+                                        style={{ width: "100%", padding: "12px 0", background: withdrawing ? "#e2e8f0" : "#0f172a", color: withdrawing ? "#94a3b8" : "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: withdrawing ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                                    >
+                                        {withdrawing ? <><RefreshCw size={16} className="spin" /> Đang xử lý...</> : <><Banknote size={16} /> Gửi yêu cầu rút tiền</>}
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
 
