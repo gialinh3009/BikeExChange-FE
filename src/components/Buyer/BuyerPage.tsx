@@ -38,7 +38,7 @@ interface BrowseFilterState {
 
 const DEFAULT_FILTERS: FilterState = { keyword: "", category_id: "" };
 const DEFAULT_BROWSE: BrowseFilterState = {
-    keyword: "", category_id: "", status: "ACTIVE",
+    keyword: "", category_id: "", status: "",   // "" = không filter status → BE trả tất cả
     price_min: "", price_max: "", brand_id: "", min_year: "",
     frame_size: "", sort_by_rating: false, verifiedOnly: false,
 };
@@ -135,13 +135,9 @@ export default function BuyerPage() {
     const fetchBrowse = useCallback(async () => {
         setBrowseLoading(true);
         try {
-            // Khi verifiedOnly=true: KHÔNG gửi status param để lấy tất cả bikes từ BE
-            // (DB có status=VERIFIED, DRAFT không thuộc enum ACTIVE|RESERVED|SOLD|CANCELLED)
-            // → filter inspectionStatus=APPROVED hoàn toàn FE-side sau khi nhận đủ data
-            // Khi verifiedOnly=false: chỉ lấy ACTIVE (xe đang bán)
-            const statusParam = browseFilters.verifiedOnly
-                ? undefined                       // lấy tất cả status → FE tự filter APPROVED
-                : (browseFilters.status || "ACTIVE");
+            // Không filter status mặc định → hiển thị tất cả xe (ACTIVE, VERIFIED, RESERVED...)
+            // Chỉ khi verifiedOnly=true mới không gửi status (đã là undefined) để lấy tất cả rồi filter FE-side
+            const statusParam = browseFilters.status || undefined; // "" → undefined → BE trả tất cả
 
             const raw = await getBuyerListAPI({
                 keyword:        browseFilters.keyword      || undefined,
@@ -606,13 +602,14 @@ export default function BuyerPage() {
                                     <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                                         {[{ id: "", name: "Tất cả", imgUrl: null, description: null, createdAt: null }, ...categories.map(c => ({ ...c, id: String(c.id) }))].map(c => {
                                             const active = browseFilters.category_id === String(c.id);
+                                            // Bỏ qua imgUrl nếu là domain fake (cdn.example.com) hoặc không có
+                                            const isRealUrl = c.imgUrl && !c.imgUrl.includes("cdn.example.com") && !c.imgUrl.includes("example.com");
                                             return (
                                                 <button key={String(c.id)}
                                                         onClick={() => setBrowseFilters(p => ({ ...p, category_id: p.category_id === String(c.id) ? "" : String(c.id) }))}
                                                         style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: active ? "#eff6ff" : "transparent", color: active ? "#2563eb" : "#374151", fontWeight: active ? 700 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
-                                                    {/* imgUrl thumbnail nếu category có ảnh */}
-                                                    {c.imgUrl ? (
-                                                        <img src={c.imgUrl} alt={c.name} style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover", flexShrink: 0, border: "1px solid #e2e8f0" }}
+                                                    {isRealUrl ? (
+                                                        <img src={c.imgUrl!} alt={c.name} style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover", flexShrink: 0, border: "1px solid #e2e8f0" }}
                                                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}/>
                                                     ) : (
                                                         <div style={{ width: 7, height: 7, borderRadius: "50%", border: `2px solid ${active ? "#2563eb" : "#cbd5e1"}`, background: active ? "#2563eb" : "transparent", flexShrink: 0, marginLeft: 2 }}/>
