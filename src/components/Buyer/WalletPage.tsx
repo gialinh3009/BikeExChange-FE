@@ -56,9 +56,8 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         if (tab === "history") {
             const fetchTx = async () => {
                 try {
-                    const data = await getTransactionsAPI();
-                    // Ensure data is always an array
-                    setTransactions(Array.isArray(data) ? data : []);
+                    const { list } = await getTransactionsAPI();
+                    setTransactions(Array.isArray(list) ? list : []);
                 } catch (e) {
                     console.error("Error fetching transactions:", e);
                     setTransactions([]);
