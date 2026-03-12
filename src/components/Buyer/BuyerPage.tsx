@@ -216,8 +216,8 @@ export default function BuyerPage() {
             {/* Main */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-                {/* Topbar */}
-                <header style={{ background: "white", borderBottom: "1px solid #e8ecf4", padding: "13px 22px", display: "flex", alignItems: "center", gap: 11, position: "sticky", top: 0, zIndex: 20 }}>
+                {/* Topbar — ẩn khi đang ở tab wallet */}
+                <header style={{ background: "white", borderBottom: "1px solid #e8ecf4", padding: "13px 22px", display: activeTab === "wallet" ? "none" : "flex", alignItems: "center", gap: 11, position: "sticky", top: 0, zIndex: 20 }}>
                     <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "#f4f6fb", borderRadius: 10, padding: "8px 13px", border: "1.5px solid #e8ecf4" }}>
                         <Search size={14} color="#94a3b8" />
                         <input className="search-box" placeholder="Tìm xe theo tên, thương hiệu, loại xe..."
