@@ -1,95 +1,104 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-const authHeaders = (json = false) => {
+const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return {
-        accept: "*/*",
-        ...(json ? { "Content-Type": "application/json" } : {}),
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 };
 
-// ── GET /wallet ────────────────────────────────────────────────────────────
-export async function getWalletAPI() {
-    const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
-    const userId = user?.id ?? user?.userId;
-
-    if (!userId) throw new Error("User not authenticated");
-
-    const res = await fetch(`${BASE_URL}/wallet?userId=${userId}`, {
-        method: "GET",
-        headers: authHeaders(),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Không thể lấy ví.");
-
-    // BE trả về { data: { availablePoints, frozenPoints, userId, ... }, success: true }
-    return data.data;
-}
-
-// ── GET /wallet/transactions ───────────────────────────────────────────────
-export async function getTransactionsAPI(type = "") {
-    const url = type ? `${BASE_URL}/wallet/transactions?type=${type}` : `${BASE_URL}/wallet/transactions`;
-    const res = await fetch(url, {
-        method: "GET",
-        headers: authHeaders(),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-        console.warn("Could not fetch transactions:", data.message);
-        return [];
-    }
-
-    // BE trả về { data: [...], success: true, summary: {...} }
-    const transactions = data.data || [];
-    return Array.isArray(transactions) ? transactions : [];
-}
-
-// ── GET /vnpay/create-payment ──────────────────────────────────────────────
 /**
- * Tạo link thanh toán VNPay
- * @param {number} amount - Số tiền (đơn vị VND)
- * @returns {Promise<string>} - URL thanh toán để redirect
+ * GET /wallet → { availablePoints, frozenPoints, userId }
+ */
+export async function getWalletAPI() {
+    const res = await fetch(`${BASE_URL}/wallet`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Không thể tải ví.");
+    return data.data ?? data;
+}
+
+/**
+ * GET /wallet/transactions?type=xxx
+ * Returns { list: [], summary: { totalAmount, totalCount } }
+ */
+export async function getTransactionsAPI(type = "") {
+    const params = new URLSearchParams();
+    if (type) params.append("type", type);
+
+    const res = await fetch(`${BASE_URL}/wallet/transactions?${params.toString()}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Không thể tải lịch sử giao dịch.");
+
+    const raw = data.data ?? data;
+    const list = Array.isArray(raw)
+        ? raw
+        : raw?.content ?? raw?.transactions ?? raw?.items ?? [];
+    const summary = {
+        totalAmount: raw?.totalAmount ?? null,
+        totalCount:  raw?.totalCount  ?? list.length,
+    };
+    return { list, summary };
+}
+
+/**
+ * GET /vnpay/create-payment?amount=xxx&returnUrl=xxx
+ * Returns VNPay payment URL string
  */
 export async function createVNPayPaymentURL(amount) {
-    if (!amount || amount < 10000) {
-        throw new Error("Số tiền tối thiểu là 10,000đ");
-    }
-
-    // returnUrl: trang FE nhận callback sau khi VNPay xử lý xong
+    const token = localStorage.getItem("token");
     const returnUrl = `${window.location.origin}/payment-success`;
 
-    const res = await fetch(
-        `${BASE_URL}/vnpay/create-payment?amount=${amount}&returnUrl=${encodeURIComponent(returnUrl)}`,
-        {
-            method: "GET",
-            headers: authHeaders(),
-        }
-    );
+    const params = new URLSearchParams({
+        amount: String(amount),
+        returnUrl,
+    });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.message || "Tạo link thanh toán thất bại.");
-
-    // BE trả về { success: true, paymentUrl: "https://sandbox.vnpayment.vn/..." }
-    return data.paymentUrl;
-}
-
-// ── POST /wallet/withdraw-request ──────────────────────────────────────────
-/**
- * Yêu cầu rút tiền
- * @param {Object} payload - { amount, bankName, bankAccount, accountName }
- */
-export async function withdrawWalletAPI(payload) {
-    const res = await fetch(`${BASE_URL}/wallet/withdraw-request`, {
-        method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify(payload),
+    const res = await fetch(`${BASE_URL}/vnpay/create-payment?${params.toString()}`, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Yêu cầu rút tiền thất bại.");
+    if (!res.ok) throw new Error(data.message || "Không thể tạo link thanh toán.");
 
-    return data.data;
+    // BE trả về { data: "https://..." } hoặc { paymentUrl: "..." } hoặc string
+    return data.data ?? data.paymentUrl ?? data.url ?? data;
+}
+
+/**
+ * POST /wallet/deposit — xác nhận nạp tiền sau VNPay callback
+ */
+export async function depositWalletAPI(amount, referenceId) {
+    const res = await fetch(`${BASE_URL}/wallet/deposit`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount, referenceId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Lỗi xác nhận deposit.");
+    return data.data ?? data;
+}
+
+/**
+ * POST /wallet/withdraw
+ */
+export async function withdrawWalletAPI({ amount, bankName, bankAccount, accountName }) {
+    const res = await fetch(`${BASE_URL}/wallet/withdraw`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amount, bankName, bankAccount, accountName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Yêu cầu rút tiền thất bại.");
+    return data.data ?? data;
 }

@@ -1,21 +1,16 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-const authHeaders = (json = false) => {
+const authHeaders = () => {
     const token = localStorage.getItem("token");
     return {
         accept: "*/*",
-        ...(json ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 };
 
-// ── GET /wishlist ──────────────────────────────────────────────────────────
-/**
- * Get all wishlist items for current user
- * @returns {Promise<Array>} - List of wishlisted bikes or bike IDs
- */
+// ── GET /buyer/wishlist ────────────────────────────────────────────────────
 export async function getWishlistAPI() {
-    const res = await fetch(`${BASE_URL}/wishlist`, {
+    const res = await fetch(`${BASE_URL}/buyer/wishlist`, {
         method: "GET",
         headers: authHeaders(),
     });
@@ -27,41 +22,30 @@ export async function getWishlistAPI() {
         return [];
     }
 
-    // BE may return: { data: [...], success: true } or { data: { content: [...] } }
     const content = data.data?.content ?? data.data ?? data ?? [];
     return Array.isArray(content) ? content : [];
 }
 
-// ── POST /wishlist ────────────────────────────────────────────────────────
-/**
- * Add bike to wishlist
- * @param {number} bikeId
- * @returns {Promise<Object>}
- */
+// ── POST /buyer/wishlist/{bikeId} ──────────────────────────────────────────
 export async function addToWishlistAPI(bikeId) {
-    const res = await fetch(`${BASE_URL}/wishlist`, {
+    const res = await fetch(`${BASE_URL}/buyer/wishlist/${bikeId}`, {
         method: "POST",
-        headers: authHeaders(true),
-        body: JSON.stringify({ bikeId }),
+        headers: authHeaders(),
+        // Không cần body - bikeId nằm trong URL
     });
 
     const data = await res.json();
 
-    if (!res.ok || !data.success) {
+    if (!res.ok) {
         throw new Error(data.message || "Thêm vào yêu thích thất bại.");
     }
 
-    return data.data;
+    return data.data ?? data;
 }
 
-// ── DELETE /wishlist/{bikeId} ──────────────────────────────────────────────
-/**
- * Remove bike from wishlist
- * @param {number} bikeId
- * @returns {Promise<void>}
- */
+// ── DELETE /buyer/wishlist/{bikeId} ────────────────────────────────────────
 export async function removeFromWishlistAPI(bikeId) {
-    const res = await fetch(`${BASE_URL}/wishlist/${bikeId}`, {
+    const res = await fetch(`${BASE_URL}/buyer/wishlist/${bikeId}`, {
         method: "DELETE",
         headers: authHeaders(),
     });
@@ -72,5 +56,5 @@ export async function removeFromWishlistAPI(bikeId) {
         throw new Error(data.message || "Xóa khỏi yêu thích thất bại.");
     }
 
-    return data.data;
+    return data.data ?? data;
 }

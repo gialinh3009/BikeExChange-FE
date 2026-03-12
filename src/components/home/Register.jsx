@@ -48,7 +48,7 @@ export default function Register() {
         address:  form.address  || undefined,
         role:     "BUYER",
       });
-      navigate("/login", { state: { registered: true } });
+      navigate("/login", { state: { verifyEmail: true, email: form.email } });
     } catch (err) {
       setError(err.message || "Đăng ký thất bại. Vui lòng thử lại.");
     } finally {

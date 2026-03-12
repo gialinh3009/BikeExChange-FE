@@ -50,27 +50,69 @@ export default function BuyerPage() {
     const [filters, setFilters]                   = useState<FilterState>(DEFAULT_FILTERS);
     const [categories, setCategories]             = useState<Category[]>([]);
     const [wishCount, setWishCount]               = useState(0);
+    const [wishlistIds, setWishlistIds]           = useState<Set<number>>(new Set());
     const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
     const user      = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
-    const role      = user?.role as string | undefined;
-    const isSeller  = role === "SELLER";
-    const roleLabel = role === "SELLER" ? "Người bán" : role === "BUYER" ? "Người mua" : "Thành viên";
     const token     = localStorage.getItem("token") ?? "";
 
-    // Wishlist count
-    useEffect(() => {
+    // Decode JWT để lấy role chính xác, không tin localStorage.user.role
+    const getRoleFromToken = (jwt: string): string | undefined => {
+        try {
+            const payload = JSON.parse(atob(jwt.split(".")[1]));
+            // Handle nhiều format Spring Boot JWT:
+            // 1. { role: "BUYER" }
+            // 2. { roles: ["BUYER"] }
+            // 3. { authorities: ["ROLE_BUYER"] }
+            // 4. { authorities: [{ authority: "ROLE_BUYER" }] }
+            let r: string | undefined;
+            if (payload.role) {
+                r = String(payload.role);
+            } else if (Array.isArray(payload.roles) && payload.roles.length > 0) {
+                r = String(payload.roles[0]);
+            } else if (Array.isArray(payload.authorities) && payload.authorities.length > 0) {
+                const auth = payload.authorities[0];
+                r = typeof auth === "string" ? auth : auth?.authority ?? String(auth);
+            }
+            if (!r) return undefined;
+            return r.replace(/^ROLE_/i, "").toUpperCase();
+        } catch { return undefined; }
+    };
+
+    const roleFromToken = getRoleFromToken(token);
+    const roleFromStorage = (user?.role as string | undefined)?.toUpperCase();
+    const role      = roleFromToken ?? roleFromStorage;
+
+    // DEBUG: xóa sau khi confirm đúng
+    if (import.meta.env.DEV) {
+        console.log("[BuyerPage] roleFromToken:", roleFromToken, "| roleFromStorage:", roleFromStorage, "| final role:", role);
+    }
+
+    const isSeller  = role === "SELLER";
+    const roleLabel = role === "SELLER" ? "Người bán" : role === "BUYER" ? "Người mua" : "Thành viên";
+
+    // Wishlist count + IDs
+    const fetchWishlist = () => {
         const BASE = import.meta.env.VITE_API_BASE_URL as string;
-        fetch(`${BASE}/wishlist`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${BASE}/buyer/wishlist`, { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.json())
             .then(d => {
-                const list = Array.isArray(d) ? d
-                    : Array.isArray(d?.data?.content) ? d.data.content
-                        : Array.isArray(d?.data) ? d.data
-                            : Array.isArray(d?.content) ? d.content : [];
+                const list: { bikeId?: number; bike?: { id?: number }; id?: number }[] =
+                    Array.isArray(d) ? d
+                        : Array.isArray(d?.data?.content) ? d.data.content
+                            : Array.isArray(d?.data) ? d.data
+                                : Array.isArray(d?.content) ? d.content : [];
                 setWishCount(list.length);
+                setWishlistIds(new Set(
+                    list.map(item => item.bikeId ?? item.bike?.id ?? item.id ?? 0).filter(Boolean)
+                ));
             })
             .catch(() => {});
+    };
+
+    useEffect(() => {
+        fetchWishlist();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, token]);
 
     // Categories
@@ -140,12 +182,12 @@ export default function BuyerPage() {
 
             {/* Sidebar */}
             <aside style={{ width: 224, background: "#0f172a", display: "flex", flexDirection: "column", padding: "22px 13px", position: "sticky", top: 0, height: "100vh", flexShrink: 0 }}>
-                <Link to="/home" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 26, paddingLeft: 5, textDecoration: "none" }}>
+                <button onClick={() => setActiveTab("home")} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 26, paddingLeft: 5, background: "none", border: "none", cursor: "pointer" }}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#3b82f6,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Bike size={16} color="white" />
                     </div>
                     <span style={{ color: "white", fontWeight: 800, fontSize: 15.5 }}>BikeExchange</span>
-                </Link>
+                </button>
 
                 <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 11, padding: "10px 11px", marginBottom: 22, display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#3b82f6,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "white", flexShrink: 0 }}>
@@ -246,7 +288,21 @@ export default function BuyerPage() {
                                 </div>
                             ) : (
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 16 }}>
-                                    {bikes.map(bike => <BikeCard key={bike.id} bike={bike} />)}
+                                    {bikes.map(bike => (
+                                        <BikeCard
+                                            key={bike.id}
+                                            bike={bike}
+                                            initialWished={wishlistIds.has(bike.id)}
+                                            onWishChange={(bikeId, wished) => {
+                                                setWishlistIds(prev => {
+                                                    const next = new Set(prev);
+                                                    if (wished) { next.add(bikeId); } else { next.delete(bikeId); }
+                                                    return next;
+                                                });
+                                                setWishCount(prev => wished ? prev + 1 : Math.max(0, prev - 1));
+                                            }}
+                                        />
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -343,9 +399,16 @@ export default function BuyerPage() {
 }
 
 // ─── BikeCard ─────────────────────────────────────────────────────────────
-function BikeCard({ bike }: { bike: BikeItem }) {
-    const [wished, setWished]   = useState(false);
+function BikeCard({ bike, initialWished = false, onWishChange }: {
+    bike: BikeItem;
+    initialWished?: boolean;
+    onWishChange?: (bikeId: number, wished: boolean) => void;
+}) {
+    const [wished, setWished]   = useState(initialWished);
     const [wishing, setWishing] = useState(false);
+
+    // Sync if parent wishlistIds loads after render
+    useEffect(() => { setWished(initialWished); }, [initialWished]);
 
     const price = bike.pricePoints ?? 0;
     const img   = bike.media?.[0]?.url;
@@ -361,17 +424,19 @@ function BikeCard({ bike }: { bike: BikeItem }) {
                 } else {
                     await addToWishlistAPI(bike.id);
                 }
-                setWished(!wished);
-            } catch { setWished(!wished); }
+                const next = !wished;
+                setWished(next);
+                onWishChange?.(bike.id, next);
+            } catch { /* keep current state */ }
             finally { setWishing(false); }
         };
         void run();
     };
 
     return (
-        <div className="bike-card" style={{ borderRadius: 13, border: "1.5px solid #e8ecf4", overflow: "hidden", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,.04)" }}>
+        <div className="bike-card" style={{ borderRadius: 13, border: "1.5px solid #e8ecf4", overflow: "hidden", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,.04)", display: "flex", flexDirection: "column" }}>
             {/* Image */}
-            <div style={{ height: 160, background: "linear-gradient(135deg,#f0f4ff,#e8effe)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+            <div style={{ height: 160, background: "linear-gradient(135deg,#f0f4ff,#e8effe)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", flexShrink: 0 }}>
                 {img ? (
                     <img src={img} alt={bike.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
@@ -391,8 +456,8 @@ function BikeCard({ bike }: { bike: BikeItem }) {
                 </button>
             </div>
 
-            {/* Info */}
-            <div style={{ padding: "12px 13px" }}>
+            {/* Info — flex:1 để đẩy nút xuống đáy */}
+            <div style={{ padding: "12px 13px", display: "flex", flexDirection: "column", flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
                     <span style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.3px" }}>{bike.brand ?? "—"}</span>
                     {bike.year && <span style={{ fontSize: 10.5, color: "#94a3b8" }}>{bike.year}</span>}
@@ -409,13 +474,21 @@ function BikeCard({ bike }: { bike: BikeItem }) {
                     </div>
                 )}
 
-                {bike.inspectionStatus === "APPROVED" && (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, background: "#ecfdf3", color: "#15803d", fontSize: 10, fontWeight: 700, marginBottom: 8 }}>
-                        <span>✓</span><span>Đã kiểm định</span>
-                    </div>
-                )}
+                {/* Inspection tag — luôn hiển thị, xanh nếu APPROVED, xám nếu chưa */}
+                <div style={{ marginBottom: 8 }}>
+                    {bike.inspectionStatus === "APPROVED" ? (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, background: "#ecfdf3", border: "1px solid #bbf7d0", color: "#15803d", fontSize: 10, fontWeight: 700 }}>
+                            <span>✓</span><span>Đã kiểm định</span>
+                        </div>
+                    ) : (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, background: "#f8fafc", border: "1px solid #e2e8f0", color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>
+                            <span>○</span><span>Chưa kiểm định</span>
+                        </div>
+                    )}
+                </div>
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                {/* Price — flex:1 để đẩy nút "Xem chi tiết" luôn xuống đáy */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, marginTop: "auto" }}>
                     <span style={{ fontSize: 15, fontWeight: 800, color: "#2563eb" }}>{fmtPrice(price)}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <Star size={11} color="#f59e0b" fill="#f59e0b" />

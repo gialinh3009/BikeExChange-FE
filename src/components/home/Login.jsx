@@ -31,6 +31,8 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const justRegistered = location.state?.registered === true;
+  const verifyEmail    = location.state?.verifyEmail === true;
+  const registeredEmail = location.state?.email ?? "";
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -51,7 +53,14 @@ export default function Login() {
       const redirect = ROLE_REDIRECT[userData.role] || "/";
       navigate(redirect, { replace: true });
     } catch (err) {
-      setError(err.message || "Đăng nhập thất bại. Vui lòng thử lại.");
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
+        setError("Tài khoản chưa được xác thực. Vui lòng kiểm tra email và nhấn vào link xác thực.");
+      } else if (msg.toLowerCase().includes("bad credentials") || msg.toLowerCase().includes("unauthorized")) {
+        setError("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      } else {
+        setError(msg || "Đăng nhập thất bại. Vui lòng thử lại.");
+      }
     } finally {
       setLoading(false);
     }
@@ -129,7 +138,20 @@ export default function Login() {
                 <p className="text-sm text-gray-500 mt-1">Chào mừng bạn trở lại!</p>
               </div>
 
-              {justRegistered && (
+              {verifyEmail && (
+                  <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700 flex items-start gap-2">
+                    <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold">Đăng ký thành công! 🎉</div>
+                      <div className="mt-0.5">
+                        Chúng tôi đã gửi email xác thực tới <strong>{registeredEmail || "hộp thư của bạn"}</strong>.
+                        Vui lòng kiểm tra email và nhấn vào link xác thực trước khi đăng nhập.
+                      </div>
+                      <div className="mt-1 text-xs text-blue-500">Không thấy email? Kiểm tra thư mục Spam / Junk.</div>
+                    </div>
+                  </div>
+              )}
+              {justRegistered && !verifyEmail && (
                   <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
                     <CheckCircle2 size={16} className="shrink-0" />
                     Tài khoản đã được tạo thành công! Vui lòng đăng nhập.
