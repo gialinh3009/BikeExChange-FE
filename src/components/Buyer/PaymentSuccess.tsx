@@ -87,112 +87,137 @@ export default function PaymentSuccess() {
     return (
         <>
             <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-                .ps-wrap { font-family: 'Sora', sans-serif; }
+                @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-                /* Orbs */
-                @keyframes orbFloat {
-                    0%,100% { transform: translateY(0) scale(1); }
-                    50%     { transform: translateY(-30px) scale(1.05); }
+                .ps-root { font-family: 'DM Sans', sans-serif; }
+
+                /* ── Background animated blobs ── */
+                @keyframes blobMove1 {
+                    0%,100% { transform: translate(0,0) scale(1); }
+                    33%     { transform: translate(30px,-20px) scale(1.05); }
+                    66%     { transform: translate(-20px,15px) scale(.97); }
                 }
-                .orb { animation: orbFloat 8s ease-in-out infinite; }
-                .orb2 { animation: orbFloat 10s ease-in-out 2s infinite; }
-
-                /* Ring pulse */
-                @keyframes ringPulse {
-                    0%   { transform: scale(1); opacity: .5; }
-                    100% { transform: scale(1.9); opacity: 0; }
+                @keyframes blobMove2 {
+                    0%,100% { transform: translate(0,0) scale(1); }
+                    33%     { transform: translate(-25px,20px) scale(1.04); }
+                    66%     { transform: translate(20px,-10px) scale(.98); }
                 }
-                .ring-pulse { animation: ringPulse 2s ease-out infinite; }
-                .ring-pulse-delay { animation: ringPulse 2s ease-out .7s infinite; }
+                .blob1 { animation: blobMove1 12s ease-in-out infinite; }
+                .blob2 { animation: blobMove2 14s ease-in-out 2s infinite; }
+                .blob3 { animation: blobMove1 16s ease-in-out 4s infinite; }
 
-                /* Animated checkmark */
-                @keyframes drawCheck {
+                /* ── Icon animations ── */
+                @keyframes iconEntry {
+                    0%   { opacity: 0; transform: scale(.4) rotate(-10deg); }
+                    60%  { transform: scale(1.12) rotate(2deg); }
+                    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+                }
+                @keyframes ringExpand {
+                    0%   { transform: scale(1); opacity: .6; }
+                    100% { transform: scale(2); opacity: 0; }
+                }
+                @keyframes checkDraw {
                     to { stroke-dashoffset: 0; }
                 }
-                .check-draw {
+                .icon-entry   { animation: iconEntry .55s cubic-bezier(.34,1.56,.64,1) both; }
+                .ring-expand  { animation: ringExpand 2.2s ease-out infinite; }
+                .ring-expand2 { animation: ringExpand 2.2s ease-out .75s infinite; }
+                .check-line {
                     stroke-dasharray: 52;
                     stroke-dashoffset: 52;
-                    animation: drawCheck .45s cubic-bezier(.4,0,.2,1) .4s forwards;
+                    animation: checkDraw .4s ease .45s forwards;
                 }
 
-                /* Entrance animations */
+                /* ── Staggered fade-up ── */
                 @keyframes fadeUp {
-                    from { opacity: 0; transform: translateY(18px); }
+                    from { opacity: 0; transform: translateY(16px); }
                     to   { opacity: 1; transform: translateY(0); }
                 }
-                @keyframes scaleIn {
-                    from { opacity: 0; transform: scale(.55); }
+                @keyframes amountIn {
+                    from { opacity: 0; transform: scale(.75); }
                     to   { opacity: 1; transform: scale(1); }
                 }
-                @keyframes amountPop {
-                    from { opacity: 0; transform: scale(.8) translateY(10px); }
-                    to   { opacity: 1; transform: scale(1) translateY(0); }
-                }
-                .anim-icon   { animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) both; }
-                .anim-1      { animation: fadeUp .4s ease .08s both; }
-                .anim-2      { animation: fadeUp .4s ease .16s both; }
-                .anim-3      { animation: fadeUp .4s ease .24s both; }
-                .anim-4      { animation: fadeUp .4s ease .32s both; }
-                .anim-5      { animation: fadeUp .4s ease .40s both; }
-                .anim-amount { animation: amountPop .5s cubic-bezier(.34,1.56,.64,1) .28s both; }
+                .a1 { animation: fadeUp .4s ease .05s both; }
+                .a2 { animation: fadeUp .4s ease .12s both; }
+                .a3 { animation: fadeUp .4s ease .19s both; }
+                .a4 { animation: fadeUp .4s ease .26s both; }
+                .a5 { animation: fadeUp .4s ease .33s both; }
+                .a-amt { animation: amountIn .5s cubic-bezier(.34,1.56,.64,1) .3s both; }
 
-                /* Spinner */
-                @keyframes spin { to { transform: rotate(360deg); } }
-                .spinner { animation: spin .85s linear infinite; }
-                @keyframes dotPulse {
-                    0%,80%,100% { transform: scale(.5); opacity: .3; }
-                    40%         { transform: scale(1);  opacity: 1; }
+                /* ── Spinner ── */
+                @keyframes spin  { to { transform: rotate(360deg); } }
+                @keyframes dotB  {
+                    0%,80%,100% { transform: scaleY(.4); opacity: .3; }
+                    40%         { transform: scaleY(1);  opacity: 1; }
                 }
-                .dot1 { animation: dotPulse 1.3s ease infinite; }
-                .dot2 { animation: dotPulse 1.3s ease .18s infinite; }
-                .dot3 { animation: dotPulse 1.3s ease .36s infinite; }
+                .spin { animation: spin .9s linear infinite; }
+                .db1  { animation: dotB 1.2s ease infinite; }
+                .db2  { animation: dotB 1.2s ease .15s infinite; }
+                .db3  { animation: dotB 1.2s ease .3s infinite; }
 
-                /* Shimmer on amount */
-                @keyframes shimmer {
-                    0%   { background-position: -200% center; }
-                    100% { background-position: 200% center; }
-                }
-                .shimmer-text {
-                    background: linear-gradient(90deg, #4ade80, #86efac, #4ade80);
-                    background-size: 200% auto;
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                    animation: shimmer 2.5s linear infinite;
-                }
-                .shimmer-text-red {
-                    background: linear-gradient(90deg, #f87171, #fca5a5, #f87171);
-                    background-size: 200% auto;
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                    animation: shimmer 2.5s linear infinite;
+                /* ── Card shadow / hover ── */
+                .ps-card {
+                    box-shadow:
+                        0 0 0 1px rgba(99,102,241,.08),
+                        0 20px 60px rgba(99,102,241,.1),
+                        0 4px 16px rgba(0,0,0,.06);
                 }
 
-                /* Button hover */
-                .btn-primary { transition: all .2s; }
-                .btn-primary:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 12px 32px rgba(34,197,94,.35) !important; }
-                .btn-primary:active { transform: translateY(0); }
-                .btn-ghost { transition: all .2s; }
-                .btn-ghost:hover { background: rgba(255,255,255,.09) !important; color: #f1f5f9 !important; }
-
-                .btn-primary-red:hover { box-shadow: 0 12px 32px rgba(239,68,68,.35) !important; }
-
-                /* Grid bg */
-                .grid-bg {
-                    background-image:
-                        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-                    background-size: 44px 44px;
+                /* ── Buttons ── */
+                .btn-blue {
+                    background: linear-gradient(135deg, #2563eb, #4f46e5);
+                    transition: all .2s ease;
+                    box-shadow: 0 4px 18px rgba(79,70,229,.3);
                 }
+                .btn-blue:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 28px rgba(79,70,229,.4);
+                    filter: brightness(1.08);
+                }
+                .btn-blue:active { transform: translateY(0); }
+
+                .btn-outline {
+                    transition: all .2s ease;
+                    background: white;
+                    border: 1.5px solid #e2e8f0;
+                    color: #475569;
+                }
+                .btn-outline:hover {
+                    border-color: #c7d2fe;
+                    color: #4338ca;
+                    background: #eef2ff;
+                }
+
+                .btn-red {
+                    background: linear-gradient(135deg, #dc2626, #e11d48);
+                    transition: all .2s ease;
+                    box-shadow: 0 4px 18px rgba(220,38,38,.28);
+                }
+                .btn-red:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 28px rgba(220,38,38,.38);
+                }
+
+                /* ── Amount number glow ── */
+                .amount-glow {
+                    color: #1d4ed8;
+                    text-shadow: 0 0 40px rgba(37,99,235,.25);
+                }
+
+                /* ── Steps bar (success) ── */
+                @keyframes barFill {
+                    from { width: 0%; }
+                    to   { width: 100%; }
+                }
+                .bar-fill { animation: barFill 1.8s cubic-bezier(.4,0,.2,1) .5s both; }
             `}</style>
 
+            {/* ════ ROOT ════ */}
             <div
-                className="ps-wrap grid-bg"
+                className="ps-root"
                 style={{
                     minHeight: "100vh",
-                    background: "#080d1a",
+                    background: "#f8faff",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -201,324 +226,451 @@ export default function PaymentSuccess() {
                     overflow: "hidden",
                 }}
             >
-                {/* ── Ambient orbs ── */}
-                {status === "loading" && (
-                    <div className="orb" style={{
-                        position: "absolute", width: 560, height: 560, borderRadius: "50%",
-                        background: "radial-gradient(circle, rgba(99,102,241,.18) 0%, transparent 70%)",
-                        top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-                        pointerEvents: "none",
-                    }}/>
-                )}
-                {status === "success" && (<>
-                    <div className="orb" style={{
-                        position: "absolute", width: 480, height: 480, borderRadius: "50%",
-                        background: "radial-gradient(circle, rgba(34,197,94,.14) 0%, transparent 70%)",
-                        top: -100, right: -80, pointerEvents: "none",
-                    }}/>
-                    <div className="orb2" style={{
-                        position: "absolute", width: 360, height: 360, borderRadius: "50%",
-                        background: "radial-gradient(circle, rgba(59,130,246,.12) 0%, transparent 70%)",
-                        bottom: -80, left: -60, pointerEvents: "none",
-                    }}/>
-                </>)}
-                {status === "failed" && (<>
-                    <div className="orb" style={{
-                        position: "absolute", width: 480, height: 480, borderRadius: "50%",
-                        background: "radial-gradient(circle, rgba(239,68,68,.14) 0%, transparent 70%)",
-                        top: -100, right: -80, pointerEvents: "none",
-                    }}/>
-                    <div className="orb2" style={{
-                        position: "absolute", width: 360, height: 360, borderRadius: "50%",
-                        background: "radial-gradient(circle, rgba(249,115,22,.1) 0%, transparent 70%)",
-                        bottom: -80, left: -60, pointerEvents: "none",
-                    }}/>
-                </>)}
+                {/* Decorative blobs matching homepage blue/indigo */}
+                <div className="blob1" style={{
+                    position: "absolute", top: -160, right: -160,
+                    width: 520, height: 520, borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(79,70,229,.12) 0%, transparent 70%)",
+                    pointerEvents: "none",
+                }}/>
+                <div className="blob2" style={{
+                    position: "absolute", bottom: -120, left: -120,
+                    width: 440, height: 440, borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(37,99,235,.1) 0%, transparent 70%)",
+                    pointerEvents: "none",
+                }}/>
+                <div className="blob3" style={{
+                    position: "absolute", top: "40%", left: "15%",
+                    width: 280, height: 280, borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(99,102,241,.07) 0%, transparent 70%)",
+                    pointerEvents: "none",
+                }}/>
 
-                {/* ── Card ── */}
+                {/* Subtle dot-grid */}
                 <div style={{
-                    position: "relative", zIndex: 1,
-                    width: "100%", maxWidth: 440,
-                    background: "rgba(255,255,255,.045)",
-                    border: "1px solid rgba(255,255,255,.09)",
-                    borderRadius: 28,
-                    padding: "48px 36px 40px",
-                    backdropFilter: "blur(24px)",
-                    textAlign: "center",
-                    boxShadow: "0 32px 80px rgba(0,0,0,.45)",
-                }}>
+                    position: "absolute", inset: 0, pointerEvents: "none",
+                    backgroundImage: "radial-gradient(circle, rgba(99,102,241,.12) 1px, transparent 1px)",
+                    backgroundSize: "28px 28px",
+                    maskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)",
+                    WebkitMaskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)",
+                }}/>
 
-                    {/* ════ LOADING ════ */}
-                    {status === "loading" && (
-                        <>
-                            <div style={{ position: "relative", width: 88, height: 88, margin: "0 auto 28px" }}>
-                                <svg className="spinner" width="88" height="88" viewBox="0 0 88 88">
-                                    <circle cx="44" cy="44" r="38" fill="none" stroke="rgba(99,102,241,.15)" strokeWidth="5"/>
-                                    <circle cx="44" cy="44" r="38" fill="none" stroke="#6366f1" strokeWidth="5"
-                                            strokeLinecap="round" strokeDasharray="60 180"/>
-                                </svg>
-                                <div style={{
-                                    position: "absolute", inset: 0,
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                }}>
-                                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(99,102,241,.7)" strokeWidth="2" strokeLinecap="round">
-                                        <rect x="2" y="5" width="20" height="14" rx="3"/>
-                                        <path d="M16 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0"/>
+                {/* ════ CARD ════ */}
+                <div
+                    className="ps-card"
+                    style={{
+                        position: "relative", zIndex: 1,
+                        width: "100%", maxWidth: 460,
+                        background: "white",
+                        borderRadius: 24,
+                        padding: "0",
+                        overflow: "hidden",
+                    }}
+                >
+                    {/* ── Top stripe matching homepage gradient ── */}
+                    <div style={{
+                        height: 5,
+                        background: status === "failed"
+                            ? "linear-gradient(90deg, #dc2626, #f87171)"
+                            : "linear-gradient(90deg, #2563eb, #6366f1, #818cf8)",
+                    }}/>
+
+                    <div style={{ padding: "40px 36px 36px" }}>
+
+                        {/* ════ LOADING ════ */}
+                        {status === "loading" && (
+                            <div style={{ textAlign: "center" }}>
+                                {/* Spinner */}
+                                <div style={{ position: "relative", width: 80, height: 80, margin: "0 auto 28px" }}>
+                                    <svg className="spin" width="80" height="80" viewBox="0 0 80 80">
+                                        <circle cx="40" cy="40" r="34" fill="none" stroke="#e0e7ff" strokeWidth="5"/>
+                                        <circle cx="40" cy="40" r="34" fill="none"
+                                                stroke="url(#loadGrad)" strokeWidth="5"
+                                                strokeLinecap="round" strokeDasharray="55 160"/>
+                                        <defs>
+                                            <linearGradient id="loadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                <stop offset="0%" stopColor="#2563eb"/>
+                                                <stop offset="100%" stopColor="#6366f1"/>
+                                            </linearGradient>
+                                        </defs>
                                     </svg>
-                                </div>
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", marginBottom: 8 }}>
-                                Đang xác nhận giao dịch
-                            </div>
-                            <div style={{ fontSize: 13, color: "rgba(255,255,255,.35)", marginBottom: 20 }}>
-                                Vui lòng không đóng trang này
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-                                {[0,1,2].map(i => (
-                                    <div key={i} className={`dot${i+1}`} style={{
-                                        width: 7, height: 7, borderRadius: "50%", background: "#6366f1",
-                                    }}/>
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {/* ════ SUCCESS ════ */}
-                    {status === "success" && (
-                        <>
-                            {/* Icon */}
-                            <div className="anim-icon" style={{ position: "relative", width: 96, height: 96, margin: "0 auto 30px" }}>
-                                <div className="ring-pulse" style={{
-                                    position: "absolute", inset: -6,
-                                    borderRadius: "50%",
-                                    border: "2px solid rgba(34,197,94,.6)",
-                                }}/>
-                                <div className="ring-pulse-delay" style={{
-                                    position: "absolute", inset: -6,
-                                    borderRadius: "50%",
-                                    border: "2px solid rgba(34,197,94,.4)",
-                                }}/>
-                                <div style={{
-                                    width: "100%", height: "100%", borderRadius: "50%",
-                                    background: "linear-gradient(145deg, #15803d, #22c55e)",
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    boxShadow: "0 0 0 8px rgba(34,197,94,.12), 0 0 40px rgba(34,197,94,.35)",
-                                }}>
-                                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none">
-                                        <path
-                                            className="check-draw"
-                                            d="M9 21L17.5 29.5L33 13"
-                                            stroke="white"
-                                            strokeWidth="3.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                </div>
-                            </div>
-
-                            {/* Texts */}
-                            <div className="anim-1" style={{ fontSize: 24, fontWeight: 800, color: "#f8fafc", letterSpacing: "-0.5px", marginBottom: 6 }}>
-                                Thanh toán thành công
-                            </div>
-                            <div className="anim-2" style={{ fontSize: 13.5, color: "rgba(255,255,255,.4)", marginBottom: 28 }}>
-                                Số dư ví của bạn đã được cập nhật
-                            </div>
-
-                            {/* Amount box */}
-                            <div className="anim-3" style={{
-                                background: "rgba(34,197,94,.07)",
-                                border: "1px solid rgba(34,197,94,.18)",
-                                borderRadius: 18,
-                                padding: "22px 20px 18px",
-                                marginBottom: 28,
-                            }}>
-                                <div style={{
-                                    fontSize: 10.5, fontWeight: 700,
-                                    color: "rgba(74,222,128,.65)",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "1.8px",
-                                    marginBottom: 10,
-                                }}>
-                                    Số tiền đã nạp
-                                </div>
-                                <div className="anim-amount shimmer-text" style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-1.5px", lineHeight: 1 }}>
-                                    {fmtVND(amount)}
-                                </div>
-                                {txRef && (
                                     <div style={{
-                                        marginTop: 14,
-                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                                        padding: "7px 12px",
-                                        background: "rgba(255,255,255,.04)",
-                                        borderRadius: 8,
-                                        border: "1px solid rgba(255,255,255,.06)",
+                                        position: "absolute", inset: 0,
+                                        display: "flex", alignItems: "center", justifyContent: "center",
                                     }}>
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(74,222,128,.5)" strokeWidth="2.5">
-                                            <rect x="5" y="2" width="14" height="20" rx="2"/>
-                                            <path d="M9 7h6M9 11h6M9 15h4"/>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round">
+                                            <rect x="2" y="5" width="20" height="14" rx="3"/>
+                                            <path d="M16 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0"/>
                                         </svg>
-                                        <span style={{
-                                            fontFamily: "'JetBrains Mono', monospace",
-                                            fontSize: 10.5,
-                                            color: "rgba(255,255,255,.28)",
-                                            letterSpacing: "0.3px",
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+                                    Đang xác nhận giao dịch
+                                </div>
+                                <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 24 }}>
+                                    Vui lòng không đóng trang này...
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "center", gap: 5, alignItems: "flex-end", height: 20 }}>
+                                    {[0,1,2].map(i => (
+                                        <div key={i} className={`db${i+1}`} style={{
+                                            width: 5, height: 18, borderRadius: 3,
+                                            background: "linear-gradient(180deg, #2563eb, #6366f1)",
+                                        }}/>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ════ SUCCESS ════ */}
+                        {status === "success" && (
+                            <>
+                                {/* ── Icon ── */}
+                                <div style={{ textAlign: "center", marginBottom: 28 }}>
+                                    <div className="icon-entry" style={{
+                                        position: "relative",
+                                        width: 88, height: 88,
+                                        margin: "0 auto",
+                                    }}>
+                                        {/* Rings */}
+                                        <div className="ring-expand" style={{
+                                            position: "absolute", inset: 0,
+                                            borderRadius: "50%",
+                                            border: "2px solid #2563eb",
+                                            opacity: 0,
+                                        }}/>
+                                        <div className="ring-expand2" style={{
+                                            position: "absolute", inset: 0,
+                                            borderRadius: "50%",
+                                            border: "2px solid #6366f1",
+                                            opacity: 0,
+                                        }}/>
+                                        {/* Circle */}
+                                        <div style={{
+                                            width: "100%", height: "100%",
+                                            borderRadius: "50%",
+                                            background: "linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #6366f1 100%)",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            boxShadow: "0 8px 32px rgba(79,70,229,.35), 0 0 0 10px rgba(79,70,229,.08)",
                                         }}>
+                                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                                                <path
+                                                    className="check-line"
+                                                    d="M9 20L16.5 27.5L31 12"
+                                                    stroke="white" strokeWidth="3.2"
+                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ── Heading ── */}
+                                <div className="a1" style={{ textAlign: "center", marginBottom: 28 }}>
+                                    <h1 style={{
+                                        fontSize: 22, fontWeight: 800,
+                                        color: "#0f172a", marginBottom: 6,
+                                        letterSpacing: "-0.4px",
+                                    }}>
+                                        Thanh toán thành công
+                                    </h1>
+                                    <p style={{ fontSize: 13.5, color: "#64748b" }}>
+                                        Số dư ví của bạn đã được cập nhật
+                                    </p>
+                                </div>
+
+                                {/* ── Amount card ── */}
+                                <div className="a2" style={{
+                                    background: "linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%)",
+                                    border: "1.5px solid #c7d2fe",
+                                    borderRadius: 16,
+                                    padding: "20px 22px",
+                                    marginBottom: 20,
+                                    position: "relative",
+                                    overflow: "hidden",
+                                }}>
+                                    {/* Decorative corner */}
+                                    <div style={{
+                                        position: "absolute", top: -20, right: -20,
+                                        width: 80, height: 80, borderRadius: "50%",
+                                        background: "rgba(99,102,241,.07)",
+                                    }}/>
+                                    <div style={{
+                                        fontSize: 10.5, fontWeight: 700,
+                                        color: "#6366f1",
+                                        textTransform: "uppercase",
+                                        letterSpacing: "1.5px",
+                                        marginBottom: 8,
+                                        display: "flex", alignItems: "center", gap: 6,
+                                    }}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round">
+                                            <rect x="2" y="5" width="20" height="14" rx="3"/>
+                                            <path d="M16 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0"/>
+                                        </svg>
+                                        Số tiền đã nạp
+                                    </div>
+                                    <div className="a-amt amount-glow" style={{
+                                        fontSize: 36, fontWeight: 800,
+                                        letterSpacing: "-1.5px", lineHeight: 1.1,
+                                        marginBottom: 12,
+                                    }}>
+                                        {fmtVND(amount)}
+                                    </div>
+                                    {/* Progress bar */}
+                                    <div style={{
+                                        height: 3, background: "rgba(99,102,241,.15)",
+                                        borderRadius: 99, overflow: "hidden", marginBottom: 12,
+                                    }}>
+                                        <div className="bar-fill" style={{
+                                            height: "100%",
+                                            background: "linear-gradient(90deg, #2563eb, #6366f1)",
+                                            borderRadius: 99,
+                                        }}/>
+                                    </div>
+                                    {/* TxRef */}
+                                    {txRef && (
+                                        <div style={{
+                                            display: "flex", alignItems: "center", gap: 6,
+                                            padding: "6px 10px",
+                                            background: "rgba(255,255,255,.7)",
+                                            borderRadius: 8,
+                                            border: "1px solid rgba(99,102,241,.15)",
+                                            width: "fit-content",
+                                        }}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round">
+                                                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                                                <path d="M9 7h6M9 11h6M9 15h4"/>
+                                            </svg>
+                                            <span style={{
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                                fontSize: 10, color: "#94a3b8",
+                                                letterSpacing: "0.3px",
+                                            }}>
                                             {txRef}
                                         </span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Divider */}
-                            <div className="anim-4" style={{
-                                height: 1,
-                                background: "linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent)",
-                                marginBottom: 24,
-                            }}/>
-
-                            {/* Buttons */}
-                            <div className="anim-5" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                <button
-                                    className="btn-primary"
-                                    onClick={() => navigate("/buyer", { state: { tab: "wallet" } })}
-                                    style={{
-                                        width: "100%", padding: "14px 20px",
-                                        background: "linear-gradient(135deg, #16a34a, #22c55e)",
-                                        border: "none", borderRadius: 14,
-                                        color: "white", fontFamily: "'Sora', sans-serif",
-                                        fontSize: 14, fontWeight: 700, cursor: "pointer",
-                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                                        boxShadow: "0 4px 20px rgba(34,197,94,.25)",
-                                        letterSpacing: "-0.2px",
-                                    }}
-                                >
-                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="2" y="5" width="20" height="14" rx="3"/>
-                                        <path d="M16 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0"/>
-                                    </svg>
-                                    Xem ví của tôi
-                                </button>
-                                <button
-                                    className="btn-ghost"
-                                    onClick={() => navigate("/buyer")}
-                                    style={{
-                                        width: "100%", padding: "13px 20px",
-                                        background: "rgba(255,255,255,.05)",
-                                        border: "1px solid rgba(255,255,255,.09)",
-                                        borderRadius: 14,
-                                        color: "rgba(255,255,255,.5)",
-                                        fontFamily: "'Sora', sans-serif",
-                                        fontSize: 13.5, fontWeight: 600, cursor: "pointer",
-                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                                    }}
-                                >
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                                        <polyline points="9 22 9 12 15 12 15 22"/>
-                                    </svg>
-                                    Về trang chủ
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-                    {/* ════ FAILED ════ */}
-                    {status === "failed" && (
-                        <>
-                            {/* Icon */}
-                            <div className="anim-icon" style={{ position: "relative", width: 96, height: 96, margin: "0 auto 30px" }}>
-                                <div className="ring-pulse" style={{
-                                    position: "absolute", inset: -6, borderRadius: "50%",
-                                    border: "2px solid rgba(239,68,68,.6)",
-                                }}/>
-                                <div className="ring-pulse-delay" style={{
-                                    position: "absolute", inset: -6, borderRadius: "50%",
-                                    border: "2px solid rgba(239,68,68,.4)",
-                                }}/>
-                                <div style={{
-                                    width: "100%", height: "100%", borderRadius: "50%",
-                                    background: "linear-gradient(145deg, #b91c1c, #ef4444)",
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    boxShadow: "0 0 0 8px rgba(239,68,68,.12), 0 0 40px rgba(239,68,68,.3)",
-                                }}>
-                                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                                        <path d="M10 10L26 26M26 10L10 26" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                                    </svg>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
 
-                            <div className="anim-1" style={{ fontSize: 24, fontWeight: 800, color: "#f8fafc", letterSpacing: "-0.5px", marginBottom: 6 }}>
-                                Thanh toán thất bại
-                            </div>
+                                {/* ── Info row ── */}
+                                <div className="a3" style={{
+                                    display: "grid", gridTemplateColumns: "1fr 1fr",
+                                    gap: 10, marginBottom: 24,
+                                }}>
+                                    {[
+                                        { label: "Trạng thái", value: "Thành công", color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
+                                        { label: "Phương thức", value: "VNPay", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+                                    ].map(item => (
+                                        <div key={item.label} style={{
+                                            padding: "12px 14px",
+                                            background: item.bg,
+                                            border: `1px solid ${item.border}`,
+                                            borderRadius: 12,
+                                        }}>
+                                            <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.8px" }}>
+                                                {item.label}
+                                            </div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: item.color }}>
+                                                {item.value}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
 
-                            {/* Error box */}
-                            <div className="anim-2" style={{
-                                background: "rgba(239,68,68,.07)",
-                                border: "1px solid rgba(239,68,68,.18)",
-                                borderRadius: 14, padding: "14px 18px",
-                                marginBottom: 28,
-                                fontSize: 13.5, color: "rgba(255,255,255,.5)", lineHeight: 1.6,
-                                display: "flex", alignItems: "flex-start", gap: 10, textAlign: "left",
-                            }}>
-                                <svg style={{ flexShrink: 0, marginTop: 2 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(239,68,68,.7)" strokeWidth="2.5" strokeLinecap="round">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="12" y1="8" x2="12" y2="12"/>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                                </svg>
-                                {message || "Giao dịch không thành công. Vui lòng kiểm tra lại và thử lại."}
-                            </div>
+                                {/* ── Divider ── */}
+                                <div className="a4" style={{
+                                    height: 1, background: "#f1f5f9",
+                                    marginBottom: 20,
+                                }}/>
 
-                            <div className="anim-3" style={{
-                                height: 1,
-                                background: "linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent)",
-                                marginBottom: 24,
-                            }}/>
+                                {/* ── Buttons ── */}
+                                <div className="a5" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <button
+                                        className="btn-blue"
+                                        onClick={() => navigate("/buyer", { state: { tab: "wallet" } })}
+                                        style={{
+                                            width: "100%", padding: "13px 20px",
+                                            border: "none", borderRadius: 13,
+                                            color: "white",
+                                            fontFamily: "'DM Sans', sans-serif",
+                                            fontSize: 14, fontWeight: 700, cursor: "pointer",
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="2" y="5" width="20" height="14" rx="3"/>
+                                            <path d="M16 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0"/>
+                                        </svg>
+                                        Xem ví của tôi
+                                    </button>
+                                    <button
+                                        className="btn-outline"
+                                        onClick={() => navigate("/buyer")}
+                                        style={{
+                                            width: "100%", padding: "12px 20px",
+                                            borderRadius: 13,
+                                            fontFamily: "'DM Sans', sans-serif",
+                                            fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                                        }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                            <polyline points="9 22 9 12 15 12 15 22"/>
+                                        </svg>
+                                        Về trang chủ
+                                    </button>
+                                </div>
+                            </>
+                        )}
 
-                            <div className="anim-4" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                <button
-                                    className="btn-primary btn-primary-red"
-                                    onClick={() => navigate("/buyer", { state: { tab: "wallet" } })}
-                                    style={{
-                                        width: "100%", padding: "14px 20px",
-                                        background: "linear-gradient(135deg, #b91c1c, #ef4444)",
-                                        border: "none", borderRadius: 14,
-                                        color: "white", fontFamily: "'Sora', sans-serif",
-                                        fontSize: 14, fontWeight: 700, cursor: "pointer",
-                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                                        boxShadow: "0 4px 20px rgba(239,68,68,.25)",
-                                        transition: "all .2s",
-                                    }}
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="1 4 1 10 7 10"/>
-                                        <path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
-                                    </svg>
-                                    Thử lại
-                                </button>
-                                <button
-                                    className="btn-ghost"
-                                    onClick={() => navigate("/buyer")}
-                                    style={{
-                                        width: "100%", padding: "13px 20px",
-                                        background: "rgba(255,255,255,.05)",
-                                        border: "1px solid rgba(255,255,255,.09)",
-                                        borderRadius: 14,
-                                        color: "rgba(255,255,255,.5)",
-                                        fontFamily: "'Sora', sans-serif",
-                                        fontSize: 13.5, fontWeight: 600, cursor: "pointer",
-                                        display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                                    }}
-                                >
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                                        <polyline points="9 22 9 12 15 12 15 22"/>
-                                    </svg>
-                                    Về trang chủ
-                                </button>
-                            </div>
-                        </>
-                    )}
+                        {/* ════ FAILED ════ */}
+                        {status === "failed" && (
+                            <>
+                                {/* ── Icon ── */}
+                                <div style={{ textAlign: "center", marginBottom: 28 }}>
+                                    <div className="icon-entry" style={{
+                                        position: "relative", width: 88, height: 88, margin: "0 auto",
+                                    }}>
+                                        <div className="ring-expand" style={{
+                                            position: "absolute", inset: 0, borderRadius: "50%",
+                                            border: "2px solid #ef4444", opacity: 0,
+                                        }}/>
+                                        <div className="ring-expand2" style={{
+                                            position: "absolute", inset: 0, borderRadius: "50%",
+                                            border: "2px solid #f87171", opacity: 0,
+                                        }}/>
+                                        <div style={{
+                                            width: "100%", height: "100%", borderRadius: "50%",
+                                            background: "linear-gradient(135deg, #dc2626, #f87171)",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            boxShadow: "0 8px 32px rgba(220,38,38,.3), 0 0 0 10px rgba(220,38,38,.08)",
+                                        }}>
+                                            <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+                                                <path d="M9 9L25 25M25 9L9 25" stroke="white" strokeWidth="3.2" strokeLinecap="round"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="a1" style={{ textAlign: "center", marginBottom: 20 }}>
+                                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 6, letterSpacing: "-0.4px" }}>
+                                        Thanh toán thất bại
+                                    </h1>
+                                </div>
+
+                                {/* Error box */}
+                                <div className="a2" style={{
+                                    background: "#fff1f2",
+                                    border: "1.5px solid #fecdd3",
+                                    borderRadius: 14,
+                                    padding: "14px 16px",
+                                    marginBottom: 20,
+                                    display: "flex", alignItems: "flex-start", gap: 10,
+                                    textAlign: "left",
+                                }}>
+                                    <div style={{
+                                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                                        background: "#fee2e2",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                    }}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="12"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                            Lỗi giao dịch
+                                        </div>
+                                        <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.55 }}>
+                                            {message || "Giao dịch không thành công. Vui lòng thử lại."}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="a3" style={{
+                                    display: "grid", gridTemplateColumns: "1fr 1fr",
+                                    gap: 10, marginBottom: 24,
+                                }}>
+                                    {[
+                                        { label: "Trạng thái", value: "Thất bại", color: "#dc2626", bg: "#fff1f2", border: "#fecdd3" },
+                                        { label: "Phương thức", value: "VNPay", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+                                    ].map(item => (
+                                        <div key={item.label} style={{
+                                            padding: "12px 14px",
+                                            background: item.bg,
+                                            border: `1px solid ${item.border}`,
+                                            borderRadius: 12,
+                                        }}>
+                                            <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.8px" }}>
+                                                {item.label}
+                                            </div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: item.color }}>
+                                                {item.value}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="a4" style={{ height: 1, background: "#f1f5f9", marginBottom: 20 }}/>
+
+                                <div className="a5" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <button
+                                        className="btn-red"
+                                        onClick={() => navigate("/buyer", { state: { tab: "wallet" } })}
+                                        style={{
+                                            width: "100%", padding: "13px 20px",
+                                            border: "none", borderRadius: 13,
+                                            color: "white",
+                                            fontFamily: "'DM Sans', sans-serif",
+                                            fontSize: 14, fontWeight: 700, cursor: "pointer",
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                                        }}
+                                    >
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="1 4 1 10 7 10"/>
+                                            <path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
+                                        </svg>
+                                        Thử lại
+                                    </button>
+                                    <button
+                                        className="btn-outline"
+                                        onClick={() => navigate("/buyer")}
+                                        style={{
+                                            width: "100%", padding: "12px 20px",
+                                            borderRadius: 13,
+                                            fontFamily: "'DM Sans', sans-serif",
+                                            fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+                                            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                                        }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                            <polyline points="9 22 9 12 15 12 15 22"/>
+                                        </svg>
+                                        Về trang chủ
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                    </div>{/* end padding wrapper */}
+
+                    {/* ── Footer strip ── */}
+                    <div style={{
+                        padding: "12px 36px",
+                        borderTop: "1px solid #f1f5f9",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                        <span style={{ fontSize: 11.5, color: "#94a3b8" }}>
+                            Giao dịch được bảo mật bởi <strong style={{ color: "#6366f1" }}>BikeExchange</strong>
+                        </span>
+                    </div>
                 </div>
             </div>
         </>
