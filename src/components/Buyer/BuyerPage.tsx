@@ -24,21 +24,21 @@ interface Category {
 }
 interface FilterState { keyword: string; category_id: string; }
 interface BrowseFilterState {
-    keyword:        string;   // → keyword
-    category_id:    string;   // → category_id (Long)
-    status:         string;   // → status comma-separated: "ACTIVE" | "ACTIVE,RESERVED" | ""=all
-    price_min:      string;   // → price_min (Long)
-    price_max:      string;   // → price_max (Long)
-    brand_id:       string;   // → brand_id (Long)
-    min_year:       string;   // → min_year (Integer)
-    frame_size:     string;   // → frame_size
-    sort_by_rating: boolean;  // → sort_by_rating
-    verifiedOnly:   boolean;  // FE-only: nếu true → status="ACTIVE" + inspectionStatus check FE-side
+    keyword:        string;
+    category_ids:   string[];  // multi-select — BE chỉ nhận 1 id, nhiều hơn 1 → filter FE-side
+    status:         string;
+    price_min:      string;
+    price_max:      string;
+    brand_id:       string;
+    min_year:       string;
+    frame_size:     string;
+    sort_by_rating: boolean;
+    verifiedOnly:   boolean;
 }
 
 const DEFAULT_FILTERS: FilterState = { keyword: "", category_id: "" };
 const DEFAULT_BROWSE: BrowseFilterState = {
-    keyword: "", category_id: "", status: "",   // "" = không filter status → BE trả tất cả
+    keyword: "", category_ids: [], status: "",
     price_min: "", price_max: "", brand_id: "", min_year: "",
     frame_size: "", sort_by_rating: false, verifiedOnly: false,
 };
@@ -135,13 +135,16 @@ export default function BuyerPage() {
     const fetchBrowse = useCallback(async () => {
         setBrowseLoading(true);
         try {
-            // Không filter status mặc định → hiển thị tất cả xe (ACTIVE, VERIFIED, RESERVED...)
-            // Chỉ khi verifiedOnly=true mới không gửi status (đã là undefined) để lấy tất cả rồi filter FE-side
-            const statusParam = browseFilters.status || undefined; // "" → undefined → BE trả tất cả
+            const statusParam = browseFilters.status || undefined;
+            const ids = browseFilters.category_ids;
+
+            // Nếu chọn đúng 1 category → gửi lên BE (tối ưu)
+            // Nếu chọn nhiều category (hoặc 0) → không gửi category_id, filter FE-side
+            const categoryParam = ids.length === 1 ? ids[0] : undefined;
 
             const raw = await getBuyerListAPI({
-                keyword:        browseFilters.keyword      || undefined,
-                category_id:    browseFilters.category_id || undefined,
+                keyword:        browseFilters.keyword     || undefined,
+                category_id:    categoryParam,
                 status:         statusParam,
                 price_min:      browseFilters.price_min   ? Number(browseFilters.price_min)  : undefined,
                 price_max:      browseFilters.price_max   ? Number(browseFilters.price_max)  : undefined,
@@ -149,24 +152,42 @@ export default function BuyerPage() {
                 min_year:       browseFilters.min_year    ? Number(browseFilters.min_year)   : undefined,
                 frame_size:     browseFilters.frame_size  || undefined,
                 sort_by_rating: browseFilters.sort_by_rating,
-                size: 200,   // tăng size để không miss xe khi filter FE-side
+                size: 200,
                 page: 0,
             });
 
-            // verifiedOnly — BE không có inspectionStatus filter param → filter FE-side
-            const content = browseFilters.verifiedOnly
-                ? (raw.content ?? []).filter((b: BikeItem) => b.inspectionStatus === "APPROVED")
-                : (raw.content ?? []);
+            let content: BikeItem[] = raw.content ?? [];
+
+            // Multi-category filter FE-side khi chọn 2+ categories
+            // BikeItem không có categories array → dùng bikeType để match category name
+            if (ids.length > 1) {
+                // Lấy tên các category đã chọn (lowercase để so sánh không phân biệt hoa thường)
+                const selectedNames = ids.map(id => {
+                    const cat = categories.find(c => String(c.id) === id);
+                    return cat?.name?.toLowerCase() ?? "";
+                }).filter(Boolean);
+
+                content = content.filter(b => {
+                    const bt = (b.bikeType ?? "").toLowerCase();
+                    // Match nếu bikeType chứa tên category (vd: "ROAD" match "Road", "MTB" match "Mountain")
+                    return selectedNames.some(name => bt.includes(name) || name.includes(bt));
+                });
+            }
+
+            // verifiedOnly filter FE-side
+            if (browseFilters.verifiedOnly) {
+                content = content.filter(b => b.inspectionStatus === "APPROVED");
+            }
 
             setBrowseResults(content);
-            setBrowseTotal(browseFilters.verifiedOnly ? content.length : (raw.totalElements ?? content.length));
+            setBrowseTotal(content.length);
         } catch (e) {
             console.error("fetchBrowse error:", e);
             setBrowseResults([]);
         } finally {
             setBrowseLoading(false);
         }
-    }, [browseFilters]);
+    }, [browseFilters, categories]);
 
     useEffect(() => { void fetchBrowse(); }, [fetchBrowse]);
 
@@ -596,30 +617,56 @@ export default function BuyerPage() {
                                     </div>
                                 </div>
 
-                                {/* Type / Category — maps to category_id (Long) từ GET /categories */}
+                                {/* Type / Category — multi-select, BE nhận 1 id, nhiều hơn filter FE-side */}
                                 <div style={{ marginBottom: 20 }}>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Type</div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                        {[{ id: "", name: "Tất cả", imgUrl: null, description: null, createdAt: null }, ...categories.map(c => ({ ...c, id: String(c.id) }))].map(c => {
-                                            const active = browseFilters.category_id === String(c.id);
-                                            // Bỏ qua imgUrl nếu là domain fake (cdn.example.com) hoặc không có
-                                            const isRealUrl = c.imgUrl && !c.imgUrl.includes("cdn.example.com") && !c.imgUrl.includes("example.com");
+                                        {/* "Tất cả" — clear selection */}
+                                        <button
+                                            onClick={() => setBrowseFilters(p => ({ ...p, category_ids: [] }))}
+                                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: browseFilters.category_ids.length === 0 ? "#eff6ff" : "transparent", color: browseFilters.category_ids.length === 0 ? "#2563eb" : "#374151", fontWeight: browseFilters.category_ids.length === 0 ? 700 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
+                                            <div style={{ width: 7, height: 7, borderRadius: "50%", border: `2px solid ${browseFilters.category_ids.length === 0 ? "#2563eb" : "#cbd5e1"}`, background: browseFilters.category_ids.length === 0 ? "#2563eb" : "transparent", flexShrink: 0, marginLeft: 2 }}/>
+                                            <span style={{ flex: 1 }}>Tất cả</span>
+                                            {browseFilters.category_ids.length === 0 && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                        </button>
+
+                                        {/* Từng category — checkbox multi-select */}
+                                        {categories.map(c => {
+                                            const cid = String(c.id);
+                                            const checked = browseFilters.category_ids.includes(cid);
+                                            const isRealUrl = c.imgUrl && !c.imgUrl.includes("example.com");
                                             return (
-                                                <button key={String(c.id)}
-                                                        onClick={() => setBrowseFilters(p => ({ ...p, category_id: p.category_id === String(c.id) ? "" : String(c.id) }))}
-                                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: active ? "#eff6ff" : "transparent", color: active ? "#2563eb" : "#374151", fontWeight: active ? 700 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
-                                                    {isRealUrl ? (
-                                                        <img src={c.imgUrl!} alt={c.name} style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover", flexShrink: 0, border: "1px solid #e2e8f0" }}
+                                                <button key={cid}
+                                                        onClick={() => setBrowseFilters(p => ({
+                                                            ...p,
+                                                            category_ids: p.category_ids.includes(cid)
+                                                                ? p.category_ids.filter(x => x !== cid)   // bỏ chọn
+                                                                : [...p.category_ids, cid],                // thêm vào
+                                                        }))}
+                                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: checked ? "#eff6ff" : "transparent", color: checked ? "#2563eb" : "#374151", fontWeight: checked ? 600 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
+                                                    {/* Checkbox */}
+                                                    <div style={{ width: 15, height: 15, borderRadius: 4, border: `2px solid ${checked ? "#2563eb" : "#cbd5e1"}`, background: checked ? "#2563eb" : "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                                        {checked && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                    </div>
+                                                    {isRealUrl && (
+                                                        <img src={c.imgUrl!} alt={c.name} style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover", flexShrink: 0 }}
                                                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}/>
-                                                    ) : (
-                                                        <div style={{ width: 7, height: 7, borderRadius: "50%", border: `2px solid ${active ? "#2563eb" : "#cbd5e1"}`, background: active ? "#2563eb" : "transparent", flexShrink: 0, marginLeft: 2 }}/>
                                                     )}
                                                     <span style={{ flex: 1 }}>{c.name}</span>
-                                                    {active && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
                                                 </button>
                                             );
                                         })}
                                     </div>
+                                    {/* Badge số category đang chọn */}
+                                    {browseFilters.category_ids.length > 0 && (
+                                        <div style={{ marginTop: 6, fontSize: 11, color: "#2563eb", fontWeight: 600 }}>
+                                            {browseFilters.category_ids.length} loại đang chọn
+                                            <button onClick={() => setBrowseFilters(p => ({ ...p, category_ids: [] }))}
+                                                    style={{ marginLeft: 6, background: "none", border: "none", color: "#94a3b8", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                                                (xóa)
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Price Range — maps to price_min / price_max */}
