@@ -1,78 +1,53 @@
 import { BASE_URL } from "../config/apiConfig";
 
-export async function listCategoriesAPI({ page = 0, size = 20 } = {}) {
-  const params = new URLSearchParams();
-  params.append("page", page);
-  params.append("size", size);
-
-  const res = await fetch(`${BASE_URL}/categories?${params.toString()}`);
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy danh sách danh mục thất bại.");
-  }
-  return data.data ?? data;
+function authHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
-export async function createCategoryAPI(payload, token) {
+async function parseError(res, fallback) {
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 403) throw new Error("Truy cập bị từ chối (403 Access Denied).");
+  throw new Error(data.message || fallback);
+}
+
+export async function getCategoriesAPI({ page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams({ page, size });
+  const res = await fetch(`${BASE_URL}/categories?${params}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) await parseError(res, "Không thể tải danh sách danh mục.");
+  return res.json();
+}
+
+export async function createCategoryAPI(payload) {
   const res = await fetch(`${BASE_URL}/categories`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Tạo danh mục thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok) await parseError(res, "Tạo danh mục thất bại.");
+  return res.json();
 }
 
-export async function updateCategoryAPI(id, payload, token) {
+export async function updateCategoryAPI(id, payload) {
   const res = await fetch(`${BASE_URL}/categories/${id}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Cập nhật danh mục thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok) await parseError(res, "Cập nhật danh mục thất bại.");
+  return res.json();
 }
 
-export async function deleteCategoryAPI(id, token) {
+export async function deleteCategoryAPI(id) {
   const res = await fetch(`${BASE_URL}/categories/${id}`, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { accept: "*/*" },
   });
-  if (res.status === 404) {
-    throw new Error("Danh mục không tồn tại.");
-  }
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Xoá danh mục thất bại.");
-  }
-  return data;
+  if (!res.ok) await parseError(res, "Xóa danh mục thất bại.");
+  return true;
 }
-
-export async function listBikesByCategoryAPI(id, { page = 0, size = 20 } = {}) {
-  const params = new URLSearchParams();
-  params.append("page", page);
-  params.append("size", size);
-
-  const res = await fetch(`${BASE_URL}/categories/${id}/bikes?${params.toString()}`);
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy danh sách xe theo danh mục thất bại.");
-  }
-  return data.data ?? data;
-}
-
