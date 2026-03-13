@@ -55,8 +55,8 @@ export default function ManagerPayment() {
           { label: "Doanh thu", value: fmt(totalSuccess), icon: Banknote },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-2xl bg-white border border-gray-200 p-4 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
-              <Icon size={20} className="text-gray-700" />
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+              <Icon size={20} className="text-blue-700" />
             </span>
             <div>
               <div className="text-lg font-bold text-gray-900 leading-tight">{value}</div>
@@ -104,7 +104,7 @@ export default function ManagerPayment() {
           </thead>
           <tbody>
             {filtered.map((payment) => (
-              <tr key={payment.id} className="border-b border-gray-50 hover:bg-gray-50">
+              <tr key={payment.id} className="border-b border-gray-50 hover:bg-blue-50">
                 <td className="px-5 py-3 font-mono text-xs text-gray-500">{payment.id}</td>
                 <td className="px-5 py-3 font-medium text-gray-900">{payment.customer}</td>
                 <td className="px-5 py-3 text-right font-semibold text-gray-900">{fmt(payment.amount)}</td>

@@ -10,6 +10,9 @@ import {
   BarChart2,
   ShoppingCart,
   ClipboardCheck,
+  UserCog,
+  Tag,
+  Cpu,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -24,7 +27,7 @@ const IconWrap = ({ icon: Icon, active }) => (
   <span
     className={clsx(
       "inline-flex h-9 w-9 items-center justify-center rounded-lg",
-      active ? "bg-white/20" : "bg-gray-100",
+      active ? "bg-white/20" : "bg-blue-50",
     )}
   >
     <Icon size={18} className={active ? "text-white" : "text-gray-700"} />
@@ -52,6 +55,10 @@ export default function AdminSidebar({
       { to: "/admin/inspectors", label: "Quản Lý Kiểm Định Viên", key: "inspectors", icon: ClipboardCheck },
       { to: "/admin/payments", label: "Quản Lý Thanh Toán", key: "payments", icon: CreditCard },
       { to: "/admin/reports", label: "Quản Lý Báo Cáo", key: "reports", icon: BarChart2 },
+      { to: "/admin/users", label: "Quản Lý Người Dùng", key: "users", icon: UserCog },
+      { to: "/admin/categories", label: "Quản Lý Danh Mục", key: "categories", icon: Tag },
+      { to: "/admin/brands", label: "Quản Lý Thương Hiệu", key: "brands", icon: Tag },
+      { to: "/admin/components", label: "Quản Lý Linh Kiện", key: "components", icon: Cpu },
     ],
     [],
   );
@@ -74,7 +81,7 @@ export default function AdminSidebar({
     >
       {/* Header */}
       <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-gray-900 text-white flex items-center justify-center font-bold shrink-0">
+        <div className="h-10 w-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold shrink-0">
           BX
         </div>
 
@@ -90,7 +97,7 @@ export default function AdminSidebar({
         <button
           onClick={onToggleCollapsed}
           className={clsx(
-            "ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50",
+            "ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50",
             "h-9 w-9 shrink-0",
           )}
           title={collapsed ? "Mở rộng" : "Thu gọn"}
@@ -103,7 +110,7 @@ export default function AdminSidebar({
 
         <button
           onClick={onClose}
-          className="ml-auto md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 h-9 w-9 shrink-0"
+          className="ml-auto md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
           type="button"
           aria-label="Close sidebar"
         >
@@ -127,8 +134,8 @@ export default function AdminSidebar({
                       )
                     }
                     className={clsx(
-                      "w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-800",
-                      opened ? "bg-gray-50" : "",
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-blue-50 text-gray-800",
+                      opened ? "bg-blue-50" : "",
                     )}
                     title={item.label}
                   >
@@ -160,8 +167,8 @@ export default function AdminSidebar({
                             clsx(
                               "flex items-center gap-3 px-3 py-2 rounded-xl text-sm",
                               isActive
-                                ? "bg-gray-900 text-white"
-                                : "text-gray-700 hover:bg-gray-50",
+                                ? "bg-blue-700 text-white"
+                                : "text-gray-700 hover:bg-blue-50",
                             )
                           }
                         >
@@ -184,8 +191,8 @@ export default function AdminSidebar({
                   clsx(
                     "flex items-center gap-3 px-3 py-2 rounded-xl",
                     isActive
-                      ? "bg-gray-900 text-white"
-                      : "text-gray-800 hover:bg-gray-50",
+                      ? "bg-blue-700 text-white"
+                      : "text-gray-800 hover:bg-blue-50",
                   )
                 }
                 title={item.label}
@@ -209,11 +216,11 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-800"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:bg-blue-50 text-gray-800"
           title="Đăng xuất"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100">
-            <LogOut size={18} className="text-gray-700" />
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+            <LogOut size={18} className="text-blue-700" />
           </span>
           {!collapsed && <span className="font-medium text-sm">Đăng xuất</span>}
         </button>
