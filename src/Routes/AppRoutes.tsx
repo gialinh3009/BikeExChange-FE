@@ -11,12 +11,13 @@ import ManagerBuyer from "../components/Admin/Manager/ManagerBuyer.tsx";
 import ManagerInspector from "../components/Admin/Manager/ManagerInspector.tsx";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
-import VerifyEmail from "../components/home/VerifyEmail";  // ← THÊM
+import VerifyEmail from "../components/home/VerifyEmail";
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
 import BuyerPage from "../components/Buyer/BuyerPage.tsx";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess.tsx";
 import ProfilePage from "../components/Buyer/Profilepage.tsx";
+import BikedetailPage from "../components/Buyer/BikedetailPage.tsx";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -43,10 +44,13 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
     return (
         <Routes>
             {/* Public */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/verify" element={<VerifyEmail />} />  {/* ← THÊM */}
+            <Route path="/login"           element={<Login />} />
+            <Route path="/register"        element={<Register />} />
+            <Route path="/verify"          element={<VerifyEmail />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
+
+            {/* Bike detail — PUBLIC, không cần đăng nhập */}
+            <Route path="/bikes/:id" element={<BikedetailPage />} />
 
             {/* Root: redirect theo role */}
             <Route
@@ -60,14 +64,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route element={<PrivateRoute roles={["ADMIN"]} />}>
                 <Route path="/admin" element={<AdminLayout user={user} onLogout={onLogout} />}>
                     <Route index element={<AdminDashboard />} />
-                    <Route path="posts" element={<ManagerPosts />} />
-                    <Route path="staff" element={<ManagerStaff />} />
-                    <Route path="inventory" element={<ManagerInventory />} />
-                    <Route path="customers" element={<ManagerCustomer />} />
-                    <Route path="buyers" element={<ManagerBuyer />} />
+                    <Route path="posts"      element={<ManagerPosts />} />
+                    <Route path="staff"      element={<ManagerStaff />} />
+                    <Route path="inventory"  element={<ManagerInventory />} />
+                    <Route path="customers"  element={<ManagerCustomer />} />
+                    <Route path="buyers"     element={<ManagerBuyer />} />
                     <Route path="inspectors" element={<ManagerInspector />} />
-                    <Route path="payments" element={<ManagerPayment />} />
-                    <Route path="reports" element={<ManagerReport />} />
+                    <Route path="payments"   element={<ManagerPayment />} />
+                    <Route path="reports"    element={<ManagerReport />} />
                 </Route>
             </Route>
 
@@ -83,7 +87,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
 
             {/* Buyer dashboard — cho cả BUYER và SELLER */}
             <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
-                <Route path="/buyer" element={<BuyerPage />} />
+                <Route path="/buyer"   element={<BuyerPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
