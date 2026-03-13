@@ -18,7 +18,10 @@ import BuyerPage from "../components/Buyer/BuyerPage.tsx";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess.tsx";
 import ProfilePage from "../components/Buyer/Profilepage.tsx";
 import BikedetailPage from "../components/Buyer/BikedetailPage.tsx";
+<<<<<<< HEAD
 import OrderDetailPage from "../components/Buyer/OrderDetailPage.tsx";
+=======
+>>>>>>> 51e55274580e87c3dd881ada5e9b6f624dbb8d5e
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
@@ -50,6 +53,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             <Route path="/verify"          element={<VerifyEmail />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
 
+<<<<<<< HEAD
             {/* Bike detail — PUBLIC */}
             <Route path="/bikes/:id" element={<BikedetailPage />} />
 
@@ -58,6 +62,11 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                 <Route path="/orders/:id" element={<OrderDetailPage />} />
             </Route>
 
+=======
+            {/* Bike detail — PUBLIC, không cần đăng nhập */}
+            <Route path="/bikes/:id" element={<BikedetailPage />} />
+
+>>>>>>> 51e55274580e87c3dd881ada5e9b6f624dbb8d5e
             {/* Root: redirect theo role */}
             <Route
                 path="/"
