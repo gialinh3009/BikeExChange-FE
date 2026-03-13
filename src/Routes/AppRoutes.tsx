@@ -18,6 +18,7 @@ import Register from "../components/home/Register";
 import SellerPage from "../components/Seller/SellerPage";
 import InspectorPage from "../components/Inspector/InspectorPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
+import GuestLayout from "../components/home/Layout";
 
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
   const user = (() => {
@@ -61,7 +62,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           user ? (
             <Navigate to={ROLE_ROUTES[user.role] ?? "/login"} replace />
           ) : (
-            <Navigate to="/login" replace />
+            <GuestLayout/>
           )
         }
       />
