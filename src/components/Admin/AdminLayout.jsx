@@ -37,7 +37,7 @@ export default function AdminLayout({ user, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-blue-50/20">
       <div className="flex">
         {/* Sidebar */}
         <AdminSidebar
@@ -52,11 +52,11 @@ export default function AdminLayout({ user, onLogout }) {
         {/* Main */}
         <div className="flex-1 min-w-0">
           {/* Topbar */}
-          <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
+          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-blue-100 shadow-sm">
             <div className="px-4 md:px-6 h-16 flex items-center gap-3">
               <button
                 type="button"
-                className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 hover:bg-gray-50"
+                className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 hover:bg-blue-50"
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open sidebar"
               >
@@ -90,7 +90,7 @@ export default function AdminLayout({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => navigate("/")}
-                  className="hidden sm:inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 hover:bg-gray-50 px-4 text-sm font-medium"
+                  className="hidden sm:inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 hover:bg-blue-50 px-4 text-sm font-medium"
                 >
                   Về trang chủ
                 </button>
@@ -98,7 +98,7 @@ export default function AdminLayout({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 text-white hover:bg-gray-800 px-4 text-sm font-semibold"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-700 text-white hover:bg-blue-800 px-4 text-sm font-semibold"
                 >
                   Logout
                 </button>
