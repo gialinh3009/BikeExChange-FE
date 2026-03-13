@@ -44,8 +44,8 @@ export default function ManagerReport() {
         ].map(({ label, value, icon: Icon, sub }) => (
           <div key={label} className="rounded-2xl bg-white border border-gray-200 p-5">
             <div className="flex items-center gap-3 mb-2">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100">
-                <Icon size={18} className="text-gray-700" />
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100">
+                <Icon size={18} className="text-blue-700" />
               </span>
               <span className="text-xs text-gray-500">{sub}</span>
             </div>
@@ -65,7 +65,7 @@ export default function ManagerReport() {
               <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
                 <div className="text-xs text-gray-500 font-medium">{fmt(m.revenue / 1000000)}M</div>
                 <div
-                  className="w-full rounded-t-lg bg-gray-900 hover:bg-gray-700 transition-all"
+                  className="w-full rounded-t-lg bg-blue-700 hover:bg-blue-600 transition-all"
                   style={{ height: `${pct}%`, minHeight: "4px" }}
                   title={fmt(m.revenue)}
                 />
@@ -93,7 +93,7 @@ export default function ManagerReport() {
             </thead>
             <tbody>
               {MONTHLY.map((m) => (
-                <tr key={m.month} className="border-b border-gray-50 hover:bg-gray-50">
+                <tr key={m.month} className="border-b border-gray-50 hover:bg-blue-50">
                   <td className="px-5 py-3 font-medium text-gray-900">{m.month}</td>
                   <td className="px-5 py-3 text-right text-gray-700">{fmt(m.revenue)}</td>
                   <td className="px-5 py-3 text-right text-gray-700">{m.orders}</td>
@@ -119,7 +119,7 @@ export default function ManagerReport() {
             </thead>
             <tbody>
               {TOP_PRODUCTS.map((p, i) => (
-                <tr key={p.name} className="border-b border-gray-50 hover:bg-gray-50">
+                <tr key={p.name} className="border-b border-gray-50 hover:bg-blue-50">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 font-bold w-4">{i + 1}</span>

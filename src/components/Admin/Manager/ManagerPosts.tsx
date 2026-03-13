@@ -31,7 +31,7 @@ export default function ManagerPosts() {
         </div>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-gray-900 text-white px-4 py-2 text-sm font-semibold hover:bg-gray-800"
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-700 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-800"
         >
           <Plus size={15} /> Thêm bài viết
         </button>
@@ -62,7 +62,7 @@ export default function ManagerPosts() {
           </thead>
           <tbody>
             {filtered.map((post) => (
-              <tr key={post.id} className="border-b border-gray-50 hover:bg-gray-50">
+              <tr key={post.id} className="border-b border-gray-50 hover:bg-blue-50">
                 <td className="px-5 py-3 font-medium text-gray-900">{post.title}</td>
                 <td className="px-5 py-3 text-gray-600">{post.author}</td>
                 <td className="px-5 py-3">
