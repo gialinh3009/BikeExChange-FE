@@ -7,6 +7,7 @@ import UpgradeToSellerModal from "./UpgradeToSellerModal";
 import { getBuyerListAPI } from "../../services/Buyer/BuyerList";
 import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
+import OrdersTab from "./OrdersTab";
 
 interface MediaItem { url: string; type: string; sortOrder: number; }
 interface BikeItem {
@@ -135,17 +136,9 @@ export default function BuyerPage() {
     const fetchBrowse = useCallback(async () => {
         setBrowseLoading(true);
         try {
-            const statusParam = browseFilters.status || undefined;
-            const ids = browseFilters.category_ids;
-
-            // Nếu chọn đúng 1 category → gửi lên BE (tối ưu)
-            // Nếu chọn nhiều category (hoặc 0) → không gửi category_id, filter FE-side
-            const categoryParam = ids.length === 1 ? ids[0] : undefined;
-
-            const raw = await getBuyerListAPI({
+            const baseParams = {
                 keyword:        browseFilters.keyword     || undefined,
-                category_id:    categoryParam,
-                status:         statusParam,
+                status:         browseFilters.status      || undefined,
                 price_min:      browseFilters.price_min   ? Number(browseFilters.price_min)  : undefined,
                 price_max:      browseFilters.price_max   ? Number(browseFilters.price_max)  : undefined,
                 brand_id:       browseFilters.brand_id    ? Number(browseFilters.brand_id)   : undefined,
@@ -154,27 +147,40 @@ export default function BuyerPage() {
                 sort_by_rating: browseFilters.sort_by_rating,
                 size: 200,
                 page: 0,
-            });
+            };
 
-            let content: BikeItem[] = raw.content ?? [];
+            const ids = browseFilters.category_ids;
+            let content: BikeItem[] = [];
 
-            // Multi-category filter FE-side khi chọn 2+ categories
-            // BikeItem không có categories array → dùng bikeType để match category name
-            if (ids.length > 1) {
-                // Lấy tên các category đã chọn (lowercase để so sánh không phân biệt hoa thường)
-                const selectedNames = ids.map(id => {
-                    const cat = categories.find(c => String(c.id) === id);
-                    return cat?.name?.toLowerCase() ?? "";
-                }).filter(Boolean);
+            if (ids.length === 0) {
+                // Không chọn category → lấy tất cả
+                const raw = await getBuyerListAPI(baseParams);
+                content = raw.content ?? [];
 
-                content = content.filter(b => {
-                    const bt = (b.bikeType ?? "").toLowerCase();
-                    // Match nếu bikeType chứa tên category (vd: "ROAD" match "Road", "MTB" match "Mountain")
-                    return selectedNames.some(name => bt.includes(name) || name.includes(bt));
+            } else if (ids.length === 1) {
+                // 1 category → gửi thẳng lên BE (1 request, tối ưu)
+                const raw = await getBuyerListAPI({ ...baseParams, category_id: ids[0] });
+                content = raw.content ?? [];
+
+            } else {
+                // Nhiều category → gọi song song (Promise.all), merge + dedup theo bike.id
+                // BE chỉ nhận 1 category_id nên cần N requests
+                const results = await Promise.all(
+                    ids.map(id =>
+                        getBuyerListAPI({ ...baseParams, category_id: id })
+                            .then(r => r.content ?? [])
+                            .catch(() => [] as BikeItem[])
+                    )
+                );
+                const seen = new Set<number>();
+                content = results.flat().filter(b => {
+                    if (seen.has(b.id)) return false;
+                    seen.add(b.id);
+                    return true;
                 });
             }
 
-            // verifiedOnly filter FE-side
+            // verifiedOnly — BE không có inspectionStatus param → filter FE-side
             if (browseFilters.verifiedOnly) {
                 content = content.filter(b => b.inspectionStatus === "APPROVED");
             }
@@ -187,9 +193,11 @@ export default function BuyerPage() {
         } finally {
             setBrowseLoading(false);
         }
-    }, [browseFilters, categories]);
+    }, [browseFilters]);
 
-    useEffect(() => { void fetchBrowse(); }, [fetchBrowse]);
+    useEffect(() => {
+        if (activeTab === "browse") void fetchBrowse();
+    }, [activeTab, fetchBrowse]);
 
     const navItems = [
         { id: "home",     icon: ShoppingBag, label: "Trang chủ" },
@@ -785,16 +793,8 @@ export default function BuyerPage() {
 
                     {/* ── ORDERS ── */}
                     {activeTab === "orders" && (
-                        <div className="fade-up" style={{
-                            background: "white", borderRadius: 20,
-                            border: "1px solid #e8ecf5",
-                            padding: "60px 24px", textAlign: "center",
-                        }}>
-                            <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                                <Package size={28} color="#cbd5e1" />
-                            </div>
-                            <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Đơn hàng của bạn</h3>
-                            <p style={{ color: "#94a3b8", fontSize: 13 }}>Chưa có đơn hàng nào.</p>
+                        <div className="fade-up">
+                            <OrdersTab token={token} navigate={navigate} />
                         </div>
                     )}
 
