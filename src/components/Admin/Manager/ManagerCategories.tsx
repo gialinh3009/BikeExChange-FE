@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  getCategoriesAPI,
+  listCategoriesAPI as getCategoriesAPI,
   createCategoryAPI,
   updateCategoryAPI,
   deleteCategoryAPI,

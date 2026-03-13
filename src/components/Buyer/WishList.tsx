@@ -50,7 +50,10 @@ export default function WishList({ formatPrice }: WishlistProps) {
         setError("");
         try {
             const data = await getWishlistAPI();
-            setItems(Array.isArray(data) ? data : data.content ?? data.data ?? data.items ?? []);
+            const result = Array.isArray(data) 
+                ? data 
+                : (data as any)?.content ?? (data as any)?.data ?? (data as any)?.items ?? [];
+            setItems(result);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Có lỗi xảy ra";
             setError(message);
