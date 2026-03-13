@@ -16,10 +16,15 @@ import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import SellerPage from "../components/Seller/SellerPage";
-import InspectorPage from "../components/Inspector/InspectorPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import GuestLayout from "../components/home/Layout";
-
+import InspectorLayout from "../components/Inspector/InspectorLayout";
+import InspectorDashboard from "../components/Inspector/InspectorDashboard";
+import ManagerInspection from "../components/Inspector/ManagerInspection";
+import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionStatus";
+import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
+import CreateReport from "../components/Inspector/CreateReport";
+import ManagerInspected from "../components/Inspector/ManagerInspected";
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
   const user = (() => {
     try {
@@ -92,10 +97,16 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       </Route>
 
       {/* Inspector — protected */}
-      <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
-        <Route path="/inspector" element={<InspectorPage />} />
+   <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
+        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
+          <Route index element={<InspectorDashboard />} />
+          <Route path="inspections" element={<ManagerInspection />} />
+          <Route path="status" element={<ManagerInspectionStatus />} />
+          <Route path="reports" element={<ManagerInspectionReport />} />
+          <Route path="create-report" element={<CreateReport />} />
+          <Route path="reports-list" element={<ManagerInspected />} />
+        </Route>
       </Route>
-
       {/* Buyer — protected */}
       <Route element={<PrivateRoute roles={["BUYER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
