@@ -7,10 +7,10 @@ import {
 import { loginAPI } from "../../services/authService";
 
 const ROLE_REDIRECT = {
-  ADMIN: "/admin",
-  SELLER: "/buyer",
+  ADMIN:     "/admin",
+  SELLER:    "/",
   INSPECTOR: "/inspector",
-  BUYER: "/buyer",
+  BUYER:     "/",
 };
 
 const FEATURES = [
