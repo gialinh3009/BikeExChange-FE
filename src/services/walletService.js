@@ -9,7 +9,8 @@ function authHeaders(token) {
 
 export async function getWalletAPI({ userId, token } = {}) {
   const params = new URLSearchParams();
-  if (!token && userId != null) {
+  // Always send userId if available (backend needs it even with token)
+  if (userId != null) {
     params.append("userId", userId);
   }
   const url = params.toString()
@@ -22,13 +23,16 @@ export async function getWalletAPI({ userId, token } = {}) {
 
   // Khi BE chưa bật đầy đủ auth hoặc user chưa có ví, có thể trả 403/404.
   // Để tránh vỡ màn hình, fallback về ví 0 điểm.
-  if (res.status === 403 || res.status === 404) {
+  if (res.status === 403 || res.status === 404 || res.status === 400) {
+    console.warn("Wallet API returned error status:", res.status);
     return { availablePoints: 0, frozenPoints: 0 };
   }
 
   const data = await res.json();
   if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy thông tin ví thất bại.");
+    console.warn("Wallet API error:", data.message);
+    // Return 0 instead of throwing to prevent UI crash
+    return { availablePoints: 0, frozenPoints: 0 };
   }
   return data.data ?? data;
 }

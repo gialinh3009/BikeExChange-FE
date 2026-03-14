@@ -4,6 +4,7 @@ import { createSellerBikeAPI } from "../../services/Seller/sellerBikeService";
 import { requestInspectionAPI } from "../../services/inspectionService";
 import { listCategoriesAPI } from "../../services/categoryService";
 import { listBrandsAPI } from "../../services/brandService";
+import { upgradeToSellerAPI } from "../../services/authService";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
 interface CreateBikeTabProps { token: string; wallet: WalletLike | null; onBikeCreated: () => void; onWalletRefresh: () => void }
@@ -48,14 +49,31 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
 
         try {
             setLoading(true);
+
             const fileMedias = images.map((img, i) => ({ url: img.dataUrl, type: "IMAGE", sortOrder: i }));
             const media = fileMedias.map((m, i) => ({ ...m, sortOrder: i }));
 
-            const payload = {
-                title: form.title, description: form.description, brandId: form.brandId, model: form.model,
-                year: form.year ? Number(form.year) : undefined, pricePoints: Number(form.priceVnd.replace(/[^\d]/g, "")),
-                condition: form.condition, bikeType: form.bikeType, frameSize: form.frameSize, media, categoryIds: form.categoryIds
+            const payload: any = {
+                title: form.title, 
+                description: form.description, 
+                brandId: form.brandId, 
+                model: form.model,
+                condition: form.condition, 
+                bikeType: form.bikeType, 
+                frameSize: form.frameSize, 
+                media, 
+                pricePoints: Number(form.priceVnd.replace(/[^\d]/g, ""))
             };
+
+            if (form.year) {
+                payload.year = Number(form.year);
+            }
+
+            if (form.categoryIds && form.categoryIds.length > 0) {
+                payload.categoryIds = form.categoryIds;
+            }
+
+            console.log("📤 Sending bike creation request with payload:", payload);
 
             const res: any = await createSellerBikeAPI(payload, token);
             const bikeId = res?.id ?? res?.data?.id;
@@ -74,7 +92,52 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
             setImages([]);
             onBikeCreated(); onWalletRefresh();
         } catch (e: any) {
-            setError(e.message || "Không thể đăng bài.");
+            console.error("❌ Error creating bike:", e);
+            const errorMsg = e.message || "Không thể đăng bài.";
+            
+            // If 403 error, user needs to upgrade to SELLER
+            if (errorMsg.includes("403") || errorMsg.includes("quyền") || errorMsg.includes("nâng cấp")) {
+                console.log("🔄 User needs to upgrade to SELLER, attempting upgrade...");
+                
+                try {
+                    const user = (() => {
+                        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+                    })();
+
+                    if (!user?.fullName) {
+                        setError("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.");
+                        return;
+                    }
+
+                    console.log("📤 Calling upgradeToSellerAPI...");
+                    console.log("User name:", user.fullName);
+                    console.log("Token exists:", !!token);
+                    console.log("Token length:", token?.length);
+                    
+                    const upgradeRes = await upgradeToSellerAPI(user.fullName + " Shop", "Cửa hàng bán xe đạp", token);
+                    console.log("✅ Upgraded to SELLER:", upgradeRes);
+                    
+                    // After successful upgrade, redirect to login to get new token
+                    setError("✅ Nâng cấp thành Seller thành công! Vui lòng đăng xuất và đăng nhập lại để tiếp tục đăng bài.");
+                    
+                    setTimeout(() => {
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("user");
+                        window.location.href = "/login";
+                    }, 2000);
+                    return;
+                } catch (upgradeError) {
+                    console.error("❌ Upgrade failed:", (upgradeError as Error).message);
+                    setError("Nâng cấp thành Seller thất bại: " + (upgradeError as Error).message + ". Vui lòng thử lại hoặc liên hệ hỗ trợ.");
+                    return;
+                }
+            } else if (errorMsg.includes("401") || errorMsg.includes("Token") || errorMsg.includes("hết hạn")) {
+                setError("Token hết hạn. Vui lòng đăng xuất và đăng nhập lại.");
+            } else if (errorMsg.includes("Account") || errorMsg.includes("Cancelled")) {
+                setError("Tài khoản chưa được kích hoạt. Vui lòng đăng xuất và đăng nhập lại.");
+            } else {
+                setError(errorMsg);
+            }
         } finally {
             setLoading(false);
         }

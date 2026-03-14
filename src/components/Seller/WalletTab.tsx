@@ -19,11 +19,26 @@ export default function WalletTab({ token }: WalletTabProps) {
     const [walletError, setWalletError] = useState<string | null>(null);
     const [wallet, setWallet] = useState<WalletLike | null>(null);
 
+    // Get user from localStorage
+    const user = (() => {
+        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+    })();
+
     const refreshWallet = async () => {
         try {
             setWalletLoading(true);
             setWalletError(null);
-            const w = await getWalletAPI({ token });
+            
+            // Always send both token and userId for best compatibility
+            const params: any = {};
+            if (token) {
+                params.token = token;
+            }
+            if (user?.id) {
+                params.userId = user.id;
+            }
+            
+            const w = await getWalletAPI(params);
             setWallet(w as WalletLike);
         } catch (e) {
             console.error("Wallet API error:", e);
@@ -43,7 +58,7 @@ export default function WalletTab({ token }: WalletTabProps) {
     return (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-800">Ví & điểm</h2>
+                <h2 className="font-semibold text-gray-800">Ví</h2>
                 <button
                     type="button"
                     onClick={() => void refreshWallet()}

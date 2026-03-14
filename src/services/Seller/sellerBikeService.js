@@ -60,13 +60,43 @@ export async function getSellerBikeAPI(id, token) {
 /**
  * Tạo bike mới (đăng tin)
  * Phí: 5 điểm (backend tự động trừ)
+ * Backend lấy sellerId từ token, không cần gửi trong payload
  */
 export async function createSellerBikeAPI(payload, token) {
+  if (!token) {
+    throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
+  }
+
   const res = await fetch(`${BASE_URL}/bikes`, {
     method: "POST",
     headers: authHeader(token),
     body: JSON.stringify(payload),
   });
+
+  // Handle 401 Unauthorized
+  if (res.status === 401) {
+    throw new Error("Token hết hạn hoặc không hợp lệ. Vui lòng đăng xuất và đăng nhập lại.");
+  }
+
+  // Handle 400 Bad Request
+  if (res.status === 400) {
+    const data = await res.json();
+    const errorMsg = data.message || "Dữ liệu không hợp lệ.";
+    console.error("❌ 400 Bad Request:", errorMsg);
+    console.error("📦 Payload:", payload);
+    throw new Error(errorMsg + " Vui lòng kiểm tra lại thông tin xe.");
+  }
+
+  // Handle 403 Forbidden
+  if (res.status === 403) {
+    throw new Error("Bạn không có quyền đăng bài. Vui lòng nâng cấp thành Seller.");
+  }
+
+  // Handle 500 Server Error
+  if (res.status === 500) {
+    throw new Error("Lỗi server. Vui lòng thử lại sau.");
+  }
+
   const data = await res.json();
   if (!res.ok || data.success === false) {
     throw new Error(data.message || "Tạo xe thất bại.");

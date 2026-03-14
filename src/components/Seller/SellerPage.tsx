@@ -93,7 +93,16 @@ export default function SellerPage() {
 
     const refreshWallet = async () => {
         try {
-            const w = await getWalletAPI({ token });
+            // Always send both token and userId for best compatibility
+            const params: any = {};
+            if (token) {
+                params.token = token;
+            }
+            if (user?.id) {
+                params.userId = user.id;
+            }
+            
+            const w = await getWalletAPI(params);
             setWallet(w as WalletLike);
         } catch (e) {
             console.error("Error loading wallet:", e);
@@ -285,7 +294,7 @@ export default function SellerPage() {
                         { key: "posts", label: "Bài đăng của tôi" },
                         { key: "create", label: "Đăng tin bán xe" },
                         { key: "inspection", label: "Kiểm định" },
-                        { key: "wallet", label: "Ví & điểm" },
+                        { key: "wallet", label: "Ví" },
                     ].map((t) => (
                         <button
                             key={t.key}
