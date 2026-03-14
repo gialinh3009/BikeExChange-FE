@@ -13,6 +13,7 @@ import ManagerUsers from "../components/Admin/Manager/ManagerUsers";
 import ManagerCategories from "../components/Admin/Manager/ManagerCategories";
 import ManagerBrand from "../components/Admin/Manager/ManagerBrand";
 import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
+import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import SellerPage from "../components/Seller/SellerPage";
@@ -25,6 +26,7 @@ import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionSt
 import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
 import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
+
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
   const user = (() => {
     try {
@@ -88,6 +90,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="categories" element={<ManagerCategories />} />
           <Route path="brands" element={<ManagerBrand />} />
           <Route path="components" element={<ManagerComponent />} />
+          <Route path="disputes" element={<ManagementDisputes />} /> 
         </Route>
       </Route>
 
@@ -97,7 +100,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       </Route>
 
       {/* Inspector — protected */}
-   <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
+      <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
         <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
           <Route index element={<InspectorDashboard />} />
           <Route path="inspections" element={<ManagerInspection />} />
@@ -107,6 +110,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="reports-list" element={<ManagerInspected />} />
         </Route>
       </Route>
+
       {/* Buyer — protected */}
       <Route element={<PrivateRoute roles={["BUYER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
