@@ -67,11 +67,26 @@ export async function createSellerBikeAPI(payload, token) {
     throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
   }
 
-  const res = await fetch(`${BASE_URL}/bikes`, {
+  // Kiểm tra nếu payload là FormData (có file)
+  const isFormData = payload instanceof FormData;
+  
+  const options = {
     method: "POST",
-    headers: authHeader(token),
-    body: JSON.stringify(payload),
-  });
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+
+  if (isFormData) {
+    // Không set Content-Type khi gửi FormData, browser sẽ tự set
+    options.body = payload;
+  } else {
+    // Gửi JSON thường
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(payload);
+  }
+
+  const res = await fetch(`${BASE_URL}/bikes`, options);
 
   // Handle 401 Unauthorized
   if (res.status === 401) {
@@ -133,4 +148,183 @@ export async function deleteSellerBikeAPI(id, token) {
     throw new Error(data.message || "Xóa xe thất bại.");
   }
   return data;
+}
+
+// ===== CATEGORY & BRAND APIs =====
+export async function listCategoriesAPI(token) {
+  const res = await fetch(`${BASE_URL}/categories`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách danh mục thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function listBrandsAPI(token) {
+  const res = await fetch(`${BASE_URL}/brands`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách thương hiệu thất bại.");
+  }
+  return data.data ?? data;
+}
+
+// ===== ORDER APIs =====
+export async function getPendingConfirmationsAPI(token) {
+  const res = await fetch(`${BASE_URL}/orders/pending-confirmations`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách đơn chờ xác nhận thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function getSellerSalesAPI(status, token) {
+  const params = new URLSearchParams();
+  if (status) params.append("status", status);
+  
+  const res = await fetch(`${BASE_URL}/orders/my-sales?${params.toString()}`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy lịch sử bán hàng thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function acceptOrderAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/accept`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Xác nhận đơn thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function deliverOrderAPI(orderId, payload, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/deliver`, {
+    method: "POST",
+    headers: authHeader(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Đánh dấu giao hàng thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function confirmReturnAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/confirm-return`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Xác nhận nhận hàng trả thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function cancelOrderAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/cancel`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Hủy đơn thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function getOrderHistoryAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/history`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy lịch sử đơn thất bại.");
+  }
+  return data.data ?? data;
+}
+
+// ===== INSPECTION APIs =====
+export async function listInspectionsAPI(sellerId, token) {
+  const res = await fetch(`${BASE_URL}/inspections`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách kiểm định thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function getInspectionDetailAPI(inspectionId, token) {
+  const res = await fetch(`${BASE_URL}/inspections/${inspectionId}`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy chi tiết kiểm định thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function getInspectionReportAPI(bikeId, token) {
+  const res = await fetch(`${BASE_URL}/inspections/bikes/${bikeId}/report`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy báo cáo kiểm định thất bại.");
+  }
+  return data.data ?? data;
+}
+
+// ===== WALLET APIs =====
+export async function getWalletAPI(token) {
+  const res = await fetch(`${BASE_URL}/wallet`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy thông tin ví thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function getWalletTransactionsAPI(token) {
+  const res = await fetch(`${BASE_URL}/wallet/transactions`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy lịch sử giao dịch thất bại.");
+  }
+  return data.data ?? data;
+}
+
+export async function requestWithdrawAPI(payload, token) {
+  const res = await fetch(`${BASE_URL}/wallet/withdraw-request`, {
+    method: "POST",
+    headers: authHeader(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Yêu cầu rút tiền thất bại.");
+  }
+  return data.data ?? data;
 }
