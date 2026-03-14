@@ -174,11 +174,12 @@ export default function BuyerPage() {
                 flexShrink: 0,
             }}>
                 {/* Logo */}
-                <button onClick={() => navigate("/")} style={{
-                    display: "flex", alignItems: "center", gap: 9,
-                    marginBottom: 24, paddingLeft: 6,
-                    background: "none", border: "none", cursor: "pointer",
-                }}>
+                <button onClick={() => navigate("/")}
+                    style={{
+                        display: "flex", alignItems: "center", gap: 9,
+                        marginBottom: 24, paddingLeft: 6,
+                        background: "none", border: "none", cursor: "pointer",
+                    }}>
                     <div style={{
                         width: 34, height: 34, borderRadius: 10,
                         background: "linear-gradient(135deg, #2563eb, #4f46e5)",
@@ -294,14 +295,37 @@ export default function BuyerPage() {
                                     ) : (
                                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                             {(overview?.orders ?? []).map((order) => (
-                                                <div key={order.id} onClick={() => navigate(`/orders/${order.id}`)}
-                                                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "#f8fafc", cursor: "pointer" }}>
+                                                <div key={order.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "#f8fafc", cursor: "pointer", position: "relative" }}
+                                                    onClick={async () => {
+                                                        // Always call API to get order detail
+                                                        try {
+                                                            const token = localStorage.getItem("token") ?? "";
+                                                            const res = await fetch(`/api/orders/${order.id}`, {
+                                                                method: "GET",
+                                                                headers: { Authorization: `Bearer ${token}` }
+                                                            });
+                                                            if (res.status === 401) {
+                                                                // Token expired or not logged in
+                                                                navigate("/login");
+                                                                return;
+                                                            }
+                                                            const orderDetail = await res.json();
+                                                            // Navigate to OrderDetailPage with order detail
+                                                            navigate(`/order-detail/${order.id}`, { state: { order: orderDetail } });
+                                                        } catch {
+                                                            navigate(`/order-detail/${order.id}`);
+                                                        }
+                                                    }}
+                                                >
                                                     <div style={{ width: 36, height: 36, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                                         <Bike size={16} color="#2563eb" />
                                                     </div>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <p style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{typeof order.bikeTitle === "string" ? order.bikeTitle : `Đơn #${order.id}`}</p>
                                                         <p style={{ fontSize: 11, color: "#94a3b8" }}>{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(order.totalAmount ?? order.amountPoints ?? 0)}</p>
+                                                        {order.status === "CANCELLED" || order.status === "Đã hủy" ? (
+                                                            <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginTop: 2, display: "inline-block" }}>Đã hủy</span>
+                                                        ) : null}
                                                     </div>
                                                     <ChevronRight size={14} color="#c7d2e8" />
                                                 </div>

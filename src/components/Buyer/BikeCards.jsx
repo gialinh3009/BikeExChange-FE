@@ -23,8 +23,8 @@ export function fmtVND(n) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n ?? 0);
 }
 
-// ─── Verified Bike Card ───────────────────────────────────────────────────────
-export function VerifiedCard({ bike, onNavigate, onHeartClick, wishedIds }) {
+// ─── Xe đã được kiểm định Card ───────────────────────────────────────────────────────
+export function XeDaDuocKiemDinhCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   const img = bike.media?.find(m => m.type === "IMAGE" && !m.url?.includes("example.com"))?.url;
   const condKey = safeStr(bike.condition, "");
   const cond = CONDITION_META[condKey] ?? { label: condKey || "—", cls: "bg-gray-100 text-gray-600" };

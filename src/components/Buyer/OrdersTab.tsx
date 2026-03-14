@@ -73,6 +73,7 @@ export default function OrdersTab({ token, navigate }: Props) {
     const [loading, setLoading]       = useState(true);
     const [filter, setFilter]         = useState("");
     const [actionLoading, setAction]  = useState<number | null>(null);
+    const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
 
     const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -90,27 +91,35 @@ export default function OrdersTab({ token, navigate }: Props) {
                 setOrders(list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
             }
         } catch (e) {
+            // eslint-disable-next-line no-console
             console.error("fetchOrders:", e);
         } finally {
             setLoading(false);
         }
-    }, [filter, token]);
+    }, [filter, token, authHeaders]);
 
     useEffect(() => { void fetchOrders(); }, [fetchOrders]);
 
     /* ── Actions ── */
     const doAction = async (orderId: number, endpoint: string, body?: object) => {
         setAction(orderId);
+        const url = `${BASE}/orders/${orderId}/${endpoint}`;
+        const options: RequestInit = {
+            method: "POST",
+            headers: authHeaders,
+            ...(body ? { body: JSON.stringify(body) } : {}),
+        };
         try {
-            const res  = await fetch(`${BASE}/orders/${orderId}/${endpoint}`, {
-                method: "POST",
-                headers: authHeaders,
-                body: body ? JSON.stringify(body) : undefined,
-            });
+            const res = await fetch(url, options);
             const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || "Lỗi thao tác");
+            if (!res.ok || !data.success) {
+                // eslint-disable-next-line no-throw-literal
+                throw new Error(data.message || "Lỗi thao tác");
+            }
             await fetchOrders();
         } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error(e);
             alert(String(e instanceof Error ? e.message : e));
         } finally {
             setAction(null);
@@ -118,12 +127,10 @@ export default function OrdersTab({ token, navigate }: Props) {
     };
 
     const handleCancel = (id: number) => {
-        if (!confirm("Bạn chắc chắn muốn hủy đơn hàng này?")) return;
-        void doAction(id, "cancel");
+        setShowCancelConfirm(id);
     };
 
     const handleConfirmReceipt = (id: number) => {
-        if (!confirm("Xác nhận đã nhận hàng? Điểm sẽ được giải ngân cho người bán.")) return;
         void doAction(id, "confirm-receipt");
     };
 
@@ -269,10 +276,46 @@ export default function OrdersTab({ token, navigate }: Props) {
                                 {/* Bottom: actions + detail link */}
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        {showCancelConfirm === order.id && (
+                                            <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.18)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                <div style={{ background: "white", borderRadius: 16, padding: 32, minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center" }}>
+                                                    <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>Xác nhận hủy đơn hàng</h3>
+                                                    <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>Bạn có chắc chắn muốn hủy đơn hàng này?</p>
+                                                    <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                                                        <button style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 15 }}
+                                                            onClick={async () => { setShowCancelConfirm(null); await doAction(order.id, "cancel"); navigate("/buyer"); }}>
+                                                            Xác nhận
+                                                        </button>
+                                                        <button style={{ padding: "10px 24px", background: "#f1f5f9", color: "#2563eb", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 15 }}
+                                                            onClick={() => setShowCancelConfirm(null)}>
+                                                            Quay lại
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                         {renderActions(order)}
                                     </div>
                                     <button
-                                        onClick={() => navigate(`/orders/${order.id}`)}
+                                        onClick={async () => {
+                                            // Always call API to get order detail
+                                            try {
+                                                const token = localStorage.getItem("token") ?? "";
+                                                const res = await fetch(`/api/orders/${order.id}`, {
+                                                    method: "GET",
+                                                    headers: { Authorization: `Bearer ${token}` }
+                                                });
+                                                if (res.status === 401) {
+                                                    navigate("/login");
+                                                    return;
+                                                }
+                                                const orderDetail = await res.json();
+                                                localStorage.setItem("orderDetail", JSON.stringify(orderDetail));
+                                                navigate(`/order-detail/${order.id}`);
+                                            } catch {
+                                                navigate(`/order-detail/${order.id}`);
+                                            }
+                                        }}
                                         style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 14px", background: "#f8faff", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#2563eb", cursor: "pointer" }}>
                                         Xem chi tiết <ChevronRight size={13} />
                                     </button>

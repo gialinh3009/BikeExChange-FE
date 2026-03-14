@@ -49,7 +49,7 @@ interface SellerProfile {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 const fmtPrice = (p: number) =>
-    new Intl.NumberFormat("vi-VN").format(p) + " điểm";
+    new Intl.NumberFormat("vi-VN").format(p) + " VND";
 
 const timeAgo = (iso?: string) => {
     if (!iso) return "";
@@ -86,6 +86,7 @@ export default function BikedetailPage() {
     const [ordering, setOrdering]   = useState(false);
     const [imgError, setImgError]   = useState<Record<number, boolean>>({});
     const [showConfirm, setShowConfirm] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
@@ -136,8 +137,8 @@ export default function BikedetailPage() {
             await createOrderAPI({ bikeId: bike?.id, idempotencyKey: `${user.id}-${bike?.id}-${Date.now()}` });
             setShowConfirm(false);
             setTimeout(() => {
-                alert("Đơn hàng đã được tạo thành công!");
-                navigate("/buyer");
+                setOrdering(false);
+                setShowSuccess(true);
             }, 300);
         } catch (e) {
             alert(String(e instanceof Error ? e.message : e));
@@ -226,6 +227,19 @@ export default function BikedetailPage() {
                     </div>
                 </div>
             )}
+            {/* Modal thành công */}
+            {showSuccess && (
+                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.18)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ background: "white", borderRadius: 16, padding: 32, minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center" }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>Đã mua hàng thành công</h3>
+                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>Cảm ơn bạn đã mua xe!</p>
+                        <button style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 15 }}
+                            onClick={() => { setShowSuccess(false); navigate("/buyer"); }}>
+                            Xác nhận
+                        </button>
+                    </div>
+                </div>
+            )}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');
                 * { box-sizing: border-box; }
@@ -274,7 +288,7 @@ export default function BikedetailPage() {
                             {/* Verified badge */}
                             {isVerified && (
                                 <div style={{ position: "absolute", top: 14, left: 14, zIndex: 10, display: "flex", alignItems: "center", gap: 5, background: "#10b981", color: "white", borderRadius: 20, padding: "5px 13px", fontSize: 12, fontWeight: 700, letterSpacing: ".2px" }}>
-                                    <CheckCircle size={12} strokeWidth={3} /> Verified Bike
+                                    <CheckCircle size={12} strokeWidth={3} /> Xe đã được kiểm định
                                 </div>
                             )}
                             {currentImg && !imgError[activeImg] ? (
@@ -373,7 +387,6 @@ export default function BikedetailPage() {
                                 </div>
                                 <button
                                     className="btn-outline"
-                                    onClick={() => navigate(`/profile?userId=${seller.id}`)}
                                     style={{ padding: "7px 13px", background: "white", color: "#2563eb", border: "1.5px solid #2563eb", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "background .15s", flexShrink: 0 }}
                                 >
                                     Xem hồ sơ

@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { VerifiedCard, RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";
+import { XeDaDuocKiemDinhCard as VerifiedCard, RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";
 import FilterPanel, { FilterChip, SORTS }      from "../Buyer/FilterPanel.jsx";
 import { WishlistAuthModal, WishlistConfirmModal } from "../Buyer/WishlistModals.jsx";
 
