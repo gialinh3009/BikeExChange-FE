@@ -45,6 +45,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         setError(null); setSuccess(null);
         if (!token) { setError("Bạn cần đăng nhập."); return; }
         if (!form.title || !form.brandId || !form.priceVnd) { setError("Vui lòng nhập: Tiêu đề, Hãng, Giá."); return; }
+        if (images.length === 0) { setError("Vui lòng thêm ít nhất một ảnh."); return; }
         if (walletAvailable < POSTING_FEE) { setError(`Không đủ điểm. Cần ${POSTING_FEE}, có ${walletAvailable}.`); return; }
 
         try {
@@ -147,7 +148,31 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         if (!files) return;
         const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string }>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => resolve({ name: f.name, dataUrl: String(reader.result) });
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    if (ctx) {
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                const reader2 = new FileReader();
+                                reader2.onload = () => {
+                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result) });
+                                };
+                                reader2.readAsDataURL(blob);
+                            } else {
+                                reject(new Error("Không thể chuyển đổi ảnh"));
+                            }
+                        }, "image/png");
+                    }
+                };
+                img.onerror = () => reject(new Error("Không thể tải ảnh"));
+                img.src = String(reader.result);
+            };
             reader.onerror = () => reject(new Error("Lỗi đọc ảnh"));
             reader.readAsDataURL(f);
         }));

@@ -8,6 +8,7 @@ type BikeItem = {
     status?: string;
     inspectionStatus?: string;
     media?: { url: string; type: string; sortOrder: number }[];
+    createdAt?: string;
 };
 
 interface PostsTabProps {
@@ -29,6 +30,23 @@ export default function PostsTab({
     onViewInspection,
     canRequestInspection,
 }: PostsTabProps) {
+    // Sắp xếp theo thời gian tạo (mới nhất trước), nếu không có createdAt thì dùng ID
+    const sortedBikes = [...bikes].sort((a, b) => {
+        // Ưu tiên createdAt nếu có
+        if (a.createdAt && b.createdAt) {
+            const dateA = new Date(a.createdAt).getTime();
+            const dateB = new Date(b.createdAt).getTime();
+            return dateB - dateA;
+        }
+        // Fallback: sắp xếp theo ID (ID cao hơn = tạo sau)
+        return (b.id || 0) - (a.id || 0);
+    });
+
+    // Tính thống kê
+    const totalBikes = bikes.length;
+    const activeBikes = bikes.filter((b) => b.status === "ACTIVE" || b.status === "PENDING").length;
+    const soldBikes = bikes.filter((b) => b.status === "RESERVED" || b.status === "SOLD").length;
+    const hiddenBikes = bikes.filter((b) => b.status === "CANCELLED" || b.status === "HIDDEN" || b.status === "INACTIVE").length;
     return (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -42,6 +60,28 @@ export default function PostsTab({
                 </button>
             </div>
 
+            {/* Thống kê */}
+            {!bikesLoading && !bikesError && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <p className="text-gray-600 text-sm">Tổng xe</p>
+                        <p className="text-3xl font-bold text-gray-900">{totalBikes}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <p className="text-gray-600 text-sm">Xe đang bán</p>
+                        <p className="text-3xl font-bold text-green-600">{activeBikes}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <p className="text-gray-600 text-sm">Xe đã bán</p>
+                        <p className="text-3xl font-bold text-blue-600">{soldBikes}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <p className="text-gray-600 text-sm">Xe bị ẩn</p>
+                        <p className="text-3xl font-bold text-gray-600">{hiddenBikes}</p>
+                    </div>
+                </div>
+            )}
+
             {bikesError && (
                 <div className="px-6 py-4 text-sm text-red-600 bg-red-50 border-b border-red-100">
                     {bikesError}
@@ -51,41 +91,59 @@ export default function PostsTab({
 
             {!bikesLoading && (
                 <div className="divide-y divide-gray-100">
-                    {bikes.length === 0 && (
+                    {sortedBikes.length === 0 && (
                         <div className="px-6 py-10 text-sm text-gray-500">
                             Bạn chưa có bài đăng nào.
                         </div>
                     )}
-                    {bikes.map((bike) => {
+                    {sortedBikes.map((bike) => {
                         const isVerified =
                             bike?.status === "VERIFIED" || bike?.inspectionStatus === "APPROVED";
                         const requestedStatus = (bike?.inspectionStatus ?? "").toUpperCase();
                         return (
                             <div key={bike.id} className="px-6 py-4 flex items-center justify-between gap-4">
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <div className="font-semibold text-gray-900 truncate max-w-xs">
-                                            {bike?.title ?? `Xe #${bike.id}`}
+                                <div className="min-w-0 flex items-start gap-3">
+                                    {/* Hình ảnh xe */}
+                                    {bike?.media && bike.media.length > 0 && (
+                                        <div className="flex-shrink-0">
+                                            <img
+                                                src={bike.media[0].url}
+                                                alt={bike?.title}
+                                                className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                                            />
                                         </div>
-                                        {isVerified && (
-                                            <button
-                                                type="button"
-                                                onClick={() => bike?.id && onViewInspection(bike.id)}
-                                                className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
-                                                title="Xem báo cáo kiểm định"
-                                            >
-                                                <ShieldCheck size={14} />
-                                                Đã kiểm định
-                                            </button>
-                                        )}
-                                        {!isVerified && requestedStatus === "REQUESTED" && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                                                Đang chờ kiểm định
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-sm text-gray-500 truncate">
-                                        {bike?.condition || "—"}
+                                    )}
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="font-semibold text-gray-900 truncate max-w-xs">
+                                                {bike?.title ?? `Xe #${bike.id}`}
+                                            </div>
+                                            {isVerified && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => bike?.id && onViewInspection(bike.id)}
+                                                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                                    title="Xem báo cáo kiểm định"
+                                                >
+                                                    <ShieldCheck size={14} />
+                                                    Đã kiểm định
+                                                </button>
+                                            )}
+                                            {!isVerified && requestedStatus === "REQUESTED" && (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                                    Đang chờ kiểm định
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-sm text-gray-500 truncate">
+                                            {bike?.condition || "—"} • {bike.createdAt ? new Date(bike.createdAt).toLocaleDateString("vi-VN", {
+                                                year: "numeric",
+                                                month: "2-digit",
+                                                day: "2-digit",
+                                                hour: "2-digit",
+                                                minute: "2-digit"
+                                            }) : "N/A"}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="text-right space-y-2">
