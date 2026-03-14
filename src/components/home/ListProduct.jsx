@@ -251,8 +251,10 @@ export default function ListProduct() {
                           className="border-r border-gray-100 last:border-r-0"
                         >
                           <VerifiedCard
-                            bike={bike} onNavigate={navigate}
-                            onHeartClick={handleHeartClick} wishedIds={wishedIds}
+                            bike={bike}
+                            onNavigate={() => navigate(`/bikes/${bike.id}`)}
+                            onHeartClick={handleHeartClick}
+                            wishedIds={wishedIds}
                           />
                         </div>
                       ))}
@@ -350,8 +352,13 @@ export default function ListProduct() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {allBikes.map(bike => (
-                <RegularCard key={bike.id} bike={bike} onNavigate={navigate}
-                  onHeartClick={handleHeartClick} wishedIds={wishedIds} />
+                <RegularCard
+                  key={bike.id}
+                  bike={bike}
+                  onNavigate={() => navigate(`/bikes/${bike.id}`)}
+                  onHeartClick={handleHeartClick}
+                  wishedIds={wishedIds}
+                />
               ))}
             </div>
           )}

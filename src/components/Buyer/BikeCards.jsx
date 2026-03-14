@@ -33,7 +33,7 @@ export function VerifiedCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   return (
     <div
       className="group bg-white border border-gray-100 hover:border-emerald-200 hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer flex flex-col h-full"
-      onClick={() => onNavigate(`/bikes/${bike.id}`)}
+      onClick={onNavigate}
     >
       <div className="relative bg-gray-50 h-44 flex items-center justify-center overflow-hidden flex-shrink-0">
         {img ? (
@@ -97,7 +97,7 @@ export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   return (
     <div
       className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col"
-      onClick={() => onNavigate(`/bikes/${bike.id}`)}
+      onClick={onNavigate}
     >
       <div className="relative bg-gradient-to-br from-gray-50 to-blue-50 h-44 flex items-center justify-center overflow-hidden flex-shrink-0">
         {img ? (

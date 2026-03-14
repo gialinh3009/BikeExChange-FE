@@ -5,6 +5,11 @@ import {
     ShieldCheck, Zap, Phone, Mail, User,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
+import { getBikeDetailAPI } from "../../services/Buyer/Bikeservice";
+import { getUserProfileAPI } from "../../services/Buyer/Userservice";
+import { createOrderAPI } from "../../services/Buyer/Orderservice";
+import { getWishlistAPI } from "../../services/Buyer/wishlistService";
+import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 interface MediaItem { url: string; type: string; sortOrder: number; }
@@ -80,6 +85,7 @@ export default function BikedetailPage() {
     const [activeImg, setActiveImg] = useState(0);
     const [ordering, setOrdering]   = useState(false);
     const [imgError, setImgError]   = useState<Record<number, boolean>>({});
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
@@ -89,12 +95,8 @@ export default function BikedetailPage() {
         if (!id) return;
         (async () => {
             try {
-                const res  = await fetch(`${BASE_URL}/bikes/${id}`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                const data = await res.json();
-                if (!res.ok || !data.success) throw new Error(data.message || "Không thể tải chi tiết xe");
-                setBike(data.data);
+                const data = await getBikeDetailAPI(id);
+                setBike(data);
             } catch (e) {
                 setError(String(e instanceof Error ? e.message : e));
             } finally {
@@ -111,23 +113,16 @@ export default function BikedetailPage() {
         if (!bike?.sellerId) return;
         (async () => {
             try {
-                const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-                const [userRes, statsRes] = await Promise.all([
-                    fetch(`${BASE_URL}/users/${bike.sellerId}`, { headers }),
-                    fetch(`${BASE_URL}/users/${bike.sellerId}/stats`, { headers }),
-                ]);
-                const userData  = userRes.ok  ? await userRes.json()  : null;
-                const statsData = statsRes.ok ? await statsRes.json() : null;
-                if (userData) {
-                    setSeller({
-                        id:             userData.id,
-                        fullName:       userData.fullName  ?? "Người bán",
-                        email:          userData.email     ?? "",
-                        phone:          userData.phone,
-                        rating:         statsData?.rating          ?? userData.rating         ?? 0,
-                        totalBikesSold: statsData?.totalBikesSold  ?? userData.totalBikesSold ?? 0,
-                    });
-                }
+                const userData = await getUserProfileAPI(bike.sellerId);
+                // For stats, since no service, skip for now
+                setSeller({
+                    id:             userData.id,
+                    fullName:       userData.fullName  ?? "Người bán",
+                    email:          userData.email     ?? "",
+                    phone:          userData.phone,
+                    rating:         userData.rating         ?? 0,
+                    totalBikesSold: userData.totalBikesSold ?? 0,
+                });
             } catch { /* silent */ }
         })();
     }, [bike?.sellerId]);
@@ -138,15 +133,12 @@ export default function BikedetailPage() {
         if (user.id === bike?.sellerId) { alert("Bạn không thể mua xe của chính mình"); return; }
         setOrdering(true);
         try {
-            const res  = await fetch(`${BASE_URL}/orders`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ bikeId: bike?.id, idempotencyKey: `${user.id}-${bike?.id}-${Date.now()}` }),
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) { console.error("Order 400 detail:", data); throw new Error(data.message || data.error || JSON.stringify(data)); }
-            alert("Đặt mua thành công! Kiểm tra đơn hàng của bạn.");
-            navigate("/buyer");
+            await createOrderAPI({ bikeId: bike?.id, idempotencyKey: `${user.id}-${bike?.id}-${Date.now()}` });
+            setShowConfirm(false);
+            setTimeout(() => {
+                alert("Đơn hàng đã được tạo thành công!");
+                navigate("/buyer");
+            }, 300);
         } catch (e) {
             alert(String(e instanceof Error ? e.message : e));
         } finally {
@@ -161,13 +153,24 @@ export default function BikedetailPage() {
     const handleWishlist = async () => {
         if (!token) { navigate("/login"); return; }
         try {
-            const res = await fetch(`${BASE_URL}/buyer/wishlist/${bike?.id}`, {
-                method: wished ? "DELETE" : "POST",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) setWished(!wished);
+            if (wished) {
+                await removeFromWishlistAPI(bike?.id);
+            } else {
+                await addToWishlistAPI(bike?.id);
+            }
+            setWished(!wished);
+            // Dispatch event to update wishlist count in other components
+            window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { bikeId: bike?.id, wished: !wished } }));
         } catch { /* silent */ }
     };
+
+    // Đồng bộ wishlist
+    useEffect(() => {
+        getWishlistAPI().then(list => {
+            const ids = list.map(item => item.bike?.id ?? item.bikeId ?? item.id);
+            setWished(ids.includes(Number(id)));
+        });
+    }, [id]);
 
     /* ── Loading ── */
     if (loading) return (
@@ -210,6 +213,19 @@ export default function BikedetailPage() {
 
     return (
         <div style={{ minHeight: "100vh", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
+            {/* Modal xác nhận mua hàng */}
+            {showConfirm && (
+                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.18)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ background: "white", borderRadius: 16, padding: 32, minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center" }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>Xác nhận mua hàng</h3>
+                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>Bạn có chắc chắn muốn mua xe này?</p>
+                        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                            <button style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }} onClick={handleBuyNow}>Xác nhận</button>
+                            <button style={{ padding: "10px 24px", background: "#f1f5f9", color: "#2563eb", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }} onClick={() => setShowConfirm(false)}>Hủy</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');
                 * { box-sizing: border-box; }
@@ -245,14 +261,7 @@ export default function BikedetailPage() {
                 >
                     <ChevronLeft size={17} strokeWidth={2.5} /> Quay lại
                 </button>
-                <div style={{ display: "flex", gap: 8 }}>
-                    <button className="icon-btn" onClick={handleWishlist} style={{ width: 36, height: 36, borderRadius: 8, border: `1.5px solid ${wished ? "#fecdd3" : "#e8ecf4"}`, background: wished ? "#fff0f3" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
-                        <Heart size={15} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />
-                    </button>
-                    <button className="icon-btn" onClick={() => { navigator.clipboard?.writeText(window.location.href); }} style={{ width: 36, height: 36, borderRadius: 8, border: "1.5px solid #e8ecf4", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
-                        <Share2 size={15} color="#94a3b8" />
-                    </button>
-                </div>
+                {/* Xóa các nút tim và share ở góc phải, chỉ giữ lại nút quay lại */}
             </div>
 
             {/* ── Page body ── */}
@@ -337,7 +346,7 @@ export default function BikedetailPage() {
                         <div style={{ display: "flex", gap: 10 }}>
                             <button
                                 className="btn-primary"
-                                onClick={handleBuyNow}
+                                onClick={() => setShowConfirm(true)}
                                 disabled={ordering}
                                 style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 0", background: ordering ? "#93c5fd" : "#2563eb", color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: ordering ? "not-allowed" : "pointer", transition: "background .15s", boxShadow: "0 2px 12px rgba(37,99,235,.25)" }}
                             >
@@ -346,9 +355,6 @@ export default function BikedetailPage() {
                             </button>
                             <button className="icon-btn" onClick={handleWishlist} style={{ width: 48, flexShrink: 0, borderRadius: 10, border: `1.5px solid ${wished ? "#fecdd3" : "#e8ecf4"}`, background: wished ? "#fff0f3" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
                                 <Heart size={18} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />
-                            </button>
-                            <button className="icon-btn" onClick={() => navigator.clipboard?.writeText(window.location.href)} style={{ width: 48, flexShrink: 0, borderRadius: 10, border: "1.5px solid #e8ecf4", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
-                                <Share2 size={18} color="#94a3b8" />
                             </button>
                         </div>
 
@@ -391,21 +397,13 @@ export default function BikedetailPage() {
 
                         {/* Contact row */}
                         {seller && (
-                            <div style={{ display: "flex", gap: 10 }}>
+                            <div style={{ display: "flex", gap: 0 }}>
                                 <button
                                     className="btn-outline"
                                     style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px 0", background: "white", color: "#2563eb", border: "1.5px solid #2563eb", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background .15s" }}
                                     onClick={() => alert(`Email: ${seller.email}`)}
                                 >
                                     <MessageSquare size={15} /> Liên hệ người bán
-                                </button>
-                                {seller.phone && (
-                                    <button className="icon-btn" onClick={() => window.open(`tel:${seller.phone}`)} style={{ width: 48, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "white", border: "1.5px solid #e8ecf4", borderRadius: 10, cursor: "pointer", transition: "all .15s" }}>
-                                        <Phone size={16} color="#2563eb" />
-                                    </button>
-                                )}
-                                <button className="icon-btn" onClick={() => window.open(`mailto:${seller.email}`)} style={{ width: 48, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "white", border: "1.5px solid #e8ecf4", borderRadius: 10, cursor: "pointer", transition: "all .15s" }}>
-                                    <Mail size={16} color="#2563eb" />
                                 </button>
                             </div>
                         )}
