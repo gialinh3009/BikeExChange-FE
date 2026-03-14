@@ -1,355 +1,405 @@
-import { useState } from "react";
-import { Star, Heart, MapPin, Eye, SlidersHorizontal, ChevronDown } from "lucide-react";
+/**
+ * ListProduct.jsx
+ * Trang hiển thị xe: carousel xe kiểm định + danh sách tất cả xe + bộ lọc
+ * State management + API calls — UI được tách ra BikeCards / FilterPanel / WishlistModals
+ */
+import { useState, useEffect } from "react";
+import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-const PRODUCTS = [
-  {
-    id: 1,
-    name: "Giant ATX 810",
-    brand: "Giant",
-    category: "Địa hình",
-    price: 4200000,
-    originalPrice: 6500000,
-    condition: "Tốt",
-    conditionColor: "green",
-    rating: 4.8,
-    reviews: 24,
-    location: "TP. Hồ Chí Minh",
-    year: 2022,
-    image: null,
-    emoji: "🚵",
-    badge: "Bán chạy",
-    badgeColor: "orange",
-  },
-  {
-    id: 2,
-    name: "Trek FX 3 Disc",
-    brand: "Trek",
-    category: "Đường trường",
-    price: 7800000,
-    originalPrice: 12000000,
-    condition: "Như mới",
-    conditionColor: "blue",
-    rating: 5.0,
-    reviews: 11,
-    location: "Hà Nội",
-    year: 2023,
-    image: null,
-    emoji: "🚴",
-    badge: "Mới nhất",
-    badgeColor: "blue",
-  },
-  {
-    id: 3,
-    name: "Specialized Allez",
-    brand: "Specialized",
-    category: "Đường trường",
-    price: 9500000,
-    originalPrice: 15000000,
-    condition: "Khá",
-    conditionColor: "yellow",
-    rating: 4.5,
-    reviews: 8,
-    location: "Đà Nẵng",
-    year: 2021,
-    image: null,
-    emoji: "🏎️",
-    badge: null,
-    badgeColor: null,
-  },
-  {
-    id: 4,
-    name: "Cannondale Trail 6",
-    brand: "Cannondale",
-    category: "Địa hình",
-    price: 5600000,
-    originalPrice: 8200000,
-    condition: "Tốt",
-    conditionColor: "green",
-    rating: 4.7,
-    reviews: 19,
-    location: "TP. Hồ Chí Minh",
-    year: 2022,
-    image: null,
-    emoji: "⛰️",
-    badge: "Yêu thích",
-    badgeColor: "pink",
-  },
-  {
-    id: 5,
-    name: "Brompton M6L",
-    brand: "Brompton",
-    category: "Thành thị",
-    price: 18500000,
-    originalPrice: 28000000,
-    condition: "Như mới",
-    conditionColor: "blue",
-    rating: 4.9,
-    reviews: 36,
-    location: "Hà Nội",
-    year: 2023,
-    image: null,
-    emoji: "🏙️",
-    badge: "Premium",
-    badgeColor: "purple",
-  },
-  {
-    id: 6,
-    name: "Scott Aspect 950",
-    brand: "Scott",
-    category: "Địa hình",
-    price: 3800000,
-    originalPrice: 5500000,
-    condition: "Tốt",
-    conditionColor: "green",
-    rating: 4.4,
-    reviews: 14,
-    location: "Cần Thơ",
-    year: 2021,
-    image: null,
-    emoji: "🌲",
-    badge: null,
-    badgeColor: null,
-  },
-  {
-    id: 7,
-    name: "Merida Crossway 100",
-    brand: "Merida",
-    category: "Thành thị",
-    price: 3200000,
-    originalPrice: 4800000,
-    condition: "Khá",
-    conditionColor: "yellow",
-    rating: 4.3,
-    reviews: 7,
-    location: "Biên Hòa",
-    year: 2020,
-    image: null,
-    emoji: "🛤️",
-    badge: null,
-    badgeColor: null,
-  },
-  {
-    id: 8,
-    name: "Cube Attention 27.5",
-    brand: "Cube",
-    category: "Địa hình",
-    price: 6200000,
-    originalPrice: 9000000,
-    condition: "Tốt",
-    conditionColor: "green",
-    rating: 4.6,
-    reviews: 22,
-    location: "TP. Hồ Chí Minh",
-    year: 2022,
-    image: null,
-    emoji: "🚵",
-    badge: "Giảm giá",
-    badgeColor: "red",
-  },
-];
+import { XeDaDuocKiemDinhCard as VerifiedCard, RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";
+import FilterPanel, { FilterChip, SORTS }      from "../Buyer/FilterPanel.jsx";
+import { WishlistAuthModal, WishlistConfirmModal } from "../Buyer/WishlistModals.jsx";
 
-const CATEGORIES = ["Tất cả", "Địa hình", "Đường trường", "Thành thị"];
-const SORTS = ["Mới nhất", "Giá thấp nhất", "Giá cao nhất", "Đánh giá cao nhất"];
+import { getBuyerListAPI }  from "../../services/Buyer/BuyerList";
+import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
+import { getBrandsAPI }     from "../../services/home/brandService";
+import { addToWishlistAPI, removeFromWishlistAPI, getWishlistAPI } from "../../services/Buyer/wishlistService";
 
-const conditionStyles = {
-  green: "bg-green-100 text-green-700",
-  blue: "bg-blue-100 text-blue-700",
-  yellow: "bg-yellow-100 text-yellow-700",
-};
-
-const badgeStyles = {
-  orange: "bg-orange-500",
-  blue: "bg-blue-600",
-  pink: "bg-pink-500",
-  purple: "bg-purple-600",
-  red: "bg-red-500",
-};
-
-function formatPrice(price) {
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
-}
-
-function discount(original, price) {
-  return Math.round(((original - price) / original) * 100);
-}
+const EMPTY_FILTER = { keyword: "", categoryId: "", brandId: "", priceMin: "", priceMax: "", minYear: "" };
+const PAGE_SIZE     = 8;
+const VERIFIED_PER_PAGE = 5; // eslint-disable-line no-unused-vars
 
 export default function ListProduct() {
-  const [activeCategory, setActiveCategory] = useState("Tất cả");
-  const [sortBy, setSortBy] = useState("Mới nhất");
-  const [liked, setLiked] = useState({});
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const filtered = PRODUCTS.filter(
-    (p) => activeCategory === "Tất cả" || p.category === activeCategory
-  );
+  // ── Lookup data ────────────────────────────────────────────────────────────
+  const [categories, setCategories] = useState([]);
+  const [brands,     setBrands]     = useState([]);
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortBy === "Giá thấp nhất") return a.price - b.price;
-    if (sortBy === "Giá cao nhất") return b.price - a.price;
-    if (sortBy === "Đánh giá cao nhất") return b.rating - a.rating;
-    return b.id - a.id;
-  });
+  // ── Sort ───────────────────────────────────────────────────────────────────
+  const [sortBy, setSortByState] = useState("newest");
+  const setSortBy = (v) => { setSortByState(v); setPage(0); };
+
+  // ── Filter (draft vs applied) ──────────────────────────────────────────────
+  const [filterForm,   setFilterForm]   = useState(EMPTY_FILTER);
+  const [activeFilter, setActiveFilter] = useState(EMPTY_FILTER);
+
+  // ── Verified bikes (carousel) ──────────────────────────────────────────────
+  const [verifiedBikes,   setVerifiedBikes]   = useState([]);
+  const [verifiedLoading, setVerifiedLoading] = useState(true);
+  const [verifiedPage,    setVerifiedPage]    = useState(0);
+
+  // ── All bikes (grid) ───────────────────────────────────────────────────────
+  const [allBikes,   setAllBikes]   = useState([]);
+  const [allLoading, setAllLoading] = useState(true);
+  const [page,       setPage]       = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // ── Wishlist ───────────────────────────────────────────────────────────────
+  const [wishedIds,   setWishedIds]   = useState(new Set());
+  const [wishModal,   setWishModal]   = useState(null); // { bikeId, type: "auth"|"confirm" }
+  const [wishLoading, setWishLoading] = useState(false);
+
+  // ── Fetch lookup data ──────────────────────────────────────────────────────
+  useEffect(() => {
+    getCategoriesAPI().then(setCategories).catch(() => {});
+    getBrandsAPI().then(setBrands).catch(() => {});
+  }, []);
+
+  // ── Load existing wishlist on mount (persists heart state across navigation) ─
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    getWishlistAPI()
+      .then(list => {
+        const ids = list
+          .map(item => item.bike?.id ?? item.bikeId ?? item.id)
+          .filter(Boolean);
+        setWishedIds(new Set(ids));
+        window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count: ids.length } }));
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Sync URL params → filter (Header nav writes URL, ListProduct reads it) ─
+  useEffect(() => {
+    const f = {
+      keyword:    searchParams.get("q")          || "",
+      categoryId: searchParams.get("categoryId") || "",
+      brandId:    searchParams.get("brandId")    || "",
+      priceMin: "", priceMax: "", minYear: "",
+    };
+    setFilterForm(f);
+    setActiveFilter(f);
+    setPage(0);
+  }, [searchParams]);
+
+  useEffect(() => { setPage(0); }, [activeFilter]);
+
+  // ── Fetch verified bikes ───────────────────────────────────────────────────
+  useEffect(() => {
+    setVerifiedLoading(true);
+    getBuyerListAPI({
+      category_id: activeFilter.categoryId || undefined,
+      brand_id:    activeFilter.brandId    || undefined,
+      page: 0, size: 100,
+    })
+      .then(({ content }) => {
+        setVerifiedBikes(content.filter(b =>
+          b.inspectionStatus === "APPROVED" || b.inspection_status === "APPROVED" || b.verified === true
+        ));
+      })
+      .catch(() => setVerifiedBikes([]))
+      .finally(() => setVerifiedLoading(false));
+  }, [activeFilter.categoryId, activeFilter.brandId]);
+
+  // ── Fetch all bikes ────────────────────────────────────────────────────────
+  useEffect(() => {
+    setAllLoading(true);
+    getBuyerListAPI({
+      category_id:    activeFilter.categoryId                  || undefined,
+      brand_id:       activeFilter.brandId                     || undefined,
+      keyword:        activeFilter.keyword                     || undefined,
+      price_min:      activeFilter.priceMin ? Number(activeFilter.priceMin) : undefined,
+      price_max:      activeFilter.priceMax ? Number(activeFilter.priceMax) : undefined,
+      min_year:       activeFilter.minYear  ? Number(activeFilter.minYear)  : undefined,
+      sort_by_rating: false,
+      page, size: PAGE_SIZE,
+    })
+      .then(({ content, totalPages: tp }) => {
+        let list = content;
+        if (sortBy === "price_asc")  list = [...list].sort((a, b) => a.pricePoints - b.pricePoints);
+        if (sortBy === "price_desc") list = [...list].sort((a, b) => b.pricePoints - a.pricePoints);
+        if (sortBy === "oldest")     list = [...list].sort((a, b) => a.id - b.id);
+        setAllBikes(list);
+        setTotalPages(tp);
+      })
+      .catch(() => setAllBikes([]))
+      .finally(() => setAllLoading(false));
+  }, [activeFilter, sortBy, page]);
+
+  // ── Wishlist handlers ──────────────────────────────────────────────────────
+  const handleHeartClick = (bikeId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setWishModal({ bikeId, type: "auth" });
+      return;
+    }
+    if (wishedIds.has(bikeId)) {
+      // Already wished → remove directly (no modal needed)
+      handleRemoveWish(bikeId);
+    } else {
+      setWishModal({ bikeId, type: "confirm" });
+    }
+  };
+
+  const handleRemoveWish = async (bikeId) => {
+    try {
+      await removeFromWishlistAPI(bikeId);
+      setWishedIds(prev => {
+        const next = new Set(prev);
+        next.delete(bikeId);
+        window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count: next.size } }));
+        return next;
+      });
+    } catch { /* silent */ }
+  };
+
+  const handleConfirmWish = async () => {
+    if (!wishModal) return;
+    setWishLoading(true);
+    try {
+      await addToWishlistAPI(wishModal.bikeId);
+      setWishedIds(prev => {
+        const next = new Set([...prev, wishModal.bikeId]);
+        window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count: next.size } }));
+        return next;
+      });
+    } catch { /* silent */ }
+    finally { setWishLoading(false); setWishModal(null); }
+  };
+
+  // ── Filter handlers ────────────────────────────────────────────────────────
+  const handleApply = () => {
+    setActiveFilter({ ...filterForm });
+    setPage(0);
+    setTimeout(() => {
+      document.getElementById("all-bikes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const handleClear = () => {
+    setFilterForm(EMPTY_FILTER);
+    setActiveFilter(EMPTY_FILTER);
+    setSearchParams({});
+    setPage(0);
+  };
+
+  // helper: remove a single active filter key
+  const removeFilter = (key) => {
+    setFilterForm(f => ({ ...f, [key]: "" }));
+    setActiveFilter(f => ({ ...f, [key]: "" }));
+  };
+
+  const hasFilter     = Object.values(activeFilter).some(v => v !== "");
+  const verTotalPages = Math.max(1, Math.ceil(verifiedBikes.length / VERIFIED_PER_PAGE));
+  const verMaxPage    = verTotalPages - 1;
 
   return (
-    <section id="products" className="py-16 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section header */}
-        <div className="text-center mb-10">
-          <span className="inline-block bg-blue-100 text-blue-700 text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full mb-3">
-            Sản phẩm nổi bật
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-            Xe đạp đang được{" "}
-            <span className="text-blue-600">yêu thích</span>
-          </h2>
-          <p className="text-gray-500 mt-3 max-w-xl mx-auto">
-            Hàng nghìn xe đạp chất lượng cao được kiểm định, sẵn sàng tìm chủ mới.
-          </p>
-        </div>
+    <div id="products">
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          {/* Category tabs */}
-          <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  activeCategory === cat
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+      {/* ══ SECTION 1: Xe đã được kiểm định ══ */}
+      <section className="py-10 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="border-2 border-emerald-500 rounded-2xl overflow-hidden shadow-sm">
 
-          {/* Sort */}
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal size={16} className="text-gray-400" />
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none bg-white border border-gray-200 text-sm text-gray-700 pl-3 pr-8 py-2 rounded-xl focus:outline-none focus:border-blue-400 cursor-pointer"
-              >
-                {SORTS.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        {/* Product grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {sorted.map((product) => (
-            <div
-              key={product.id}
-              className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden"
-            >
-              {/* Image area */}
-              <div className="relative bg-gradient-to-br from-blue-50 to-indigo-100 h-44 flex items-center justify-center overflow-hidden">
-                <span className="text-7xl group-hover:scale-110 transition-transform duration-300">
-                  {product.emoji}
-                </span>
-
-                {/* Badge */}
-                {product.badge && (
-                  <span
-                    className={`absolute top-3 left-3 ${badgeStyles[product.badgeColor]} text-white text-xs font-semibold px-2.5 py-1 rounded-lg`}
-                  >
-                    {product.badge}
-                  </span>
-                )}
-
-                {/* Discount badge */}
-                <span className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-lg">
-                  -{discount(product.originalPrice, product.price)}%
-                </span>
-
-                {/* Like button */}
-                <button
-                  onClick={() => setLiked((prev) => ({ ...prev, [product.id]: !prev[product.id] }))}
-                  className="absolute bottom-3 right-3 bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow hover:bg-white transition-colors"
-                >
-                  <Heart
-                    size={16}
-                    className={liked[product.id] ? "text-red-500 fill-red-500" : "text-gray-400"}
-                  />
-                </button>
-              </div>
-
-              {/* Info */}
-              <div className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs text-blue-600 font-medium">{product.brand}</p>
-                    <h3 className="font-semibold text-gray-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">
-                      {product.name}
-                    </h3>
-                  </div>
-                  <span
-                    className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-lg ${conditionStyles[product.conditionColor]}`}
-                  >
-                    {product.condition}
-                  </span>
+            {/* Header strip */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-1.5 rounded-lg">
+                  <ShieldCheck size={20} className="text-white" />
                 </div>
-
-                {/* Rating */}
-                <div className="flex items-center gap-1.5">
-                  <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={11}
-                        className={
-                          i < Math.floor(product.rating)
-                            ? "text-yellow-400 fill-yellow-400"
-                            : "text-gray-200 fill-gray-200"
-                        }
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {product.rating} ({product.reviews})
-                  </span>
-                </div>
-
-                {/* Location & year */}
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <MapPin size={11} />
-                    {product.location}
-                  </span>
-                  <span>Năm {product.year}</span>
-                </div>
-
-                {/* Price */}
                 <div>
-                  <div className="text-blue-600 font-bold text-base">{formatPrice(product.price)}</div>
-                  <div className="text-gray-400 text-xs line-through">{formatPrice(product.originalPrice)}</div>
+                  <h2 className="text-white font-extrabold text-base leading-tight">
+                    🏆 Xe đã được kiểm định đánh giá tốt
+                  </h2>
+                  <p className="text-emerald-100 text-xs mt-0.5">
+                    Chỉ những xe đạt chất lượng kiểm định mới xuất hiện tại đây
+                  </p>
                 </div>
-
-                {/* CTA */}
-                <button className="w-full flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-xl transition-colors">
-                  <Eye size={14} />
-                  Xem chi tiết
-                </button>
               </div>
+              <span className="text-white/70 text-sm font-medium hidden sm:block">
+                {verifiedPage + 1}/{verTotalPages}
+              </span>
             </div>
-          ))}
-        </div>
 
-        {/* Load more */}
-        <div className="text-center mt-10">
-          <button className="inline-flex items-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 font-medium px-8 py-3 rounded-xl transition-colors">
-            Xem thêm sản phẩm
-          </button>
+            {/* Carousel body */}
+            <div className="bg-white relative">
+              {verifiedLoading ? (
+                <div className="grid grid-cols-5 gap-0 divide-x divide-gray-100">
+                  {[...Array(5)].map((_, i) => <Skeleton key={i} />)}
+                </div>
+              ) : verifiedBikes.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                  Chưa có xe nào được kiểm định.
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-hidden">
+                    <div
+                      className="flex transition-transform duration-500 ease-in-out"
+                      style={{
+                        width: `${verTotalPages * 100}%`,
+                        transform: `translateX(-${verifiedPage * (100 / verTotalPages)}%)`,
+                      }}
+                    >
+                      {verifiedBikes.map(bike => (
+                        <div key={bike.id}
+                          style={{ width: `${100 / verifiedBikes.length}%` }}
+                          className="border-r border-gray-100 last:border-r-0"
+                        >
+                          <VerifiedCard
+                            bike={bike}
+                            onNavigate={() => navigate(`/bikes/${bike.id}`)}
+                            onHeartClick={handleHeartClick}
+                            wishedIds={wishedIds}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {verifiedPage > 0 && (
+                    <button onClick={() => setVerifiedPage(p => p - 1)}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-emerald-400 transition-all">
+                      <ChevronLeft size={18} className="text-gray-600" />
+                    </button>
+                  )}
+                  {verifiedPage < verMaxPage && (
+                    <button onClick={() => setVerifiedPage(p => p + 1)}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-emerald-400 transition-all">
+                      <ChevronRight size={18} className="text-gray-600" />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Dot indicators */}
+            {verTotalPages > 1 && (
+              <div className="bg-white border-t border-gray-100 py-2.5 flex justify-center gap-1.5">
+                {[...Array(verTotalPages)].map((_, i) => (
+                  <button key={i} onClick={() => setVerifiedPage(i)}
+                    className={`rounded-full transition-all ${i === verifiedPage ? "w-5 h-2 bg-emerald-500" : "w-2 h-2 bg-gray-200 hover:bg-gray-300"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* ══ SECTION 2: Tất cả xe đạp ══ */}
+      <section id="all-bikes" className="py-12 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* Heading */}
+          <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
+            <div>
+              <span className="inline-block bg-blue-100 text-blue-700 text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full mb-2">
+                {activeFilter.categoryId
+                  ? (categories.find(c => String(c.id) === activeFilter.categoryId)?.name ?? "Danh mục")
+                  : activeFilter.keyword ? `Kết quả: "${activeFilter.keyword}"`
+                  : "Tất cả xe"}
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                {activeFilter.keyword
+                  ? <>Tìm thấy xe phù hợp với <span className="text-blue-600">"{activeFilter.keyword}"</span></>
+                  : activeFilter.categoryId || activeFilter.brandId
+                  ? <>Xe đạp theo <span className="text-blue-600">bộ lọc đã chọn</span></>
+                  : <>Tất cả xe đạp</>}
+              </h2>
+            </div>
+            {!allLoading && (
+              <p className="text-sm text-gray-400 shrink-0">
+                Hiển thị <span className="font-semibold text-gray-600">{allBikes.length}</span> xe / trang {page + 1}
+              </p>
+            )}
+          </div>
+
+          {/* Filter panel */}
+          <FilterPanel
+            filterForm={filterForm} setFilterForm={setFilterForm}
+            categories={categories} brands={brands}
+            sortBy={sortBy} setSortBy={setSortBy}
+            onApply={handleApply} onClear={handleClear}
+          />
+
+          {/* Active filter chips */}
+          {hasFilter && (
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <span className="text-xs text-gray-400">Đang lọc:</span>
+              {activeFilter.keyword    && <FilterChip label={`"${activeFilter.keyword}"`} onRemove={() => removeFilter("keyword")} />}
+              {activeFilter.categoryId && <FilterChip label={categories.find(c => String(c.id) === activeFilter.categoryId)?.name ?? "Danh mục"} onRemove={() => removeFilter("categoryId")} />}
+              {activeFilter.brandId    && <FilterChip label={brands.find(b => String(b.id) === activeFilter.brandId)?.name ?? "Thương hiệu"} onRemove={() => removeFilter("brandId")} />}
+              {activeFilter.priceMin   && <FilterChip label={`Từ ${Number(activeFilter.priceMin).toLocaleString("vi-VN")} ₫`} onRemove={() => removeFilter("priceMin")} />}
+              {activeFilter.priceMax   && <FilterChip label={`Đến ${Number(activeFilter.priceMax).toLocaleString("vi-VN")} ₫`} onRemove={() => removeFilter("priceMax")} />}
+              {activeFilter.minYear    && <FilterChip label={`Từ năm ${activeFilter.minYear}`} onRemove={() => removeFilter("minYear")} />}
+            </div>
+          )}
+
+          {/* Bike grid */}
+          {allLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {[...Array(8)].map((_, i) => <Skeleton key={i} />)}
+            </div>
+          ) : allBikes.length === 0 ? (
+            <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border border-gray-100">
+              Không có xe phù hợp. Thử điều chỉnh bộ lọc nhé!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {allBikes.map(bike => (
+                <RegularCard
+                  key={bike.id}
+                  bike={bike}
+                  onNavigate={() => navigate(`/bikes/${bike.id}`)}
+                  onHeartClick={handleHeartClick}
+                  wishedIds={wishedIds}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-2 mt-10">
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium disabled:opacity-40 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                ← Trước
+              </button>
+              {[...Array(totalPages)].map((_, i) => (
+                <button key={i} onClick={() => setPage(i)}
+                  className={`w-9 h-9 rounded-xl text-sm font-medium transition-colors ${i === page ? "bg-blue-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300"}`}>
+                  {i + 1}
+                </button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-medium disabled:opacity-40 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                Sau →
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Wishlist modals */}
+      {wishModal?.type === "auth" && (
+        <WishlistAuthModal
+          onClose={() => setWishModal(null)}
+          onLogin={() => { setWishModal(null); navigate("/login"); }}
+          onRegister={() => { setWishModal(null); navigate("/register"); }}
+        />
+      )}
+      {wishModal?.type === "confirm" && (
+        <WishlistConfirmModal
+          loading={wishLoading}
+          onClose={() => setWishModal(null)}
+          onConfirm={handleConfirmWish}
+        />
+      )}
+    </div>
   );
 }

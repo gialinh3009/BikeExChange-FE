@@ -55,13 +55,23 @@ export async function getBuyerListAPI(params = {}) {
     }
 
     const json = await res.json();
-    const page = json?.data ?? json;
+    const raw  = json?.data ?? json;
+
+    // BE trả về 2 dạng:
+    //   Paginated : { data: { content: [...], totalPages, totalElements, ... } }
+    //   Flat list : { data: [...] }
+    const content      = Array.isArray(raw)           ? raw
+                       : Array.isArray(raw?.content)  ? raw.content
+                       : [];
+    const totalPages   = Array.isArray(raw) ? 1          : (raw?.totalPages    ?? 1);
+    const totalElements= Array.isArray(raw) ? raw.length : (raw?.totalElements ?? 0);
+
     return {
-        content:       Array.isArray(page?.content) ? page.content : [],
-        totalElements: page?.totalElements ?? 0,
-        totalPages:    page?.totalPages    ?? 1,
-        number:        page?.number        ?? 0,
-        size:          page?.size          ?? 20,
+        content,
+        totalElements,
+        totalPages,
+        number: Array.isArray(raw) ? 0 : (raw?.number ?? 0),
+        size:   Array.isArray(raw) ? content.length : (raw?.size ?? 20),
     };
 }
 

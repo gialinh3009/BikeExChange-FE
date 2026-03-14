@@ -19,7 +19,8 @@ export async function getUserProfileAPI(userId) {
 
 /** PUT /users/{userId} — chỉ gửi các field được phép chỉnh sửa */
 export async function updateUserProfileAPI(userId, payload) {
-    const res  = await fetch(`${BASE_URL}/users/${userId}`, {
+    // Đúng API: PUT /users/me
+    const res  = await fetch(`${BASE_URL}/users/me`, {
         method: "PUT",
         headers: authHeaders(true),
         body: JSON.stringify(payload),

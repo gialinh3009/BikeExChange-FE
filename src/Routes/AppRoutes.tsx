@@ -11,6 +11,22 @@ import ManagerBuyer from "../components/Admin/Manager/ManagerBuyer.tsx";
 import ManagerInspector from "../components/Admin/Manager/ManagerInspector.tsx";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
+
+import PaymentSuccess from "../components/Buyer/PaymentSuccess";
+import SellerPage from "../components/Seller/SellerPage";
+import BuyerPage from "../components/Buyer/BuyerPage";
+import ProfilePage from "../components/Buyer/Profilepage";
+import BikedetailPage from "../components/Buyer/BikedetailPage";
+import GuestLayout from "../components/home/Layout";
+import InspectorLayout from "../components/Inspector/InspectorLayout";
+import InspectorDashboard from "../components/Inspector/InspectorDashboard";
+import ManagerInspection from "../components/Inspector/ManagerInspection";
+import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionStatus";
+import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
+import CreateReport from "../components/Inspector/CreateReport";
+import ManagerInspected from "../components/Inspector/ManagerInspected";
+import OrderDetailPage from "../components/Buyer/OrderDetailPage";
+
 import VerifyEmail from "../components/home/VerifyEmail";
 import SellerPage from "../components/Seller/SellerPage.tsx";
 import InspectorPage from "../components/Inspector/InspectorPage.tsx";
@@ -21,6 +37,7 @@ import BikedetailPage from "../components/Buyer/BikedetailPage.tsx";
 import OrderDetailPage from "../components/Buyer/OrderDetailPage.tsx";
 
 // ─── PrivateRoute ────────────────────────────────────────────────────────────
+
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
     const user = (() => {
         try {
@@ -42,6 +59,23 @@ interface AppRoutesProps {
 }
 
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
+
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/bikes/:id" element={<BikedetailPage />} />
+
+      {/* Profile — protected */}
+      <Route element={<PrivateRoute />}>
+        <Route path="/profile" element={<ProfilePage />} />
+      </Route>
+
+      {/* Root: trang chính — hiển thị cho tất cả, kể cả đã đăng nhập */}
+      <Route path="/" element={<GuestLayout />} />
+
     return (
         <Routes>
             {/* Public */}
@@ -81,6 +115,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                 </Route>
             </Route>
 
+
             {/* Seller — protected */}
             <Route element={<PrivateRoute roles={["SELLER"]} />}>
                 <Route path="/seller" element={<SellerPage />} />
@@ -91,11 +126,30 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                 <Route path="/inspector" element={<InspectorPage />} />
             </Route>
 
+
+      {/* Inspector — protected */}
+   <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
+        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
+          <Route index element={<InspectorDashboard />} />
+          <Route path="inspections" element={<ManagerInspection />} />
+          <Route path="status" element={<ManagerInspectionStatus />} />
+          <Route path="reports" element={<ManagerInspectionReport />} />
+          <Route path="create-report" element={<CreateReport />} />
+          <Route path="reports-list" element={<ManagerInspected />} />
+        </Route>
+      </Route>
+      {/* Buyer — protected */}
+      <Route element={<PrivateRoute roles={["BUYER"]} />}>
+        <Route path="/buyer" element={<BuyerPage />} />
+        <Route path="/order-detail/:id" element={<OrderDetailPage />} />
+      </Route>
+
             {/* Buyer dashboard — cho cả BUYER và SELLER */}
             <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
                 <Route path="/buyer"   element={<BuyerPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
             </Route>
+
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
