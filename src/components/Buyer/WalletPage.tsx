@@ -45,7 +45,7 @@ type TabType = "overview" | "deposit" | "history";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmtVnd  = (p: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(p);
-const fmtPts  = (p: number) => new Intl.NumberFormat("vi-VN").format(p) + " điểm";
+const fmtPts  = fmtVnd; // balances stored as VND — display in VND
 const fmtDate = (d: string) => {
     const dt = new Date(d);
     return dt.toLocaleDateString("vi-VN") + " " + dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -224,7 +224,6 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     <h2 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>
                         {loading ? "..." : fmtPts(displayAvail)}
                     </h2>
-                    <p style={{ fontSize: 12, opacity: .7, margin: "6px 0 0" }}>≈ {loading ? "..." : fmtVnd(displayAvail)}</p>
                 </div>
 
                 {/* Đang giữ — realHeld từ ESCROWED orders */}
@@ -263,7 +262,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "#fffbeb", borderBottom: "1px solid #fde68a" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                             <Clock size={14} color="#f59e0b" />
-                            <span style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>Chi tiết điểm đang tạm giữ</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>Chi tiết tiền đang tạm giữ</span>
                         </div>
                         <span style={{ fontSize: 14, fontWeight: 800, color: "#f59e0b" }}>{fmtPts(realHeld)}</span>
                     </div>
@@ -362,7 +361,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                             </div>
                             {Number(depositAmt) >= 10_000 && (
                                 <p style={{ fontSize: 12, color: "#16a34a", margin: "0 0 16px", fontWeight: 500 }}>
-                                    ≈ {Number(depositAmt).toLocaleString("vi-VN")} điểm sẽ được cộng vào ví
+                                    {fmtVnd(Number(depositAmt))} sẽ được cộng vào ví
                                 </p>
                             )}
 
