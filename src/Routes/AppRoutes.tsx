@@ -18,6 +18,8 @@ import Register from "../components/home/Register";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
 import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
+import ProfilePage from "../components/Buyer/Profilepage";
+import BikedetailPage from "../components/Buyer/BikedetailPage";
 import GuestLayout from "../components/home/Layout";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
@@ -61,6 +63,12 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/bikes/:id" element={<BikedetailPage />} />
+
+      {/* Profile — protected */}
+      <Route element={<PrivateRoute />}>
+        <Route path="/profile" element={<ProfilePage />} />
+      </Route>
 
       {/* Root: trang chính — hiển thị cho tất cả, kể cả đã đăng nhập */}
       <Route path="/" element={<GuestLayout />} />
