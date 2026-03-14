@@ -13,6 +13,7 @@ import {
   UserCog,
   Tag,
   Cpu,
+  AlertTriangle,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -59,6 +60,7 @@ export default function AdminSidebar({
       { to: "/admin/categories", label: "Quản Lý Danh Mục", key: "categories", icon: Tag },
       { to: "/admin/brands", label: "Quản Lý Thương Hiệu", key: "brands", icon: Tag },
       { to: "/admin/components", label: "Quản Lý Linh Kiện", key: "components", icon: Cpu },
+      { to: "/admin/disputes", label: "Quản Lý Khiếu Nại", key: "disputes", icon: AlertTriangle },
     ],
     [],
   );
@@ -79,7 +81,6 @@ export default function AdminSidebar({
         collapsed ? "w-[88px]" : "w-[280px]",
       )}
     >
-      {/* Header */}
       <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold shrink-0">
           BX
@@ -96,128 +97,55 @@ export default function AdminSidebar({
 
         <button
           onClick={onToggleCollapsed}
-          className={clsx(
-            "ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50",
-            "h-9 w-9 shrink-0",
-          )}
-          title={collapsed ? "Mở rộng" : "Thu gọn"}
+          className="ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
           type="button"
         >
-          {collapsed
-            ? <ChevronRight size={16} className="text-gray-600" />
-            : <ChevronLeft size={16} className="text-gray-600" />}
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
 
         <button
           onClick={onClose}
           className="ml-auto md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
           type="button"
-          aria-label="Close sidebar"
         >
-          <X size={16} className="text-gray-600" />
+          <X size={16} />
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="px-3 py-3 flex-1 overflow-y-auto">
         <div className="space-y-1">
-          {nav.map((item) => {
-            if (item.children) {
-              const opened = openGroup === item.key;
-              return (
-                <div key={item.key} className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenGroup((cur) =>
-                        cur === item.key ? null : item.key,
-                      )
-                    }
-                    className={clsx(
-                      "w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-blue-50 text-gray-800",
-                      opened ? "bg-blue-50" : "",
-                    )}
-                    title={item.label}
-                  >
-                    <IconWrap icon={item.icon} active={false} />
-                    {!collapsed && (
-                      <>
-                        <span className="font-medium text-sm">
-                          {item.label}
-                        </span>
-                        <span className="ml-auto text-xs text-gray-500">
-                          {opened ? "–" : "+"}
-                        </span>
-                      </>
-                    )}
-                  </button>
-
-                  {opened && (
-                    <div
-                      className={clsx(
-                        "mt-1 pl-2",
-                        collapsed ? "hidden" : "block",
-                      )}
-                    >
-                      {item.children.map((c) => (
-                        <NavLink
-                          key={c.to}
-                          to={c.to}
-                          className={({ isActive }) =>
-                            clsx(
-                              "flex items-center gap-3 px-3 py-2 rounded-xl text-sm",
-                              isActive
-                                ? "bg-blue-700 text-white"
-                                : "text-gray-700 hover:bg-blue-50",
-                            )
-                          }
-                        >
-                          <span className="h-2 w-2 rounded-full bg-gray-300" />
-                          <span>{c.label}</span>
-                        </NavLink>
-                      ))}
-                    </div>
+          {nav.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/admin"}
+              className={({ isActive }) =>
+                clsx(
+                  "flex items-center gap-3 px-3 py-2 rounded-xl",
+                  isActive
+                    ? "bg-blue-700 text-white"
+                    : "text-gray-800 hover:bg-blue-50",
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <IconWrap icon={item.icon} active={isActive} />
+                  {!collapsed && (
+                    <span className="font-medium text-sm">{item.label}</span>
                   )}
-                </div>
-              );
-            }
-
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/admin"}
-                className={({ isActive }) =>
-                  clsx(
-                    "flex items-center gap-3 px-3 py-2 rounded-xl",
-                    isActive
-                      ? "bg-blue-700 text-white"
-                      : "text-gray-800 hover:bg-blue-50",
-                  )
-                }
-                title={item.label}
-              >
-                {({ isActive }) => (
-                  <>
-                    <IconWrap icon={item.icon} active={isActive} />
-                    {!collapsed && (
-                      <span className="font-medium text-sm">{item.label}</span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            );
-          })}
+                </>
+              )}
+            </NavLink>
+          ))}
         </div>
       </nav>
 
-      {/* Footer actions */}
       <div className="p-3 border-t border-gray-200">
         <button
           type="button"
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:bg-blue-50 text-gray-800"
-          title="Đăng xuất"
         >
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
             <LogOut size={18} className="text-blue-700" />
@@ -230,17 +158,14 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Desktop */}
       <div className="hidden md:block h-screen sticky top-0">
         {SidebarContent}
       </div>
 
-      {/* Mobile Drawer */}
       <div className={clsx("md:hidden", isOpen ? "block" : "hidden")}>
         <div
           className="fixed inset-0 bg-black/40 z-40"
           onClick={onClose}
-          aria-hidden="true"
         />
         <div className="fixed inset-y-0 left-0 z-50">{SidebarContent}</div>
       </div>
