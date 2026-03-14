@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
 import { getBrandsAPI } from "../../services/home/brandService";
+import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 
 function categoryIcon(name = "") {
   const n = name.toLowerCase();
@@ -32,7 +33,8 @@ export default function Header() {
   const [categories, setCategories] = useState([]);   // [{id, name, bikeCount}]
   const [brands,     setBrands]     = useState([]);   // [{id, name}]
 
-  const [sticky, setSticky] = useState(false);  // sticky filter bar visible
+  const [sticky,      setSticky]      = useState(false);  // sticky filter bar visible
+  const [wishCount,   setWishCount]   = useState(0);
 
   const catRef   = useRef(null);
   const brandRef = useRef(null);
@@ -41,6 +43,20 @@ export default function Header() {
   useEffect(() => {
     getCategoriesAPI().then(setCategories).catch(() => {});
     getBrandsAPI().then(setBrands).catch(() => {});
+  }, []);
+
+  /* ── fetch wishlist count (logged-in only) ── */
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    getWishlistAPI().then(list => setWishCount(Array.isArray(list) ? list.length : 0)).catch(() => {});
+  }, []);
+
+  /* ── listen for wishlist updates dispatched by ListProduct ── */
+  useEffect(() => {
+    const handler = (e) => setWishCount(e.detail?.count ?? 0);
+    window.addEventListener("wishlist-updated", handler);
+    return () => window.removeEventListener("wishlist-updated", handler);
   }, []);
 
   /* ── sticky filter bar on scroll ── */
@@ -234,17 +250,44 @@ export default function Header() {
                 title="Xe yêu thích"
               >
                 <Heart size={20} />
+                {wishCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full leading-none">
+                    {wishCount > 99 ? "99+" : wishCount}
+                  </span>
+                )}
               </button>
 
               <div className="hidden sm:flex items-center gap-2 ml-2">
-                <button onClick={() => navigate("/login")}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
-                  <User size={15} /> Đăng nhập
-                </button>
-                <button onClick={() => navigate("/register")}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm">
-                  Đăng ký
-                </button>
+                {(() => {
+                  const token = localStorage.getItem("token");
+                  const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
+                  if (token && user) {
+                    const name     = (user.fullName || user.email || "Tôi").split(" ").pop();
+                    const roleMap  = { ADMIN: "/admin", SELLER: "/seller", INSPECTOR: "/inspector", BUYER: "/buyer" };
+                    const dest     = roleMap[user.role?.toUpperCase()] ?? "/buyer";
+                    return (
+                      <button
+                        onClick={() => navigate(dest)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+                      >
+                        <span>{name}</span>
+                        <User size={15} />
+                      </button>
+                    );
+                  }
+                  return (
+                    <>
+                      <button onClick={() => navigate("/login")}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors">
+                        <User size={15} /> Đăng nhập
+                      </button>
+                      <button onClick={() => navigate("/register")}
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm">
+                        Đăng ký
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
 
               <button onClick={() => setMobileOpen(v => !v)}
