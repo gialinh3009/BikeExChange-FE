@@ -60,17 +60,8 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Root: redirect theo role */}
-      <Route
-        path="/"
-        element={
-          user ? (
-            <Navigate to={ROLE_ROUTES[user.role] ?? "/login"} replace />
-          ) : (
-            <GuestLayout/>
-          )
-        }
-      />
+      {/* Root: trang chính — hiển thị cho tất cả, kể cả đã đăng nhập */}
+      <Route path="/" element={<GuestLayout />} />
 
       {/* Admin — protected */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>
