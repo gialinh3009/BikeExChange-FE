@@ -28,6 +28,7 @@ import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionSt
 import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
 import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
+import OrderDetailPage from "../components/Buyer/OrderDetailPage";
 function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
   const user = (() => {
     try {
@@ -111,6 +112,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       {/* Buyer — protected */}
       <Route element={<PrivateRoute roles={["BUYER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
+        <Route path="/order-detail/:id" element={<OrderDetailPage />} />
       </Route>
 
       {/* Fallback */}
