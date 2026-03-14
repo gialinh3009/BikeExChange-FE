@@ -15,6 +15,50 @@ import {
     XCircle, Plus, History, RefreshCw, AlertTriangle, Package,
 } from "lucide-react";
 import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL } from "../../services/Buyer/walletService";
+// Danh sách ngân hàng Việt Nam
+const BANKS = [
+    { code: "VCB", name: "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)" },
+    { code: "TCB", name: "Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)" },
+    { code: "VPB", name: "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)" },
+    { code: "MBB", name: "Ngân hàng TMCP Quân đội (MB Bank)" },
+    { code: "BID", name: "Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV)" },
+    { code: "VIB", name: "Ngân hàng TMCP Quốc tế Việt Nam (VIB)" },
+    { code: "CTG", name: "Ngân hàng TMCP Công thương Việt Nam (VietinBank)" },
+    { code: "ACB", name: "Ngân hàng TMCP Á Châu (ACB)" },
+    { code: "HDB", name: "Ngân hàng TMCP Phát triển TP.HCM (HDBank)" },
+    { code: "SHB", name: "Ngân hàng TMCP Sài Gòn - Hà Nội (SHB)" },
+    { code: "SAC", name: "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)" },
+    { code: "EIB", name: "Ngân hàng TMCP Xuất Nhập Khẩu Việt Nam (Eximbank)" },
+    { code: "MSB", name: "Ngân hàng TMCP Hàng Hải Việt Nam (MSB)" },
+    { code: "LPB", name: "Ngân hàng TMCP Bưu điện Liên Việt (LienVietPostBank)" },
+    { code: "TPB", name: "Ngân hàng TMCP Tiên Phong (TPBank)" },
+    { code: "ABB", name: "Ngân hàng TMCP An Bình (ABBANK)" },
+    { code: "BAB", name: "Ngân hàng TMCP Bắc Á (Bac A Bank)" },
+    { code: "BVB", name: "Ngân hàng TMCP Bảo Việt (BaoViet Bank)" },
+    { code: "BVB", name: "Ngân hàng TMCP Bản Việt (Viet Capital Bank)" },
+    { code: "CBB", name: "Ngân hàng TMCP Xây dựng (CB Bank)" },
+    { code: "DAB", name: "Ngân hàng TMCP Đông Á (DongA Bank)" },
+    { code: "GPB", name: "Ngân hàng TMCP Dầu khí Toàn cầu (GPBank)" },
+    { code: "HBB", name: "Ngân hàng TMCP Hà Nội (Hanoi Bank)" },
+    { code: "KLB", name: "Ngân hàng TMCP Kiên Long (Kienlongbank)" },
+    { code: "NAB", name: "Ngân hàng TMCP Nam Á (Nam A Bank)" },
+    { code: "NCB", name: "Ngân hàng TMCP Quốc Dân (NCB)" },
+    { code: "NVB", name: "Ngân hàng TMCP Quốc Tế (VietNam International Bank)" },
+    { code: "OCB", name: "Ngân hàng TMCP Phương Đông (OCB)" },
+    { code: "PGB", name: "Ngân hàng TMCP Xăng dầu Petrolimex (PG Bank)" },
+    { code: "PVB", name: "Ngân hàng TMCP Đại Chúng Việt Nam (PVcomBank)" },
+    { code: "SCB", name: "Ngân hàng TMCP Sài Gòn (SCB)" },
+    { code: "SEB", name: "Ngân hàng TMCP Đông Nam Á (SeABank)" },
+    { code: "SSB", name: "Ngân hàng TMCP Đông Nam Á (SeABank)" },
+    { code: "STB", name: "Ngân hàng TMCP Sài Gòn Thương Tín (Sacombank)" },
+    { code: "TCB", name: "Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)" },
+    { code: "UOB", name: "Ngân hàng TNHH MTV United Overseas Bank (UOB)" },
+    { code: "VCB", name: "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)" },
+    { code: "VIB", name: "Ngân hàng TMCP Quốc tế Việt Nam (VIB)" },
+    { code: "VPB", name: "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)" },
+    { code: "VTB", name: "Ngân hàng TMCP Việt Thái (VietThai Bank)" },
+    { code: "WOO", name: "Ngân hàng TNHH MTV Woori Việt Nam (Woori Bank)" }
+];
 
 const BASE = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -90,7 +134,7 @@ const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000];
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 export default function WalletPage({ initialTab = "overview" }: { initialTab?: TabType }) {
-    const [tab, setTab]                       = useState<TabType>(initialTab as TabType);
+    const [tab, setTab]                       = useState<TabType | "withdraw">(initialTab as TabType);
     const [wallet, setWallet]                 = useState<WalletData | null>(null);
     const [escrowedOrders, setEscrowedOrders] = useState<EscrowedOrder[]>([]);
     const [transactions, setTransactions]     = useState<Transaction[]>([]);
@@ -99,6 +143,43 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
     const [depositAmt, setDepositAmt]         = useState("100000");
     const [depositing, setDepositing]         = useState(false);
     const [depositErr, setDepositErr]         = useState("");
+    // Withdraw states
+    const [withdrawAmt, setWithdrawAmt]       = useState("");
+    const [withdrawBank, setWithdrawBank]     = useState("");
+    const [withdrawAccount, setWithdrawAccount] = useState("");
+    const [withdrawName, setWithdrawName]     = useState("");
+    const [withdrawLoading, setWithdrawLoading] = useState(false);
+    const [withdrawErr, setWithdrawErr]       = useState("");
+    const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+    // Không cần banks state nữa
+    // Load banks
+    // Đã khai báo BANKS trực tiếp, không cần fetch
+    // Withdraw handler
+    const handleWithdraw = async () => {
+        setWithdrawErr("");
+        if (!withdrawAmt || Number(withdrawAmt) < 10000) { setWithdrawErr("Số tiền tối thiểu là 10.000đ"); return; }
+        if (!withdrawBank) { setWithdrawErr("Vui lòng chọn ngân hàng"); return; }
+        if (!withdrawAccount) { setWithdrawErr("Vui lòng nhập số tài khoản"); return; }
+        if (!withdrawName) { setWithdrawErr("Vui lòng nhập tên chủ tài khoản"); return; }
+        setWithdrawLoading(true);
+        try {
+            const res = await withdrawWalletAPI({
+                amount: Number(withdrawAmt),
+                bankName: withdrawBank,
+                bankAccount: withdrawAccount,
+                accountName: withdrawName,
+            });
+            setWithdrawSuccess(true);
+            setWithdrawAmt("");
+            setWithdrawBank("");
+            setWithdrawAccount("");
+            setWithdrawName("");
+        } catch (e) {
+            setWithdrawErr(e instanceof Error ? e.message : "Có lỗi xảy ra");
+        } finally {
+            setWithdrawLoading(false);
+        }
+    };
 
     const token = localStorage.getItem("token") ?? "";
     const authHeader = `Bearer ${token}`;
@@ -299,17 +380,70 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     {[
                         { id: "overview", label: "Tổng quan", icon: "📋" },
                         { id: "deposit",  label: "Nạp tiền",  icon: "⬇️" },
+                        { id: "withdraw", label: "Rút tiền",  icon: "🏦" },
                         { id: "history",  label: "Lịch sử",   icon: "📜" },
                     ].map(t => (
                         <button key={t.id}
                                 className={`tab-btn${tab === t.id ? " active" : ""}`}
-                                onClick={() => setTab(t.id as TabType)}>
+                                onClick={() => setTab(t.id as any)}>
                             {t.icon} {t.label}
                         </button>
                     ))}
                 </div>
 
                 <div style={{ padding: 24 }}>
+                    {/* Withdraw */}
+                    {tab === "withdraw" && (
+                        <div className="fade-in" style={{ maxWidth: 480 }}>
+                            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 16px" }}>Rút tiền về ngân hàng</h3>
+                            {withdrawSuccess && (
+                                <div style={{ marginBottom: 14, padding: "10px 13px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, color: "#16a34a", fontSize: 13 }}>
+                                    ✅ Yêu cầu rút đã được tạo. Admin sẽ xét duyệt trong 1-3 ngày.
+                                </div>
+                            )}
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Số tiền muốn rút</label>
+                                <input className="wl-input" type="number" placeholder="Nhập số tiền"
+                                       value={withdrawAmt}
+                                       onChange={e => { setWithdrawAmt(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }}
+                                       style={{ paddingRight: 50 }} />
+                                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>VNĐ</span>
+                            </div>
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Ngân hàng</label>
+                                <select className="wl-input" value={withdrawBank} onChange={e => { setWithdrawBank(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }}>
+                                    <option value="">Chọn ngân hàng</option>
+                                    {BANKS.map(b => (
+                                        <option key={b.code} value={b.name}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Số tài khoản</label>
+                                <input className="wl-input" type="text" placeholder="Nhập số tài khoản"
+                                       value={withdrawAccount}
+                                       onChange={e => { setWithdrawAccount(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }} />
+                            </div>
+                            <div style={{ marginBottom: 18 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Tên chủ tài khoản</label>
+                                <input className="wl-input" type="text" placeholder="Nhập tên chủ tài khoản"
+                                       value={withdrawName}
+                                       onChange={e => { setWithdrawName(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }} />
+                            </div>
+                            {withdrawErr && (
+                                <div style={{ marginBottom: 14, padding: "10px 13px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 9, color: "#e11d48", fontSize: 13 }}>
+                                    ⚠️ {withdrawErr}
+                                </div>
+                            )}
+                            <button onClick={() => { void handleWithdraw(); }}
+                                    disabled={withdrawLoading || !withdrawAmt || Number(withdrawAmt) < 10000 || !withdrawBank || !withdrawAccount || !withdrawName}
+                                    style={{ width: "100%", padding: "13px 0", background: withdrawLoading ? "#e2e8f0" : "#0f172a", color: withdrawLoading ? "#94a3b8" : "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: withdrawLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}>
+                                {withdrawLoading
+                                    ? <><RefreshCw size={15} className="spin" /> Đang xử lý...</>
+                                    : <>🏦 Rút tiền</>}
+                            </button>
+                        </div>
+                    )}
 
                     {/* Overview */}
                     {tab === "overview" && (
