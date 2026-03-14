@@ -15,6 +15,7 @@ import ManagerBrand from "../components/Admin/Manager/ManagerBrand";
 import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
+import PaymentSuccess from "../components/Buyer/PaymentSuccess";
 import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import GuestLayout from "../components/home/Layout";
@@ -59,6 +60,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
 
       {/* Root: trang chính — hiển thị cho tất cả, kể cả đã đăng nhập */}
       <Route path="/" element={<GuestLayout />} />
