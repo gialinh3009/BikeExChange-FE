@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
-import { createSellerBikeAPI } from "../../services/Seller/sellerBikeService";
+import { createSellerBikeAPI, listCategoriesAPI, listBrandsAPI } from "../../services/Seller/sellerBikeService";
 import { requestInspectionAPI } from "../../services/inspectionService";
-import { listCategoriesAPI } from "../../services/categoryService";
-import { listBrandsAPI } from "../../services/brandService";
 import { upgradeToSellerAPI } from "../../services/authService";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
@@ -31,8 +29,8 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const hasEnough = walletAvailable >= POSTING_FEE;
 
     useEffect(() => {
-        listCategoriesAPI({ page: 0, size: 100 }).then((res: any) => {
-            const data = res?.content || res?.data?.content || (Array.isArray(res) ? res : []);
+        listCategoriesAPI(token).then((res: any) => {
+            const data = Array.isArray(res) ? res : (res?.data || []);
             setCategories(data.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
         }).catch(() => {});
         listBrandsAPI(token).then((res: any) => {
@@ -60,7 +58,10 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
             formDataToSend.append("condition", form.condition);
             formDataToSend.append("bikeType", form.bikeType);
             formDataToSend.append("frameSize", form.frameSize);
-            formDataToSend.append("pricePoints", Number(form.priceVnd.replace(/[^\d]/g, "")).toString());
+            
+            // Chuyển priceVnd (string) thành pricePoints (number)
+            const pricePoints = Number(form.priceVnd.replace(/[^\d]/g, ""));
+            formDataToSend.append("pricePoints", pricePoints.toString());
 
             if (form.year) {
                 formDataToSend.append("year", form.year);
@@ -73,7 +74,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
             }
 
             // Thêm file ảnh
-            images.forEach((img, i) => {
+            images.forEach((img) => {
                 // Chuyển dataUrl thành File
                 const arr = img.dataUrl.split(',');
                 const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
@@ -88,6 +89,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
             });
 
             console.log("📤 Sending bike creation request with FormData");
+            console.log("Price Points:", pricePoints);
 
             const res: any = await createSellerBikeAPI(formDataToSend, token);
             const bikeId = res?.id ?? res?.data?.id;
