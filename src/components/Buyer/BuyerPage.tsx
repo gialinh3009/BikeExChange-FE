@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bike, Heart, Wallet, Package, Settings, ChevronRight, TrendingUp, LogOut, User } from "lucide-react";
+import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
@@ -44,6 +44,9 @@ export default function BuyerPage() {
     const [activeTab,        setActiveTab]        = useState(locationState?.tab === "wallet" ? "wallet" : "overview");
     const [wishCount,        setWishCount]        = useState(0);
     const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+    const [wishPage,         setWishPage]         = useState(0);
+    const [wishSlideDir,     setWishSlideDir]     = useState<"left"|"right"|null>(null);
+    const WISH_PER_PAGE = 6;
 
     // Overview tab data
     const [overview, setOverview] = useState<{
@@ -87,7 +90,7 @@ export default function BuyerPage() {
             getMyPurchasesAPI({ size: 5 }) as Promise<OrderItem[]>,
         ]).then(([walletRes, wishRes, ordersRes]) => {
             if (cancelled) return;
-            const newWishlist = wishRes.status === "fulfilled" ? wishRes.value.slice(0, 4) : [];
+            const newWishlist = wishRes.status === "fulfilled" ? wishRes.value : [];
             const newWishCount = wishRes.status === "fulfilled" ? wishRes.value.length : 0;
             const newOrders = ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value)
                 ? ordersRes.value.map((p: OrderItem & { order?: OrderItem }) => p.order ?? p).slice(0, 5)
@@ -328,59 +331,92 @@ export default function BuyerPage() {
                                 </div>
                             </div>
 
-                            {/* Sản phẩm yêu thích — hiện xe inline */}
-                            <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px", marginBottom: 20 }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
-                                        Sản phẩm yêu thích
-                                        {wishCount > 0 && <span style={{ marginLeft: 8, fontSize: 13, color: "#e11d48", fontWeight: 600 }}>({wishCount})</span>}
-                                    </h3>
-                                    {wishCount > 0 && (
-                                        <button onClick={() => setActiveTab("wishlist")}
-                                                style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-                                            Xem tất cả →
-                                        </button>
-                                    )}
-                                </div>
-                                {(overview === null || overview.wishlist.length === 0) && wishCount === 0 ? (
-                                    <div style={{ textAlign: "center", padding: "32px 0" }}>
-                                        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                                            <Heart size={28} color="#cbd5e1" />
-                                        </div>
-                                        <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>Bạn chưa có sản phẩm nào yêu thích!</p>
-                                        <button onClick={() => navigate("/")}
-                                                style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-                                            Mua sắm ngay
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-                                        {(overview?.wishlist ?? []).slice(0, 4).map(item => {
-                                            const bike = item.bike;
-                                            const bikeId = bike?.id ?? item.bikeId ?? item.id;
-                                            const img = bike?.media?.find((m) => m.type === "IMAGE" && !m.url?.includes("dicebear"))?.url;
-                                            return (
-                                                <div key={item.id} onClick={() => navigate(`/bikes/${bikeId}`)}
-                                                     style={{ borderRadius: 12, border: "1px solid #e8ecf5", overflow: "hidden", cursor: "pointer", transition: "all .2s" }}
-                                                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 24px rgba(37,99,235,.1)"; (e.currentTarget as HTMLDivElement).style.borderColor = "#c7d2fe"; }}
-                                                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.borderColor = "#e8ecf5"; }}>
-                                                    <div style={{ height: 140, background: "#f8fafc", overflow: "hidden" }}>
-                                                        {img
-                                                            ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                                                            : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Bike size={28} color="#c7d2e8" /></div>
-                                                        }
-                                                    </div>
-                                                    <div style={{ padding: "12px" }}>
-                                                        <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{typeof bike?.brand === "object" && bike?.brand !== null ? (bike.brand as { name?: string }).name ?? "—" : bike?.brand ?? "—"}</p>
-                                                        <p style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bike?.title ?? bike?.name ?? "Xe đạp"}</p>
-                                                        <p style={{ fontSize: 14, fontWeight: 700, color: "#2563eb", marginTop: 4 }}>{fmtPrice(bike?.pricePoints ?? bike?.price ?? 0)}</p>
-                                                    </div>
+                            {/* Sản phẩm yêu thích — carousel 6/trang */}
+                            {(() => {
+                                const allWish = overview?.wishlist ?? [];
+                                const totalWishPages = Math.max(1, Math.ceil(allWish.length / WISH_PER_PAGE));
+                                const pageItems = allWish.slice(wishPage * WISH_PER_PAGE, (wishPage + 1) * WISH_PER_PAGE);
+                                const goWish = (dir: "left" | "right") => {
+                                    const next = dir === "right" ? wishPage + 1 : wishPage - 1;
+                                    setWishSlideDir(dir);
+                                    setWishPage(next);
+                                    setTimeout(() => setWishSlideDir(null), 350);
+                                };
+                                return (
+                                    <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px", marginBottom: 20 }}>
+                                        <style>{`
+                                            @keyframes slideInRight { from { opacity:0; transform:translateX(60px) } to { opacity:1; transform:none } }
+                                            @keyframes slideInLeft  { from { opacity:0; transform:translateX(-60px) } to { opacity:1; transform:none } }
+                                            .wish-slide-right { animation: slideInRight .32s cubic-bezier(.4,0,.2,1) both; }
+                                            .wish-slide-left  { animation: slideInLeft  .32s cubic-bezier(.4,0,.2,1) both; }
+                                        `}</style>
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                                            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                                                Sản phẩm yêu thích
+                                                {wishCount > 0 && <span style={{ marginLeft: 8, fontSize: 13, color: "#e11d48", fontWeight: 600 }}>({wishCount})</span>}
+                                            </h3>
+                                            {totalWishPages > 1 && (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <button
+                                                        onClick={() => goWish("left")}
+                                                        disabled={wishPage === 0}
+                                                        style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: wishPage === 0 ? "#f8fafc" : "white", cursor: wishPage === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: wishPage === 0 ? 0.4 : 1, transition: "all .15s" }}>
+                                                        <ChevronLeft size={15} color="#475569" />
+                                                    </button>
+                                                    <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>{wishPage + 1}/{totalWishPages}</span>
+                                                    <button
+                                                        onClick={() => goWish("right")}
+                                                        disabled={wishPage >= totalWishPages - 1}
+                                                        style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: wishPage >= totalWishPages - 1 ? "#f8fafc" : "white", cursor: wishPage >= totalWishPages - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: wishPage >= totalWishPages - 1 ? 0.4 : 1, transition: "all .15s" }}>
+                                                        <ChevronRight size={15} color="#475569" />
+                                                    </button>
                                                 </div>
-                                            );
-                                        })}
+                                            )}
+                                        </div>
+                                        {allWish.length === 0 && wishCount === 0 ? (
+                                            <div style={{ textAlign: "center", padding: "32px 0" }}>
+                                                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                                                    <Heart size={28} color="#cbd5e1" />
+                                                </div>
+                                                <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>Bạn chưa có sản phẩm nào yêu thích!</p>
+                                                <button onClick={() => navigate("/")}
+                                                        style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                                                    Mua sắm ngay
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={wishSlideDir === "right" ? "wish-slide-right" : wishSlideDir === "left" ? "wish-slide-left" : ""}
+                                                style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, overflow: "hidden" }}>
+                                                {pageItems.map(item => {
+                                                    const bike = item.bike;
+                                                    const bikeId = bike?.id ?? item.bikeId ?? item.id;
+                                                    const img = bike?.media?.find((m: { type: string; url: string }) => m.type === "IMAGE" && !m.url?.includes("dicebear"))?.url;
+                                                    const brandName = typeof bike?.brand === "object" && bike?.brand !== null ? (bike.brand as { name?: string }).name ?? "—" : bike?.brand ?? "—";
+                                                    return (
+                                                        <div key={item.id} onClick={() => navigate(`/bikes/${bikeId}`)}
+                                                             style={{ borderRadius: 12, border: "1px solid #e8ecf5", overflow: "hidden", cursor: "pointer", transition: "all .2s" }}
+                                                             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 24px rgba(37,99,235,.1)"; (e.currentTarget as HTMLDivElement).style.borderColor = "#c7d2fe"; }}
+                                                             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.borderColor = "#e8ecf5"; }}>
+                                                            <div style={{ height: 120, background: "#f8fafc", overflow: "hidden" }}>
+                                                                {img
+                                                                    ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                                                    : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Bike size={24} color="#c7d2e8" /></div>
+                                                                }
+                                                            </div>
+                                                            <div style={{ padding: "10px" }}>
+                                                                <p style={{ fontSize: 10, color: "#94a3b8", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{brandName}</p>
+                                                                <p style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{bike?.title ?? bike?.name ?? "Xe đạp"}</p>
+                                                                <p style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{fmtPrice(bike?.pricePoints ?? bike?.price ?? 0)}</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                );
+                            })()}
 
                             {/* Chương trình nổi bật */}
                             <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px" }}>

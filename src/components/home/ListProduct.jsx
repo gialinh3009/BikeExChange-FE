@@ -14,7 +14,7 @@ import { WishlistAuthModal, WishlistConfirmModal } from "../Buyer/WishlistModals
 import { getBuyerListAPI }  from "../../services/Buyer/BuyerList";
 import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
 import { getBrandsAPI }     from "../../services/home/brandService";
-import { addToWishlistAPI } from "../../services/Buyer/wishlistService";
+import { addToWishlistAPI, removeFromWishlistAPI, getWishlistAPI } from "../../services/Buyer/wishlistService";
 
 const EMPTY_FILTER = { keyword: "", categoryId: "", brandId: "", priceMin: "", priceMax: "", minYear: "" };
 const PAGE_SIZE     = 8;
@@ -56,6 +56,21 @@ export default function ListProduct() {
   useEffect(() => {
     getCategoriesAPI().then(setCategories).catch(() => {});
     getBrandsAPI().then(setBrands).catch(() => {});
+  }, []);
+
+  // ── Load existing wishlist on mount (persists heart state across navigation) ─
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    getWishlistAPI()
+      .then(list => {
+        const ids = list
+          .map(item => item.bike?.id ?? item.bikeId ?? item.id)
+          .filter(Boolean);
+        setWishedIds(new Set(ids));
+        window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count: ids.length } }));
+      })
+      .catch(() => {});
   }, []);
 
   // ── Sync URL params → filter (Header nav writes URL, ListProduct reads it) ─
@@ -117,7 +132,29 @@ export default function ListProduct() {
 
   // ── Wishlist handlers ──────────────────────────────────────────────────────
   const handleHeartClick = (bikeId) => {
-    setWishModal({ bikeId, type: localStorage.getItem("token") ? "confirm" : "auth" });
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setWishModal({ bikeId, type: "auth" });
+      return;
+    }
+    if (wishedIds.has(bikeId)) {
+      // Already wished → remove directly (no modal needed)
+      handleRemoveWish(bikeId);
+    } else {
+      setWishModal({ bikeId, type: "confirm" });
+    }
+  };
+
+  const handleRemoveWish = async (bikeId) => {
+    try {
+      await removeFromWishlistAPI(bikeId);
+      setWishedIds(prev => {
+        const next = new Set(prev);
+        next.delete(bikeId);
+        window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count: next.size } }));
+        return next;
+      });
+    } catch { /* silent */ }
   };
 
   const handleConfirmWish = async () => {
