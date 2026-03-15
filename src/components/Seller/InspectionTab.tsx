@@ -23,7 +23,7 @@ interface InspectionTabProps {
     canRequestInspection: (bike: BikeItem) => boolean;
 }
 
-export default function InspectionTab({
+function InspectionTab({
     bikes,
     bikesLoading,
     bikesError,
@@ -35,7 +35,6 @@ export default function InspectionTab({
     onViewBikeDetail,
     canRequestInspection,
 }: InspectionTabProps) {
-    // Filter bikes based on inspection status
     const filteredBikes = bikes.filter((bike) => {
         const status = (bike?.inspectionStatus ?? "").toUpperCase();
         
@@ -47,12 +46,11 @@ export default function InspectionTab({
             return status === "REQUESTED" || status === "ASSIGNED" || status === "IN_PROGRESS" || status === "INSPECTED";
         }
         
-        return true; // "all"
+        return true;
     });
 
     return (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                     <div>
@@ -72,7 +70,6 @@ export default function InspectionTab({
                 </div>
             </div>
 
-            {/* Sub-tabs */}
             <div className="px-6 py-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex gap-2">
@@ -113,7 +110,6 @@ export default function InspectionTab({
                 </div>
             </div>
 
-            {/* Loading & Error */}
             {bikesLoading && (
                 <div className="px-6 py-8 text-center text-sm text-gray-500">
                     Đang tải danh sách xe...
@@ -126,7 +122,6 @@ export default function InspectionTab({
                 </div>
             )}
 
-            {/* Bikes list */}
             {!bikesLoading && !bikesError && (
                 <>
                     {filteredBikes.length === 0 ? (
@@ -159,7 +154,6 @@ export default function InspectionTab({
                                 return (
                                     <div key={bike.id} className="px-6 py-4 hover:bg-gray-50 transition">
                                         <div className="flex gap-4">
-                                            {/* Image */}
                                             <div className="w-24 h-24 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden">
                                                 {firstImage ? (
                                                     <img
@@ -174,7 +168,6 @@ export default function InspectionTab({
                                                 )}
                                             </div>
 
-                                            {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div className="min-w-0 flex-1">
@@ -182,11 +175,10 @@ export default function InspectionTab({
                                                             {bike?.title ?? `Xe #${bike.id}`}
                                                         </div>
                                                         <div className="text-sm text-gray-500 mt-0.5">
-                                                            {bike?.condition || "—"} • {bike?.pricePoints?.toLocaleString("vi-VN")} điểm
+                                                            {bike?.condition || "—"} • {bike?.pricePoints?.toLocaleString("vi-VN")} VND
                                                         </div>
                                                     </div>
 
-                                                    {/* Status Badge */}
                                                     <div className="flex-shrink-0">
                                                         {isApproved && (
                                                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
@@ -217,7 +209,6 @@ export default function InspectionTab({
                                                     </div>
                                                 </div>
 
-                                                {/* Actions */}
                                                 <div className="flex gap-2 mt-3">
                                                     {isApproved && (
                                                         <button
@@ -266,3 +257,5 @@ export default function InspectionTab({
         </div>
     );
 }
+
+export default InspectionTab;

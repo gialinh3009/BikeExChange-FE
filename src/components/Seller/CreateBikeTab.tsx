@@ -1,235 +1,281 @@
-import { useEffect, useState } from "react";
-import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
-import { createSellerBikeAPI } from "../../services/Seller/sellerBikeService";
-import { requestInspectionAPI } from "../../services/inspectionService";
-import { listCategoriesAPI } from "../../services/categoryService";
-import { listBrandsAPI } from "../../services/brandService";
-import { upgradeToSellerAPI } from "../../services/authService";
+import { useState, useEffect } from "react";
+import { Upload, X } from "lucide-react";
+import { getCategoriesAPI, getBrandsAPI, createBikeAPI } from "../../services/Seller/sellerService";
 
-type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
-interface CreateBikeTabProps { token: string; wallet: WalletLike | null; onBikeCreated: () => void; onWalletRefresh: () => void }
+type WalletLike = {
+    availablePoints?: number;
+    frozenPoints?: number;
+    data?: {
+        availablePoints?: number;
+        frozenPoints?: number;
+    };
+};
 
-const POSTING_FEE = 5;
-const BIKE_TYPES = ["Road", "MTB", "Gravel", "Touring", "Hybrid", "Fixie"];
-const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "48cm", "50cm", "52cm", "54cm", "56cm", "58cm"];
-const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qua sử dụng"];
+interface CreateBikeTabProps {
+    token: string;
+    wallet: WalletLike | null;
+    onBikeCreated: () => void;
+    onWalletRefresh: () => void;
+}
 
-export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRefresh }: CreateBikeTabProps) {
+const CREATION_FEE = 5000;
+
+export default function CreateBikeTab({
+    token,
+    wallet,
+    onBikeCreated,
+    onWalletRefresh,
+}: CreateBikeTabProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [images, setImages] = useState<{ name: string; dataUrl: string }[]>([]);
-    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
-    const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
+    const [categories, setCategories] = useState<Array<{ id: number; name?: string; categoryName?: string }>>([]);
+    const [brands, setBrands] = useState<Array<{ id: number; name?: string; brandName?: string }>>([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(true);
     const [form, setForm] = useState({
-        title: "", bikeType: "Road", brandId: undefined as number | undefined,
-        model: "", frameSize: "M", condition: "Tốt", year: "", priceVnd: "", description: "",
-        categoryIds: [] as number[], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: ""
+        title: "",
+        description: "",
+        categoryId: "",
+        brandId: "",
+        condition: "LIKE_NEW",
+        pricePoints: "",
     });
-
-    const walletAvailable = wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
-    const hasEnough = walletAvailable >= POSTING_FEE;
+    const [mediaPreview, setMediaPreview] = useState<string[]>([]);
 
     useEffect(() => {
-        listCategoriesAPI({ page: 0, size: 100 }).then((res: any) => {
-            const data = res?.content || res?.data?.content || (Array.isArray(res) ? res : []);
-            setCategories(data.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
-        }).catch(() => {});
-        listBrandsAPI(token).then((res: any) => {
-            const data = Array.isArray(res) ? res : (res?.data || []);
-            setBrands(data.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
-        }).catch(() => {});
-    }, [token]);
+        const loadData = async () => {
+            try {
+                setCategoriesLoading(true);
+                const [catsData, brandsData] = await Promise.all([
+                    getCategoriesAPI(),
+                    getBrandsAPI(),
+                ]);
+                setCategories(Array.isArray(catsData) ? catsData : catsData?.data ?? []);
+                setBrands(Array.isArray(brandsData) ? brandsData : brandsData?.data ?? []);
+            } catch (e) {
+                console.error("Error loading categories/brands:", e);
+            } finally {
+                setCategoriesLoading(false);
+            }
+        };
+        void loadData();
+    }, []);
 
-    const handleSubmit = async () => {
-        setError(null); setSuccess(null);
-        if (!token) { setError("Bạn cần đăng nhập."); return; }
-        if (!form.title || !form.brandId || !form.priceVnd) { setError("Vui lòng nhập: Tiêu đề, Hãng, Giá."); return; }
-        if (images.length === 0) { setError("Vui lòng thêm ít nhất một ảnh."); return; }
-        if (walletAvailable < POSTING_FEE) { setError(`Không đủ điểm. Cần ${POSTING_FEE}, có ${walletAvailable}.`); return; }
+    const availableMoney = wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
+    const canAfford = availableMoney >= CREATION_FEE;
 
+    const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+
+        files.forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setMediaPreview((p) => [...p, event.target?.result as string]);
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const removeMedia = (idx: number) => {
+        setMediaPreview((p) => p.filter((_, i) => i !== idx));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         try {
             setLoading(true);
+            setError(null);
+            setSuccess(null);
 
-            const fileMedias = images.map((img, i) => ({ url: img.dataUrl, type: "IMAGE", sortOrder: i }));
-            const media = fileMedias.map((m, i) => ({ ...m, sortOrder: i }));
+            if (!form.title.trim()) {
+                throw new Error("Vui lòng nhập tên xe.");
+            }
+            if (!form.categoryId) {
+                throw new Error("Vui lòng chọn danh mục.");
+            }
+            if (!form.pricePoints) {
+                throw new Error("Vui lòng nhập giá bán.");
+            }
+            if (!canAfford) {
+                throw new Error(`Bạn cần ít nhất ${CREATION_FEE.toLocaleString("vi-VN")} VND để đăng tin.`);
+            }
 
-            const payload: any = {
-                title: form.title, 
-                description: form.description, 
-                brandId: form.brandId, 
-                model: form.model,
-                condition: form.condition, 
-                bikeType: form.bikeType, 
-                frameSize: form.frameSize, 
-                media, 
-                pricePoints: Number(form.priceVnd.replace(/[^\d]/g, ""))
+            const payload = {
+                title: form.title,
+                description: form.description,
+                categoryId: parseInt(form.categoryId),
+                brandId: form.brandId ? parseInt(form.brandId) : null,
+                condition: form.condition,
+                pricePoints: parseInt(form.pricePoints),
             };
 
-            if (form.year) {
-                payload.year = Number(form.year);
-            }
+            await createBikeAPI(payload, token);
 
-            if (form.categoryIds && form.categoryIds.length > 0) {
-                payload.categoryIds = form.categoryIds;
-            }
+            setSuccess("Đã đăng tin bán xe thành công! Hệ thống sẽ trừ 5000 VND từ ví của bạn.");
+            setForm({
+                title: "",
+                description: "",
+                categoryId: "",
+                brandId: "",
+                condition: "LIKE_NEW",
+                pricePoints: "",
+            });
+            setMediaPreview([]);
 
-            console.log("📤 Sending bike creation request with payload:", payload);
-
-            const res: any = await createSellerBikeAPI(payload, token);
-            const bikeId = res?.id ?? res?.data?.id;
-            if (!bikeId) throw new Error("Tạo xe thất bại.");
-
-            if (form.preferredDate || form.address) {
-                await requestInspectionAPI({
-                    bikeId, preferredDate: form.preferredDate || null, preferredTimeSlot: form.preferredTimeSlot || null,
-                    address: form.address || null, contactPhone: form.contactPhone || null, notes: form.notes || null
-                }, token);
-            }
-
-            setSuccess(`Đăng bài thành công! Đã trừ ${POSTING_FEE} điểm.`);
-            setForm({ title: "", bikeType: "Road", brandId: undefined, model: "", frameSize: "M", condition: "Tốt",
-                year: "", priceVnd: "", description: "", categoryIds: [], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "" });
-            setImages([]);
-            onBikeCreated(); onWalletRefresh();
-        } catch (e: any) {
-            console.error("❌ Error creating bike:", e);
-            const errorMsg = e.message || "Không thể đăng bài.";
-            
-            // If 403 error, user needs to upgrade to SELLER
-            if (errorMsg.includes("403") || errorMsg.includes("quyền") || errorMsg.includes("nâng cấp")) {
-                console.log("🔄 User needs to upgrade to SELLER, attempting upgrade...");
-                
-                try {
-                    const user = (() => {
-                        try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
-                    })();
-
-                    if (!user?.fullName) {
-                        setError("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.");
-                        return;
-                    }
-
-                    console.log("📤 Calling upgradeToSellerAPI...");
-                    console.log("User name:", user.fullName);
-                    console.log("Token exists:", !!token);
-                    console.log("Token length:", token?.length);
-                    
-                    const upgradeRes = await upgradeToSellerAPI(user.fullName + " Shop", "Cửa hàng bán xe đạp", token);
-                    console.log("✅ Upgraded to SELLER:", upgradeRes);
-                    
-                    // After successful upgrade, redirect to login to get new token
-                    setError("✅ Nâng cấp thành Seller thành công! Vui lòng đăng xuất và đăng nhập lại để tiếp tục đăng bài.");
-                    
-                    setTimeout(() => {
-                        localStorage.removeItem("token");
-                        localStorage.removeItem("user");
-                        window.location.href = "/login";
-                    }, 2000);
-                    return;
-                } catch (upgradeError) {
-                    console.error("❌ Upgrade failed:", (upgradeError as Error).message);
-                    setError("Nâng cấp thành Seller thất bại: " + (upgradeError as Error).message + ". Vui lòng thử lại hoặc liên hệ hỗ trợ.");
-                    return;
-                }
-            } else if (errorMsg.includes("401") || errorMsg.includes("Token") || errorMsg.includes("hết hạn")) {
-                setError("Token hết hạn. Vui lòng đăng xuất và đăng nhập lại.");
-            } else if (errorMsg.includes("Account") || errorMsg.includes("Cancelled")) {
-                setError("Tài khoản chưa được kích hoạt. Vui lòng đăng xuất và đăng nhập lại.");
-            } else {
-                setError(errorMsg);
-            }
+            onBikeCreated();
+            onWalletRefresh();
+        } catch (e) {
+            setError((e as Error).message || "Không thể tạo xe.");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleImages = async (files: FileList | null) => {
-        if (!files) return;
-        const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string }>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext("2d");
-                    if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                const reader2 = new FileReader();
-                                reader2.onload = () => {
-                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result) });
-                                };
-                                reader2.readAsDataURL(blob);
-                            } else {
-                                reject(new Error("Không thể chuyển đổi ảnh"));
-                            }
-                        }, "image/png");
-                    }
-                };
-                img.onerror = () => reject(new Error("Không thể tải ảnh"));
-                img.src = String(reader.result);
-            };
-            reader.onerror = () => reject(new Error("Lỗi đọc ảnh"));
-            reader.readAsDataURL(f);
-        }));
-        Promise.all(reads).then(results => setImages(prev => [...prev, ...results])).catch((e: any) => setError(e.message));
-    };
-
     return (
-        <div className="bg-gradient-to-br from-white to-blue-50/30 rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold flex items-center gap-2"><Plus size={24} />Đăng tin bán xe</h2>
-                        <p className="text-blue-100 text-sm mt-1">Tạo bài đăng mới để bán xe đạp</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20">
-                        <div className="flex items-center gap-2 text-blue-100 text-xs mb-1"><Wallet size={14} />Số dư ví</div>
-                        <div className="text-2xl font-extrabold">{walletAvailable.toLocaleString("vi-VN")}</div>
-                        <div className="text-xs text-blue-200">điểm</div>
-                    </div>
-                </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="font-semibold text-gray-800">Đăng tin bán xe</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                    Phí đăng tin: {CREATION_FEE.toLocaleString("vi-VN")} VND (sẽ được trừ từ ví)
+                </p>
             </div>
 
-            <div className="p-6 space-y-6">
-                <div className={`rounded-xl border-2 p-4 ${hasEnough ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
-                    <div className="flex items-start gap-3">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${hasEnough ? "bg-emerald-100" : "bg-red-100"}`}>
-                            {hasEnough ? <Wallet size={20} className="text-emerald-600" /> : <AlertCircle size={20} className="text-red-600" />}
-                        </div>
-                        <div>
-                            <div className={`font-bold text-lg ${hasEnough ? "text-emerald-900" : "text-red-900"}`}>Phí đăng tin: {POSTING_FEE} điểm</div>
-                            <p className={`text-sm ${hasEnough ? "text-emerald-700" : "text-red-700"}`}>
-                                {hasEnough ? `Ví đủ điểm. Hệ thống sẽ tự động trừ ${POSTING_FEE} điểm khi đăng.` : `Không đủ điểm. Cần thêm ${POSTING_FEE - walletAvailable} điểm.`}
-                            </p>
-                        </div>
+            {!canAfford && (
+                <div className="px-6 py-4 bg-red-50 border-b border-red-100 text-sm text-red-700">
+                    Bạn không đủ tiền để đăng tin. Cần ít nhất {CREATION_FEE.toLocaleString("vi-VN")} VND.
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                {error && (
+                    <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
+                {success && (
+                    <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                        {success}
+                    </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label className="text-sm font-medium text-gray-700">Tên xe *</label>
+                        <input
+                            type="text"
+                            value={form.title}
+                            onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                            placeholder="VD: Xe đạp Trek FX 3"
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700">Giá bán (VND) *</label>
+                        <input
+                            type="number"
+                            value={form.pricePoints}
+                            onChange={(e) => setForm((p) => ({ ...p, pricePoints: e.target.value }))}
+                            placeholder="5000000"
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700">Danh mục *</label>
+                        <select
+                            value={form.categoryId}
+                            onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value }))}
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="">-- Chọn danh mục --</option>
+                            {categoriesLoading ? (
+                                <option disabled>Đang tải...</option>
+                            ) : (
+                                categories.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name || cat.categoryName}
+                                    </option>
+                                ))
+                            )}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700">Hãng xe</label>
+                        <select
+                            value={form.brandId}
+                            onChange={(e) => setForm((p) => ({ ...p, brandId: e.target.value }))}
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="">-- Chọn hãng xe --</option>
+                            {brands.map((brand) => (
+                                <option key={brand.id} value={brand.id}>
+                                    {brand.name || brand.brandName}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-sm font-medium text-gray-700">Tình trạng</label>
+                        <select
+                            value={form.condition}
+                            onChange={(e) => setForm((p) => ({ ...p, condition: e.target.value }))}
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+                        >
+                            <option value="LIKE_NEW">Như mới</option>
+                            <option value="EXCELLENT">Tuyệt vời</option>
+                            <option value="GOOD">Tốt</option>
+                            <option value="FAIR">Bình thường</option>
+                            <option value="POOR">Kém</option>
+                        </select>
                     </div>
                 </div>
 
-                {error && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex gap-2"><AlertCircle size={18} />{error}</div>}
-                {success && <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">{success}</div>}
+                <div>
+                    <label className="text-sm font-medium text-gray-700">Mô tả chi tiết</label>
+                    <textarea
+                        value={form.description}
+                        onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                        placeholder="Mô tả tình trạng, tính năng, lý do bán..."
+                        className="mt-1 w-full min-h-24 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                    />
+                </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center"><Plus size={20} className="text-blue-600" /></div>
-                        <div><div className="font-bold text-gray-900">Hình ảnh xe</div><div className="text-sm text-gray-500">Tải lên ảnh thực tế</div></div>
+                <div>
+                    <label className="text-sm font-medium text-gray-700">Ảnh xe (tùy chọn)</label>
+                    <div className="mt-2 rounded-xl border-2 border-dashed border-gray-300 p-6 text-center hover:border-blue-400 transition">
+                        <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleMediaChange}
+                            className="hidden"
+                            id="media-input"
+                        />
+                        <label htmlFor="media-input" className="cursor-pointer">
+                            <Upload size={24} className="mx-auto text-gray-400 mb-2" />
+                            <div className="text-sm text-gray-600">
+                                Kéo thả ảnh hoặc <span className="text-blue-600 font-semibold">chọn từ máy</span>
+                            </div>
+                        </label>
                     </div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 shadow-md">
-                        <Plus size={18} />Chọn ảnh
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} />
-                    </label>
-                    <span className="ml-3 text-sm text-gray-600">Đã chọn: <b className="text-blue-600">{images.length}</b> ảnh</span>
-                    {images.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                            {images.map((img, i) => (
-                                <div key={i} className="relative rounded-xl border-2 border-gray-200 overflow-hidden group">
-                                    <img src={img.dataUrl} alt={img.name} className="h-28 w-full object-cover" />
-                                    <button onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
-                                        className="absolute top-2 right-2 h-7 w-7 rounded-lg bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600">
+
+                    {mediaPreview.length > 0 && (
+                        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {mediaPreview.map((preview, idx) => (
+                                <div key={idx} className="relative rounded-xl overflow-hidden border border-gray-200">
+                                    <img
+                                        src={preview}
+                                        alt={`Preview ${idx + 1}`}
+                                        className="w-full h-24 object-cover"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeMedia(idx)}
+                                        className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
+                                    >
                                         <X size={14} />
                                     </button>
                                 </div>
@@ -238,136 +284,22 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     )}
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center"><Bike size={20} className="text-emerald-600" /></div>
-                        <div><div className="font-bold text-gray-900">Thông tin xe</div><div className="text-sm text-gray-500">Điền đầy đủ thông tin</div></div>
-                    </div>
-                    <div className="grid gap-5 md:grid-cols-2">
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Tiêu đề <span className="text-red-500">*</span></label>
-                            <input value={form.title} onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))} placeholder="VD: Giant XTC 800 2021"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Loại xe</label>
-                            <select value={form.bikeType} onChange={(e) => setForm(p => ({ ...p, bikeType: e.target.value }))}
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
-                                {BIKE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Hãng <span className="text-red-500">*</span></label>
-                            <select value={form.brandId ?? ""} onChange={(e) => setForm(p => ({ ...p, brandId: e.target.value ? Number(e.target.value) : undefined }))}
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
-                                <option value="">-- Chọn hãng --</option>
-                                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Model</label>
-                            <input value={form.model} onChange={(e) => setForm(p => ({ ...p, model: e.target.value }))} placeholder="Escape 3"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Kích thước khung</label>
-                            <select value={form.frameSize} onChange={(e) => setForm(p => ({ ...p, frameSize: e.target.value }))}
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
-                                {FRAME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Tình trạng</label>
-                            <select value={form.condition} onChange={(e) => setForm(p => ({ ...p, condition: e.target.value }))}
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
-                                {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Năm sản xuất</label>
-                            <input value={form.year} onChange={(e) => setForm(p => ({ ...p, year: e.target.value }))} placeholder="2021"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Giá (điểm) <span className="text-red-500">*</span></label>
-                            <input value={form.priceVnd} onChange={(e) => setForm(p => ({ ...p, priceVnd: e.target.value }))} placeholder="12500000"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                            <div className="text-xs text-gray-500 mt-1">Nhập số điểm (VD: 12500000)</div>
-                        </div>
-                    </div>
-
-                    <div className="mt-5 rounded-xl border border-gray-200 p-4 bg-gray-50">
-                        <div className="flex items-center justify-between mb-3">
-                            <div><div className="text-sm font-semibold text-gray-900">Danh mục</div><div className="text-xs text-gray-500">Chọn danh mục phù hợp</div></div>
-                        </div>
-                        {categories.length > 0 && (
-                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                {categories.map(c => {
-                                    const checked = form.categoryIds.includes(c.id);
-                                    return (
-                                        <label key={c.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer ${checked ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                                            <input type="checkbox" checked={checked} onChange={(e) => {
-                                                const on = e.target.checked;
-                                                setForm(p => ({ ...p, categoryIds: on ? [...p.categoryIds, c.id] : p.categoryIds.filter(id => id !== c.id) }));
-                                            }} />
-                                            <span className="truncate">{c.name}</span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="mt-5">
-                        <label className="text-sm font-semibold text-gray-700 mb-2 block">Mô tả chi tiết</label>
-                        <textarea value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
-                            placeholder="Mô tả tình trạng xe, lịch sử sử dụng..."
-                            className="w-full min-h-28 rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                    </div>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <div className="font-bold text-gray-900 mb-3">Yêu cầu kiểm định (tuỳ chọn)</div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Ngày ưu tiên</label>
-                            <input value={form.preferredDate} onChange={(e) => setForm(p => ({ ...p, preferredDate: e.target.value }))} placeholder="2026-03-15"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Khung giờ</label>
-                            <input value={form.preferredTimeSlot} onChange={(e) => setForm(p => ({ ...p, preferredTimeSlot: e.target.value }))} placeholder="Sáng / Chiều"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Địa chỉ</label>
-                            <input value={form.address} onChange={(e) => setForm(p => ({ ...p, address: e.target.value }))} placeholder="123 Lê Lợi, Q1"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">SĐT liên hệ</label>
-                            <input value={form.contactPhone} onChange={(e) => setForm(p => ({ ...p, contactPhone: e.target.value }))} placeholder="0901234567"
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Ghi chú</label>
-                            <textarea value={form.notes} onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Ghi chú cho kiểm định viên..."
-                                className="w-full min-h-24 rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                    <button onClick={() => { setError(null); setSuccess(null); }}
-                        className="rounded-xl border-2 border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                        Huỷ
+                <div className="flex justify-end gap-3 pt-4">
+                    <button
+                        type="reset"
+                        className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                        Xóa
                     </button>
-                    <button onClick={handleSubmit} disabled={loading || !hasEnough}
-                        className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-                        {loading ? "Đang đăng..." : "Đăng tin"}
+                    <button
+                        type="submit"
+                        disabled={loading || !canAfford}
+                        className="rounded-xl bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                    >
+                        {loading ? "Đang đăng..." : "Đăng tin bán xe"}
                     </button>
                 </div>
-            </div>
+            </form>
         </div>
     );
 }

@@ -107,7 +107,7 @@ export default function BikeDetailModal({ bike, onClose }: BikeDetailModalProps)
 
                     <div className="text-lg font-bold text-gray-900">{bike.title}</div>
                     <div className="text-sm text-emerald-700 font-semibold">
-                        {bike.pricePoints?.toLocaleString("vi-VN")} điểm
+                        {bike.pricePoints?.toLocaleString("vi-VN")} VND
                     </div>
                     <div className="text-sm text-gray-600">{bike.condition ?? "—"}</div>
                     <div className="text-sm text-gray-700 whitespace-pre-wrap">

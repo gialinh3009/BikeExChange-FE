@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react'
 
 /**
  * VNPay return interceptor:
- * BE hardcodes vnp_ReturnUrl = http://localhost:8080/api/vnpay/vnpay-payment-return
- * → Vite runs on 8080 and redirects that path to /payment-success (keeping all query params)
+ * BE hardcodes vnp_ReturnUrl = http://localhost:5173/api/vnpay/vnpay-payment-return
+ * → Vite runs on 5173 and redirects that path to /payment-success (keeping all query params)
  */
 const vnpayReturnPlugin: Plugin = {
   name: 'vnpay-return-intercept',
@@ -25,7 +25,7 @@ const vnpayReturnPlugin: Plugin = {
 export default defineConfig({
   plugins: [react(), vnpayReturnPlugin],
   server: {
-    port: 8080,
-    strictPort: false, // fallback to next available port if 8080 is taken
+    port: 5173,
+    strictPort: false,
   },
 })
