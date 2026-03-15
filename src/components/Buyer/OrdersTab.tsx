@@ -16,8 +16,14 @@ import {
     Truck,
     AlertTriangle
 } from "lucide-react";
-
-const BASE = import.meta.env.VITE_API_BASE_URL as string;
+import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
+import {
+    cancelOrderAPI,
+    confirmReceiptAPI,
+    requestReturnAPI,
+    openReturnDisputeAPI,
+} from "../../services/Buyer/orderActionService";
+import RequestReturnModal from "./RequestReturnModal";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -53,8 +59,8 @@ interface ApiPurchase {
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
-const fmtPoints = (p: number) =>
-    new Intl.NumberFormat("vi-VN").format(p) + " điểm";
+const fmtMoney = (p: number) =>
+    `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
 const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString("vi-VN", {
@@ -149,11 +155,9 @@ export default function OrdersTab({ token, navigate }: Props) {
     const [filter, setFilter] = useState("");
     const [actionLoading, setAction] = useState<number | null>(null);
     const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
+    const [showReturnModalForOrder, setShowReturnModalForOrder] = useState<number | null>(null);
 
-    const authHeaders = {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-    };
+    void token;
 
     const fetchOrders = useCallback(async () => {
 
@@ -161,18 +165,11 @@ export default function OrdersTab({ token, navigate }: Props) {
 
         try {
 
-            const url = filter
-                ? `${BASE}/orders/my-purchases?status=${filter}`
-                : `${BASE}/orders/my-purchases`;
+            const purchases = await getMyPurchasesAPI({ status: filter || undefined });
 
-            const res = await fetch(url, { headers: authHeaders });
-            const data = await res.json();
+            if (Array.isArray(purchases)) {
 
-            if (data.success) {
-
-                const list: OrderItem[] = (data.data as ApiPurchase[]).map(
-                    (p) => p.order
-                );
+                const list: OrderItem[] = (purchases as ApiPurchase[]).map((p) => p.order);
 
                 setOrders(
                     list.sort(
@@ -189,7 +186,7 @@ export default function OrdersTab({ token, navigate }: Props) {
             setLoading(false);
         }
 
-    }, [filter, token]);
+    }, [filter]);
 
     useEffect(() => {
         void fetchOrders();
@@ -197,29 +194,19 @@ export default function OrdersTab({ token, navigate }: Props) {
 
     /* ── Actions ── */
 
-    const doAction = async (
-        orderId: number,
-        endpoint: string,
-        body?: object
-    ) => {
+    const doAction = async (orderId: number, actionKey: "cancel" | "confirm-receipt" | "request-return" | "return-dispute", reason?: string) => {
 
         setAction(orderId);
 
-        const url = `${BASE}/orders/${orderId}/${endpoint}`;
-
-        const options: RequestInit = {
-            method: "POST",
-            headers: authHeaders,
-            ...(body ? { body: JSON.stringify(body) } : {})
-        };
-
         try {
-
-            const res = await fetch(url, options);
-            const data = await res.json();
-
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || "Lỗi thao tác");
+            if (actionKey === "cancel") {
+                await cancelOrderAPI(orderId);
+            } else if (actionKey === "confirm-receipt") {
+                await confirmReceiptAPI(orderId);
+            } else if (actionKey === "request-return") {
+                await requestReturnAPI(orderId, reason ?? "");
+            } else {
+                await openReturnDisputeAPI(orderId);
             }
 
             await fetchOrders();
@@ -242,14 +229,14 @@ export default function OrdersTab({ token, navigate }: Props) {
         void doAction(id, "confirm-receipt");
     };
 
-    const handleRequestReturn = async (id: number) => {
+    const handleRequestReturn = (id: number) => {
+        setShowReturnModalForOrder(id);
+    };
 
-        const reason = prompt("Nhập lý do yêu cầu hoàn hàng:");
-
-        if (!reason?.trim()) return;
-
-        void doAction(id, "request-return", { reason });
-
+    const submitRequestReturn = async (reason: string) => {
+        if (!showReturnModalForOrder) return;
+        await doAction(showReturnModalForOrder, "request-return", reason);
+        setShowReturnModalForOrder(null);
     };
 
     const renderActions = (order: OrderItem) => {
@@ -315,6 +302,17 @@ export default function OrdersTab({ token, navigate }: Props) {
                         )}
 
                     </div>
+                );
+
+            case "RETURN_REQUESTED":
+                return (
+                    <button
+                        style={btnStyle("#ef4444", "#fef2f2", "#fecaca")}
+                        onClick={() => void doAction(order.id, "return-dispute")}
+                        disabled={busy}
+                    >
+                        <AlertTriangle size={13} /> Mở tranh chấp
+                    </button>
                 );
 
             default:
@@ -404,7 +402,7 @@ export default function OrdersTab({ token, navigate }: Props) {
                             </div>
 
                             <p style={{ fontSize: 16, fontWeight: 800, color: "#2563eb", marginBottom: 14 }}>
-                                {fmtPoints(order.amountPoints)}
+                                {fmtMoney(order.amountPoints)}
                             </p>
 
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
@@ -511,6 +509,13 @@ export default function OrdersTab({ token, navigate }: Props) {
                     );
                 })}
             </div>
+
+            <RequestReturnModal
+                open={showReturnModalForOrder !== null}
+                loading={actionLoading !== null}
+                onClose={() => setShowReturnModalForOrder(null)}
+                onConfirm={submitRequestReturn}
+            />
         </div>
     );
 }
