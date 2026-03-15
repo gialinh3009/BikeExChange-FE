@@ -1,82 +1,59 @@
-import { useState, useEffect, useCallback } from "react";
-import { Bike, Heart, Search, Star, Wallet, Package, X, MapPin, ImageIcon, Settings, ChevronRight, TrendingUp, LogOut, User, ShoppingBag } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import WishList from "./WishList";
+import { useState, useEffect } from "react";
+import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
-import { getBuyerListAPI } from "../../services/Buyer/BuyerList";
-import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
-import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
+import { getWishlistAPI } from "../../services/Buyer/wishlistService";
+import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import OrdersTab from "./OrdersTab";
+import { getWalletAPI } from "../../services/Buyer/walletService";
 
-interface MediaItem { url: string; type: string; sortOrder: number; }
-interface BikeItem {
-    id: number; title: string; brand?: string; model?: string; year?: number;
-    pricePoints: number; condition?: string; bikeType?: string; status: string;
-    inspectionStatus?: string; location?: string; views?: number; mileage?: number;
-    sellerId?: number; media?: MediaItem[];
-}
-interface Category {
-    id:          number;
-    name:        string;
-    description?: string | null;
-    imgUrl?:     string | null;   // mapped from img_url column
-    createdAt?:  string | null;
-}
-interface FilterState { keyword: string; category_id: string; }
-interface BrowseFilterState {
-    keyword:        string;
-    category_ids:   string[];  // multi-select — BE chỉ nhận 1 id, nhiều hơn 1 → filter FE-side
-    status:         string;
-    price_min:      string;
-    price_max:      string;
-    brand_id:       string;
-    min_year:       string;
-    frame_size:     string;
-    sort_by_rating: boolean;
-    verifiedOnly:   boolean;
-}
 
-const DEFAULT_FILTERS: FilterState = { keyword: "", category_id: "" };
-const DEFAULT_BROWSE: BrowseFilterState = {
-    keyword: "", category_ids: [], status: "",
-    price_min: "", price_max: "", brand_id: "", min_year: "",
-    frame_size: "", sort_by_rating: false, verifiedOnly: false,
-};
+interface WishlistItem {
+    id: number;
+    bikeId?: number;
+    bike?: {
+        id: number; title?: string; name?: string;
+        pricePoints?: number; price?: number; brand?: string;
+        media?: { url: string; type: string }[];
+    };
+}
+interface OrderItem {
+    id: number;
+    bikeId?: number;
+    bikeTitle?: string;
+    amountPoints?: number;
+    totalAmount?: number;
+    status?: string;
+    createdAt?: string;
+    buyerId?: number;
+    sellerId?: number;
+}
+interface WalletData { availablePoints: number; }
+
 
 const fmtPrice = (p: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(p);
 
-const CONDITION_META: Record<string, { label: string; cls: string }> = {
-    "Like New":  { label: "Like New",  cls: "badge-green" },
-    "LIKE_NEW":  { label: "Like New",  cls: "badge-green" },
-    "Good":      { label: "Good",      cls: "badge-blue"  },
-    "GOOD":      { label: "Good",      cls: "badge-blue"  },
-    "Fair":      { label: "Fair",      cls: "badge-amber" },
-    "FAIR":      { label: "Fair",      cls: "badge-amber" },
-    "Excellent": { label: "Excellent", cls: "badge-purple"},
-    "EXCELLENT": { label: "Excellent", cls: "badge-purple"},
-};
 
 export default function BuyerPage() {
     const location      = useLocation();
     const navigate      = useNavigate();
     const locationState = location.state as { tab?: string; walletTab?: string } | null;
 
-    const [activeTab,        setActiveTab]        = useState(locationState?.tab === "wallet" ? "wallet" : "home");
-    const [bikes,            setBikes]            = useState<BikeItem[]>([]);
-    const [loading,          setLoading]          = useState(false);
-    const [filters,          setFilters]          = useState<FilterState>(DEFAULT_FILTERS);
-    const [categories,       setCategories]       = useState<Category[]>([]);
+    const [activeTab,        setActiveTab]        = useState(locationState?.tab === "wallet" ? "wallet" : "overview");
     const [wishCount,        setWishCount]        = useState(0);
-    const [wishlistIds,      setWishlistIds]      = useState<Set<number>>(new Set());
     const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-    const [searchFocused,    setSearchFocused]    = useState(false);
-    // Browse tab — separate state & data
-    const [browseFilters,  setBrowseFilters]  = useState<BrowseFilterState>(DEFAULT_BROWSE);
-    const [browseResults,  setBrowseResults]  = useState<BikeItem[]>([]);
-    const [browseLoading,  setBrowseLoading]  = useState(false);
-    const [browseTotal,    setBrowseTotal]    = useState(0);
+    const [wishPage,         setWishPage]         = useState(0);
+    const [wishSlideDir,     setWishSlideDir]     = useState<"left"|"right"|null>(null);
+    const WISH_PER_PAGE = 6;
+
+    // Overview tab data
+    const [overview, setOverview] = useState<{
+        wallet: WalletData | null;
+        orders: OrderItem[];
+        wishlist: WishlistItem[];
+    } | null>(null);
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
@@ -100,111 +77,35 @@ export default function BuyerPage() {
     const roleLabel = role === "SELLER" ? "Người bán" : role === "BUYER" ? "Người mua" : "Thành viên";
     const initials  = (user?.fullName || user?.email || "U").slice(0, 1).toUpperCase();
 
-    const fetchWishlist = useCallback(() => {
-        const BASE = import.meta.env.VITE_API_BASE_URL as string;
-        fetch(`${BASE}/buyer/wishlist`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => r.json())
-            .then(d => {
-                const list: { bikeId?: number; bike?: { id?: number }; id?: number }[] =
-                    Array.isArray(d) ? d : Array.isArray(d?.data?.content) ? d.data.content
-                        : Array.isArray(d?.data) ? d.data : Array.isArray(d?.content) ? d.content : [];
-                setWishCount(list.length);
-                setWishlistIds(new Set(list.map(i => i.bikeId ?? i.bike?.id ?? i.id ?? 0).filter(Boolean)));
-            }).catch(() => {});
-    }, [token]);
 
-    useEffect(() => { fetchWishlist(); }, [activeTab, fetchWishlist]);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
-        let mounted = true;
-        getCategoriesAPI().then(list => { if (mounted) setCategories(list); }).catch(() => {});
-        return () => { mounted = false; };
-    }, []);
-
-    const fetchBikes = useCallback(async () => {
-        setLoading(true);
-        try {
-            const raw = await getBuyerListAPI({ keyword: filters.keyword || undefined, category_id: filters.category_id || undefined, size: 50, sort_by_rating: true });
-            setBikes(raw?.content ?? []);
-        } catch { setBikes([]); }
-        finally { setLoading(false); }
-    }, [filters]);
-
-    useEffect(() => { if (activeTab === "home") void fetchBikes(); }, [activeTab, fetchBikes]);
-
-    // Browse — fetch với full filter params
-    const fetchBrowse = useCallback(async () => {
-        setBrowseLoading(true);
-        try {
-            const baseParams = {
-                keyword:        browseFilters.keyword     || undefined,
-                status:         browseFilters.status      || undefined,
-                price_min:      browseFilters.price_min   ? Number(browseFilters.price_min)  : undefined,
-                price_max:      browseFilters.price_max   ? Number(browseFilters.price_max)  : undefined,
-                brand_id:       browseFilters.brand_id    ? Number(browseFilters.brand_id)   : undefined,
-                min_year:       browseFilters.min_year    ? Number(browseFilters.min_year)   : undefined,
-                frame_size:     browseFilters.frame_size  || undefined,
-                sort_by_rating: browseFilters.sort_by_rating,
-                size: 200,
-                page: 0,
-            };
-
-            const ids = browseFilters.category_ids;
-            let content: BikeItem[] = [];
-
-            if (ids.length === 0) {
-                // Không chọn category → lấy tất cả
-                const raw = await getBuyerListAPI(baseParams);
-                content = raw.content ?? [];
-
-            } else if (ids.length === 1) {
-                // 1 category → gửi thẳng lên BE (1 request, tối ưu)
-                const raw = await getBuyerListAPI({ ...baseParams, category_id: ids[0] });
-                content = raw.content ?? [];
-
-            } else {
-                // Nhiều category → gọi song song (Promise.all), merge + dedup theo bike.id
-                // BE chỉ nhận 1 category_id nên cần N requests
-                const results = await Promise.all(
-                    ids.map(id =>
-                        getBuyerListAPI({ ...baseParams, category_id: id })
-                            .then(r => r.content ?? [])
-                            .catch(() => [] as BikeItem[])
-                    )
-                );
-                const seen = new Set<number>();
-                content = results.flat().filter(b => {
-                    if (seen.has(b.id)) return false;
-                    seen.add(b.id);
-                    return true;
-                });
-            }
-
-            // verifiedOnly — BE không có inspectionStatus param → filter FE-side
-            if (browseFilters.verifiedOnly) {
-                content = content.filter(b => b.inspectionStatus === "APPROVED");
-            }
-
-            setBrowseResults(content);
-            setBrowseTotal(content.length);
-        } catch (e) {
-            console.error("fetchBrowse error:", e);
-            setBrowseResults([]);
-        } finally {
-            setBrowseLoading(false);
-        }
-    }, [browseFilters]);
-
-    useEffect(() => {
-        if (activeTab === "browse") void fetchBrowse();
-    }, [activeTab, fetchBrowse]);
+        if (activeTab !== "overview") return;
+        setOverview(null); // eslint-disable-line react-hooks/exhaustive-deps
+        let cancelled = false;
+        Promise.allSettled([
+            getWalletAPI() as Promise<WalletData>,
+            getWishlistAPI() as Promise<WishlistItem[]>,
+            getMyPurchasesAPI({ size: 5 }) as Promise<OrderItem[]>,
+        ]).then(([walletRes, wishRes, ordersRes]) => {
+            if (cancelled) return;
+            const newWishlist = wishRes.status === "fulfilled" ? wishRes.value : [];
+            const newWishCount = wishRes.status === "fulfilled" ? wishRes.value.length : 0;
+            const newOrders = ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value)
+                ? ordersRes.value.map((p: OrderItem & { order?: OrderItem }) => p.order ?? p).slice(0, 5)
+                : [];
+            const newWallet = walletRes.status === "fulfilled" ? walletRes.value : null;
+            setOverview({ wallet: newWallet, orders: newOrders, wishlist: newWishlist });
+            setWishCount(newWishCount);
+        });
+        return () => { cancelled = true; };
+    }, [activeTab]);
 
     const navItems = [
-        { id: "home",     icon: ShoppingBag, label: "Trang chủ" },
-        { id: "browse",   icon: Search,      label: "Tất cả xe"  },
-        { id: "wishlist", icon: Heart,       label: "Yêu thích", badge: wishCount },
-        { id: "orders",   icon: Package,     label: "Đơn hàng"  },
-        { id: "wallet",   icon: Wallet,      label: "Ví tiền"   },
+        { id: "overview",  icon: User,       label: "Tổng quan" },
+        { id: "orders",    icon: Package,     label: "Lịch sử mua hàng"  },
+        { id: "wallet",    icon: Wallet,      label: "Ví & ưu đãi"   },
     ];
 
     return (
@@ -273,11 +174,12 @@ export default function BuyerPage() {
                 flexShrink: 0,
             }}>
                 {/* Logo */}
-                <button onClick={() => setActiveTab("home")} style={{
-                    display: "flex", alignItems: "center", gap: 9,
-                    marginBottom: 24, paddingLeft: 6,
-                    background: "none", border: "none", cursor: "pointer",
-                }}>
+                <button onClick={() => navigate("/")}
+                    style={{
+                        display: "flex", alignItems: "center", gap: 9,
+                        marginBottom: 24, paddingLeft: 6,
+                        background: "none", border: "none", cursor: "pointer",
+                    }}>
                     <div style={{
                         width: 34, height: 34, borderRadius: 10,
                         background: "linear-gradient(135deg, #2563eb, #4f46e5)",
@@ -328,15 +230,7 @@ export default function BuyerPage() {
                                 onClick={() => setActiveTab(item.id)}>
                             <item.icon size={16} />
                             <span style={{ flex: 1 }}>{item.label}</span>
-                            {item.badge && item.badge > 0 && (
-                                <span style={{
-                                    background: "#e11d48", color: "white",
-                                    borderRadius: 99, padding: "1px 7px",
-                                    fontSize: 10, fontWeight: 700,
-                                }}>
-                                    {item.badge}
-                                </span>
-                            )}
+
                         </button>
                     ))}
                 </nav>
@@ -358,436 +252,219 @@ export default function BuyerPage() {
             {/* ══════ MAIN ══════ */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-                {/* Topbar */}
-                {activeTab !== "wallet" && (
-                    <header style={{
-                        background: "white", borderBottom: "1px solid #e8ecf5",
-                        padding: "12px 28px",
-                        display: "flex", alignItems: "center", gap: 12,
-                        position: "sticky", top: 0, zIndex: 20,
-                    }}>
-                        <div className={`search-wrap${searchFocused ? " focused" : ""}`}>
-                            <Search size={15} color="#94a3b8" />
-                            <input
-                                className="search-input"
-                                placeholder="Tìm kiếm xe đạp, thương hiệu, loại xe..."
-                                value={filters.keyword}
-                                onFocus={() => setSearchFocused(true)}
-                                onBlur={() => setSearchFocused(false)}
-                                onChange={e => setFilters(p => ({ ...p, keyword: e.target.value }))}
-                                onKeyDown={e => e.key === "Enter" && void fetchBikes()}
-                            />
-                            {filters.keyword && (
-                                <button onClick={() => setFilters(p => ({ ...p, keyword: "" }))}
-                                        style={{ border: "none", background: "none", cursor: "pointer", color: "#94a3b8", display: "flex", padding: 0 }}>
-                                    <X size={13} />
-                                </button>
-                            )}
-                        </div>
-                        <button onClick={() => void fetchBikes()} style={{
-                            padding: "9px 20px",
-                            background: "linear-gradient(135deg, #2563eb, #4f46e5)",
-                            color: "white", border: "none", borderRadius: 12,
-                            fontSize: 13.5, fontWeight: 700, cursor: "pointer",
-                            boxShadow: "0 4px 12px rgba(79,70,229,.3)",
-                            whiteSpace: "nowrap", fontFamily: "inherit",
-                        }}>
-                            Tìm
-                        </button>
-                        {isSeller && (
-                            <Link to="/seller" style={{
-                                padding: "9px 18px",
-                                background: "#f0fdf4", color: "#16a34a",
-                                border: "1.5px solid #bbf7d0",
-                                borderRadius: 12, fontSize: 13, fontWeight: 700,
-                                textDecoration: "none", whiteSpace: "nowrap",
-                            }}>
-                                Bài đăng
-                            </Link>
-                        )}
-                    </header>
-                )}
+
 
                 {/* Page content */}
-                <main style={{ flex: 1, overflowY: "auto", padding: activeTab === "wallet" ? "0" : "28px 28px" }}>
+                <main style={{ flex: 1, overflowY: "auto", padding: activeTab === "wallet" ? "0" : "32px" }}>
 
                     {/* ── HOME ── */}
-                    {activeTab === "home" && (
+                    {/* ── OVERVIEW (CellphoneS style) ── */}
+                    {activeTab === "overview" && (
                         <div className="fade-up">
-                            {/* ── HERO IMAGE BLOCK ── */}
-                            <div style={{ borderRadius: 20, marginBottom: 20, overflow: "hidden", position: "relative" }}>
-                                <div style={{ position: "relative", height: 340, overflow: "hidden" }}>
-                                    <img
-                                        src="https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=1400&q=90&auto=format&fit=crop&crop=center"
-                                        alt="Road bike"
-                                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(.72) grayscale(.1)" }}
-                                    />
-                                    {/* Left text overlay only — right side shows natural bike photo */}
-                                    <div style={{
-                                        position: "absolute", inset: 0,
-                                        background: "linear-gradient(100deg, rgba(10,15,35,.9) 0%, rgba(10,15,35,.55) 35%, rgba(10,15,35,.08) 58%, transparent 72%)",
-                                    }}/>
 
-                                    {/* Content */}
-                                    <div style={{ position: "relative", zIndex: 1, padding: "0 36px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                                        <h1 style={{ color: "white", fontSize: 38, fontWeight: 900, letterSpacing: "-1.2px", lineHeight: 1.12, marginBottom: 14, maxWidth: 500 }}>
-                                            Find Your Perfect{" "}
-                                            <span style={{ color: "#2563eb", textShadow: "0 0 30px rgba(37,99,235,.5)" }}>Ride</span>
-                                        </h1>
-                                        <p style={{ color: "rgba(255,255,255,.58)", fontSize: 14, maxWidth: 340, lineHeight: 1.65 }}>
-                                            Nền tảng mua bán xe đạp uy tín hàng đầu Việt Nam.<br/>
-                                            Kiểm định chuyên nghiệp — giao dịch an toàn.
-                                        </p>
-                                    </div>
-                                </div>
+                            {/* Header */}
+                            <div style={{ marginBottom: 24 }}>
+                                <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.5px" }}>
+                                    Xin chào, {user?.fullName?.split(" ").pop() || "bạn"} 👋
+                                </h2>
+                                <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>Quản lý tài khoản và hoạt động mua sắm của bạn</p>
                             </div>
 
-                            {/* ── FEATURE STRIP — separate block ── */}
-                            <div style={{
-                                background: "white",
-                                borderRadius: 16,
-                                border: "1px solid #e8ecf5",
-                                padding: "28px 32px",
-                                marginBottom: 24,
-                                display: "grid",
-                                gridTemplateColumns: "repeat(4, 1fr)",
-                                gap: 0,
-                                boxShadow: "0 1px 4px rgba(0,0,0,.04)",
-                            }}>
-                                {[
-                                    {
-                                        icon: (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                            </svg>
-                                        ),
-                                        title: "Xe đã kiểm định",
-                                        desc: "Chuyên gia kiểm tra từng linh kiện",
-                                    },
-                                    {
-                                        icon: (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                                            </svg>
-                                        ),
-                                        title: "Tìm kiếm thông minh",
-                                        desc: "Lọc xe theo loại, giá, tình trạng",
-                                    },
-                                    {
-                                        icon: (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                                            </svg>
-                                        ),
-                                        title: "Người bán uy tín",
-                                        desc: "Đánh giá thực từ người mua",
-                                    },
-                                    {
-                                        icon: (
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-                                            </svg>
-                                        ),
-                                        title: "Giao dịch an toàn",
-                                        desc: "Thanh toán bảo mật qua ví điện tử",
-                                    },
-                                ].map((f, i) => (
-                                    <div key={f.title} style={{
-                                        display: "flex", flexDirection: "column", alignItems: "center",
-                                        textAlign: "center", padding: "4px 16px",
-                                        borderLeft: i > 0 ? "1px solid #f1f5f9" : "none",
-                                    }}>
-                                        <div style={{
-                                            width: 48, height: 48, borderRadius: 14,
-                                            background: "linear-gradient(135deg, #eff6ff, #eef2ff)",
-                                            border: "1px solid #c7d2fe",
-                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                            marginBottom: 12,
-                                        }}>
-                                            {f.icon}
+                            {/* Top row: Đơn hàng gần đây + Ưu đãi */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+
+                                {/* Đơn hàng gần đây */}
+                                <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px" }}>
+                                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Đơn hàng gần đây</h3>
+                                    {overview === null ? (
+                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 0" }}>
+                                            <div className="sk" style={{ width: 60, height: 60, borderRadius: "50%", marginBottom: 12 }} />
+                                            <div className="sk" style={{ width: 160, height: 12, marginBottom: 8 }} />
                                         </div>
-                                        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{f.title}</div>
-                                        <div style={{ fontSize: 11.5, color: "#94a3b8", lineHeight: 1.4 }}>{f.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* ── FEATURED BIKES ── */}
-                            <div style={{ marginBottom: 32 }}>
-                                {/* Section header */}
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                                    <div>
-                                        <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.4px" }}>Featured Bikes</h2>
-                                        <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 3 }}>Xe đạp đã được kiểm định chất lượng</p>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setBrowseFilters(DEFAULT_BROWSE); // reset filter, không cứng verifiedOnly
-                                            setActiveTab("browse");
-                                        }}
-                                        style={{
-                                            display: "flex", alignItems: "center", gap: 6,
-                                            padding: "8px 16px", borderRadius: 10,
-                                            border: "1.5px solid #e2e8f0", background: "white",
-                                            fontSize: 13, fontWeight: 600, color: "#374151",
-                                            cursor: "pointer", fontFamily: "inherit",
-                                            transition: "all .15s",
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#2563eb"; e.currentTarget.style.color = "#2563eb"; }}
-                                        onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#374151"; }}
-                                    >
-                                        View All
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                {/* Grid — chỉ xe APPROVED, max 8 */}
-                                {loading ? (
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
-                                        {[1,2,3,4].map(i => (
-                                            <div key={i} style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", overflow: "hidden" }}>
-                                                <div className="sk" style={{ height: 220, borderRadius: 0 }}/>
-                                                <div style={{ padding: "16px" }}>
-                                                    <div className="sk" style={{ height: 14, marginBottom: 8 }}/>
-                                                    <div className="sk" style={{ height: 18, width: "40%", marginBottom: 12 }}/>
-                                                    <div className="sk" style={{ height: 10, width: "60%" }}/>
-                                                </div>
+                                    ) : (overview?.orders?.length ?? 0) === 0 ? (
+                                        <div style={{ textAlign: "center", padding: "32px 0" }}>
+                                            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                                                <Package size={28} color="#cbd5e1" />
                                             </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
-                                        {bikes
-                                            .filter(b => b.inspectionStatus === "APPROVED")
-                                            .slice(0, 8)
-                                            .map((bike, i) => (
-                                                <BikeCard
-                                                    key={bike.id} bike={bike} index={i}
-                                                    initialWished={wishlistIds.has(bike.id)}
-                                                    onWishChange={(bikeId, wished) => {
-                                                        setWishlistIds(prev => {
-                                                            const next = new Set(prev);
-                                                            if (wished) { next.add(bikeId); } else { next.delete(bikeId); }
-                                                            return next;
-                                                        });
-                                                        setWishCount(prev => wished ? prev + 1 : Math.max(0, prev - 1));
+                                            <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>Bạn chưa có đơn hàng nào gần đây!</p>
+                                            <button onClick={() => navigate("/")}
+                                                    style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                                                Mua sắm ngay
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                            {(overview?.orders ?? []).map((order) => (
+                                                <div key={order.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "#f8fafc", cursor: "pointer", position: "relative" }}
+                                                    onClick={async () => {
+                                                        // Always call API to get order detail
+                                                        try {
+                                                            const token = localStorage.getItem("token") ?? "";
+                                                            const res = await fetch(`/api/orders/${order.id}`, {
+                                                                method: "GET",
+                                                                headers: { Authorization: `Bearer ${token}` }
+                                                            });
+                                                            if (res.status === 401) {
+                                                                // Token expired or not logged in
+                                                                navigate("/login");
+                                                                return;
+                                                            }
+                                                            const orderDetail = await res.json();
+                                                            // Navigate to OrderDetailPage with order detail
+                                                            navigate(`/order-detail/${order.id}`, { state: { order: orderDetail } });
+                                                        } catch {
+                                                            navigate(`/order-detail/${order.id}`);
+                                                        }
                                                     }}
-                                                />
-                                            ))}
-                                        {bikes.filter(b => b.inspectionStatus === "APPROVED").length === 0 && !loading && (
-                                            <div style={{ gridColumn: "1/-1", background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "48px 24px", textAlign: "center" }}>
-                                                <div style={{ width: 56, height: 56, borderRadius: 16, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                                                    <Bike size={24} color="#cbd5e1"/>
-                                                </div>
-                                                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 14 }}>Chưa có xe đã kiểm định</p>
-                                                <button onClick={() => { setBrowseFilters(DEFAULT_BROWSE); setActiveTab("browse"); }} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                                                    Xem tất cả xe
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── BROWSE ALL (with filters) ── */}
-                    {activeTab === "browse" && (
-                        <div className="fade-up" style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-
-                            {/* ── Filter Sidebar ── */}
-                            <div style={{ width: 230, flexShrink: 0, background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "20px", position: "sticky", top: 20 }}>
-                                {/* Header */}
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-                                        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Filters</span>
-                                    </div>
-                                    <button onClick={() => setBrowseFilters(DEFAULT_BROWSE)}
-                                            style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
-                                        Clear all
-                                    </button>
-                                </div>
-
-                                {/* Verified Only */}
-                                <div style={{ marginBottom: 20, padding: "10px 12px", borderRadius: 10, background: browseFilters.verifiedOnly ? "#eff6ff" : "#f8fafc", border: `1.5px solid ${browseFilters.verifiedOnly ? "#93c5fd" : "#e2e8f0"}`, cursor: "pointer" }}
-                                     onClick={() => setBrowseFilters(p => ({ ...p, verifiedOnly: !p.verifiedOnly }))}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ width: 16, height: 16, borderRadius: 4, background: browseFilters.verifiedOnly ? "#2563eb" : "white", border: `2px solid ${browseFilters.verifiedOnly ? "#2563eb" : "#cbd5e1"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                            {browseFilters.verifiedOnly && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: browseFilters.verifiedOnly ? "#1d4ed8" : "#374151" }}>Verified Only</div>
-                                            <div style={{ fontSize: 11, color: "#94a3b8" }}>Xe đã được kiểm định</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Type / Category — multi-select, BE nhận 1 id, nhiều hơn filter FE-side */}
-                                <div style={{ marginBottom: 20 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Type</div>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                        {/* "Tất cả" — clear selection */}
-                                        <button
-                                            onClick={() => setBrowseFilters(p => ({ ...p, category_ids: [] }))}
-                                            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: browseFilters.category_ids.length === 0 ? "#eff6ff" : "transparent", color: browseFilters.category_ids.length === 0 ? "#2563eb" : "#374151", fontWeight: browseFilters.category_ids.length === 0 ? 700 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
-                                            <div style={{ width: 7, height: 7, borderRadius: "50%", border: `2px solid ${browseFilters.category_ids.length === 0 ? "#2563eb" : "#cbd5e1"}`, background: browseFilters.category_ids.length === 0 ? "#2563eb" : "transparent", flexShrink: 0, marginLeft: 2 }}/>
-                                            <span style={{ flex: 1 }}>Tất cả</span>
-                                            {browseFilters.category_ids.length === 0 && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                                        </button>
-
-                                        {/* Từng category — checkbox multi-select */}
-                                        {categories.map(c => {
-                                            const cid = String(c.id);
-                                            const checked = browseFilters.category_ids.includes(cid);
-                                            const isRealUrl = c.imgUrl && !c.imgUrl.includes("example.com");
-                                            return (
-                                                <button key={cid}
-                                                        onClick={() => setBrowseFilters(p => ({
-                                                            ...p,
-                                                            category_ids: p.category_ids.includes(cid)
-                                                                ? p.category_ids.filter(x => x !== cid)   // bỏ chọn
-                                                                : [...p.category_ids, cid],                // thêm vào
-                                                        }))}
-                                                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, border: "none", background: checked ? "#eff6ff" : "transparent", color: checked ? "#2563eb" : "#374151", fontWeight: checked ? 600 : 400, fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }}>
-                                                    {/* Checkbox */}
-                                                    <div style={{ width: 15, height: 15, borderRadius: 4, border: `2px solid ${checked ? "#2563eb" : "#cbd5e1"}`, background: checked ? "#2563eb" : "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                                        {checked && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                >
+                                                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                                        <Bike size={16} color="#2563eb" />
                                                     </div>
-                                                    {isRealUrl && (
-                                                        <img src={c.imgUrl!} alt={c.name} style={{ width: 16, height: 16, borderRadius: 3, objectFit: "cover", flexShrink: 0 }}
-                                                             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}/>
-                                                    )}
-                                                    <span style={{ flex: 1 }}>{c.name}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    {/* Badge số category đang chọn */}
-                                    {browseFilters.category_ids.length > 0 && (
-                                        <div style={{ marginTop: 6, fontSize: 11, color: "#2563eb", fontWeight: 600 }}>
-                                            {browseFilters.category_ids.length} loại đang chọn
-                                            <button onClick={() => setBrowseFilters(p => ({ ...p, category_ids: [] }))}
-                                                    style={{ marginLeft: 6, background: "none", border: "none", color: "#94a3b8", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-                                                (xóa)
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <p style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{typeof order.bikeTitle === "string" ? order.bikeTitle : `Đơn #${order.id}`}</p>
+                                                        <p style={{ fontSize: 11, color: "#94a3b8" }}>{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(order.totalAmount ?? order.amountPoints ?? 0)}</p>
+                                                        {order.status === "CANCELLED" || order.status === "Đã hủy" ? (
+                                                            <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginTop: 2, display: "inline-block" }}>Đã hủy</span>
+                                                        ) : null}
+                                                    </div>
+                                                    <ChevronRight size={14} color="#c7d2e8" />
+                                                </div>
+                                            ))}
+                                            <button onClick={() => setActiveTab("orders")}
+                                                    style={{ marginTop: 4, fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                                                Xem tất cả →
                                             </button>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Price Range — maps to price_min / price_max */}
-                                <div style={{ marginBottom: 20 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Price Range (điểm)</div>
-                                    <div style={{ display: "flex", gap: 6 }}>
-                                        <input type="number" placeholder="Min" value={browseFilters.price_min}
-                                               onChange={e => setBrowseFilters(p => ({ ...p, price_min: e.target.value }))}
-                                               style={{ width: "50%", padding: "7px 8px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", outline: "none" }}/>
-                                        <input type="number" placeholder="Max" value={browseFilters.price_max}
-                                               onChange={e => setBrowseFilters(p => ({ ...p, price_max: e.target.value }))}
-                                               style={{ width: "50%", padding: "7px 8px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", outline: "none" }}/>
-                                    </div>
-                                </div>
+                                {/* Ví & điểm */}
+                                <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px" }}>
+                                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Ví & ưu đãi</h3>
+                                    <div style={{ background: "linear-gradient(135deg, #2563eb, #4f46e5)", borderRadius: 12, padding: "20px", marginBottom: 16 }}>
+                                        <p style={{ fontSize: 12, color: "rgba(255,255,255,.7)", marginBottom: 4 }}>Số dư ví (VND)</p>
+                                        <p style={{ fontSize: 24, fontWeight: 800, color: "white", letterSpacing: "-0.5px" }}>
+                                            {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(overview?.wallet?.availablePoints ?? 0)}
 
-                                {/* Min Year — maps to min_year */}
-                                <div style={{ marginBottom: 20 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Năm sản xuất từ</div>
-                                    <input type="number" placeholder="VD: 2018" value={browseFilters.min_year}
-                                           onChange={e => setBrowseFilters(p => ({ ...p, min_year: e.target.value }))}
-                                           style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}/>
-                                </div>
-
-                                {/* Sort by rating toggle */}
-                                <div style={{ padding: "10px 12px", borderRadius: 10, background: browseFilters.sort_by_rating ? "#eff6ff" : "#f8fafc", border: `1.5px solid ${browseFilters.sort_by_rating ? "#93c5fd" : "#e2e8f0"}`, cursor: "pointer" }}
-                                     onClick={() => setBrowseFilters(p => ({ ...p, sort_by_rating: !p.sort_by_rating }))}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ width: 16, height: 16, borderRadius: 4, background: browseFilters.sort_by_rating ? "#2563eb" : "white", border: `2px solid ${browseFilters.sort_by_rating ? "#2563eb" : "#cbd5e1"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                            {browseFilters.sort_by_rating && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: browseFilters.sort_by_rating ? "#1d4ed8" : "#374151" }}>Top Rated Sellers</div>
-                                            <div style={{ fontSize: 11, color: "#94a3b8" }}>Sort theo đánh giá người bán</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* ── Main Grid ── */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                {/* Header */}
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-                                    <div>
-                                        <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.4px" }}>Marketplace</h2>
-                                        <p style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 2 }}>
-                                            {browseLoading ? "Đang tải..." : `${browseTotal || browseResults.length} xe đang có mặt`}
                                         </p>
                                     </div>
-                                    {/* Keyword search */}
-                                    <div style={{ position: "relative" }}>
-                                        <input
-                                            type="text"
-                                            placeholder="Search..."
-                                            value={browseFilters.keyword}
-                                            onChange={e => setBrowseFilters(p => ({ ...p, keyword: e.target.value }))}
-                                            style={{
-                                                padding: "9px 14px 9px 36px",
-                                                borderRadius: 10, border: "1.5px solid #e2e8f0",
-                                                fontSize: 13, outline: "none", fontFamily: "inherit",
-                                                background: "white", width: 200,
-                                            }}
-                                        />
-                                        <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                                    </div>
+                                    <button onClick={() => setActiveTab("wallet")}
+                                            style={{ width: "100%", padding: "10px", background: "#eff6ff", color: "#2563eb", border: "1px solid #c7d2fe", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                                        Quản lý ví →
+                                    </button>
                                 </div>
-
-                                {browseLoading ? (
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 18 }}>
-                                        {[1,2,3,4,5,6].map(i => (
-                                            <div key={i} style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", overflow: "hidden" }}>
-                                                <div className="sk" style={{ height: 210, borderRadius: 0 }}/>
-                                                <div style={{ padding: "16px" }}>
-                                                    <div className="sk" style={{ height: 14, marginBottom: 8 }}/>
-                                                    <div className="sk" style={{ height: 18, width: "40%", marginBottom: 10 }}/>
-                                                    <div className="sk" style={{ height: 10, width: "60%" }}/>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : browseResults.length === 0 ? (
-                                    <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
-                                        <Bike size={32} color="#cbd5e1" style={{ margin: "0 auto 12px" }}/>
-                                        <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 14 }}>Không tìm thấy xe phù hợp</p>
-                                        <button onClick={() => setBrowseFilters(DEFAULT_BROWSE)} style={{ padding: "8px 20px", background: "linear-gradient(135deg,#2563eb,#4f46e5)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                                            Xóa bộ lọc
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 18 }}>
-                                        {browseResults.map((bike, i) => (
-                                            <BikeCard
-                                                key={bike.id} bike={bike} index={i}
-                                                initialWished={wishlistIds.has(bike.id)}
-                                                onWishChange={(bikeId, wished) => {
-                                                    setWishlistIds(prev => {
-                                                        const next = new Set(prev);
-                                                        if (wished) { next.add(bikeId); } else { next.delete(bikeId); }
-                                                        return next;
-                                                    });
-                                                    setWishCount(prev => wished ? prev + 1 : Math.max(0, prev - 1));
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    )}
 
-                    {/* ── WISHLIST ── */}
-                    {activeTab === "wishlist" && (
-                        <div className="fade-up">
-                            <WishList token={token} formatPrice={fmtPrice} />
+                            {/* Sản phẩm yêu thích — carousel 6/trang */}
+                            {(() => {
+                                const allWish = overview?.wishlist ?? [];
+                                const totalWishPages = Math.max(1, Math.ceil(allWish.length / WISH_PER_PAGE));
+                                const pageItems = allWish.slice(wishPage * WISH_PER_PAGE, (wishPage + 1) * WISH_PER_PAGE);
+                                const goWish = (dir: "left" | "right") => {
+                                    const next = dir === "right" ? wishPage + 1 : wishPage - 1;
+                                    setWishSlideDir(dir);
+                                    setWishPage(next);
+                                    setTimeout(() => setWishSlideDir(null), 350);
+                                };
+                                return (
+                                    <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px", marginBottom: 20 }}>
+                                        <style>{`
+                                            @keyframes slideInRight { from { opacity:0; transform:translateX(60px) } to { opacity:1; transform:none } }
+                                            @keyframes slideInLeft  { from { opacity:0; transform:translateX(-60px) } to { opacity:1; transform:none } }
+                                            .wish-slide-right { animation: slideInRight .32s cubic-bezier(.4,0,.2,1) both; }
+                                            .wish-slide-left  { animation: slideInLeft  .32s cubic-bezier(.4,0,.2,1) both; }
+                                        `}</style>
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                                            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                                                Sản phẩm yêu thích
+                                                {wishCount > 0 && <span style={{ marginLeft: 8, fontSize: 13, color: "#e11d48", fontWeight: 600 }}>({wishCount})</span>}
+                                            </h3>
+                                            {totalWishPages > 1 && (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <button
+                                                        onClick={() => goWish("left")}
+                                                        disabled={wishPage === 0}
+                                                        style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: wishPage === 0 ? "#f8fafc" : "white", cursor: wishPage === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: wishPage === 0 ? 0.4 : 1, transition: "all .15s" }}>
+                                                        <ChevronLeft size={15} color="#475569" />
+                                                    </button>
+                                                    <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>{wishPage + 1}/{totalWishPages}</span>
+                                                    <button
+                                                        onClick={() => goWish("right")}
+                                                        disabled={wishPage >= totalWishPages - 1}
+                                                        style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: wishPage >= totalWishPages - 1 ? "#f8fafc" : "white", cursor: wishPage >= totalWishPages - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: wishPage >= totalWishPages - 1 ? 0.4 : 1, transition: "all .15s" }}>
+                                                        <ChevronRight size={15} color="#475569" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {allWish.length === 0 && wishCount === 0 ? (
+                                            <div style={{ textAlign: "center", padding: "32px 0" }}>
+                                                <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                                                    <Heart size={28} color="#cbd5e1" />
+                                                </div>
+                                                <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>Bạn chưa có sản phẩm nào yêu thích!</p>
+                                                <button onClick={() => navigate("/")}
+                                                        style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                                                    Mua sắm ngay
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={wishSlideDir === "right" ? "wish-slide-right" : wishSlideDir === "left" ? "wish-slide-left" : ""}
+                                                style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, overflow: "hidden" }}>
+                                                {pageItems.map(item => {
+                                                    const bike = item.bike;
+                                                    const bikeId = bike?.id ?? item.bikeId ?? item.id;
+                                                    const img = bike?.media?.find((m: { type: string; url: string }) => m.type === "IMAGE" && !m.url?.includes("dicebear"))?.url;
+                                                    const brandName = typeof bike?.brand === "object" && bike?.brand !== null ? (bike.brand as { name?: string }).name ?? "—" : bike?.brand ?? "—";
+                                                    return (
+                                                        <div key={item.id} onClick={() => navigate(`/bikes/${bikeId}`)}
+                                                             style={{ borderRadius: 12, border: "1px solid #e8ecf5", overflow: "hidden", cursor: "pointer", transition: "all .2s" }}
+                                                             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 24px rgba(37,99,235,.1)"; (e.currentTarget as HTMLDivElement).style.borderColor = "#c7d2fe"; }}
+                                                             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.borderColor = "#e8ecf5"; }}>
+                                                            <div style={{ height: 120, background: "#f8fafc", overflow: "hidden" }}>
+                                                                {img
+                                                                    ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                                                    : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Bike size={24} color="#c7d2e8" /></div>
+                                                                }
+                                                            </div>
+                                                            <div style={{ padding: "10px" }}>
+                                                                <p style={{ fontSize: 10, color: "#94a3b8", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{brandName}</p>
+                                                                <p style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{bike?.title ?? bike?.name ?? "Xe đạp"}</p>
+                                                                <p style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{fmtPrice(bike?.pricePoints ?? bike?.price ?? 0)}</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Chương trình nổi bật */}
+                            <div style={{ background: "white", borderRadius: 16, border: "1px solid #e8ecf5", padding: "24px" }}>
+                                <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Chương trình nổi bật</h3>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                                    {[
+                                        { icon: <Bike size={20} color="#2563eb" />, bg: "#eff6ff", title: "Khám phá xe", desc: "Tìm xe đạp phù hợp", action: () => navigate("/") },
+                                        { icon: <Package size={20} color="#7c3aed" />, bg: "#f5f3ff", title: "Lịch sử mua", desc: "Xem các đơn hàng", action: () => setActiveTab("orders") },
+                                        { icon: <Settings size={20} color="#059669" />, bg: "#f0fdf4", title: "Cài đặt", desc: "Quản lý tài khoản", action: () => setActiveTab("settings") },
+                                    ].map(item => (
+                                        <div key={item.title} onClick={item.action}
+                                             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 16px", borderRadius: 12, background: item.bg, cursor: "pointer", textAlign: "center", transition: "opacity .15s" }}>
+                                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+                                                {item.icon}
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>{item.title}</p>
+                                                <p style={{ fontSize: 11.5, color: "#94a3b8" }}>{item.desc}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                         </div>
                     )}
 
@@ -875,142 +552,6 @@ export default function BuyerPage() {
                     window.location.reload();
                 }}
             />
-        </div>
-    );
-}
-
-// ─── BikeCard ─────────────────────────────────────────────────────────────────
-function BikeCard({ bike, index = 0, initialWished = false, onWishChange }: {
-    bike: BikeItem; index?: number;
-    initialWished?: boolean;
-    onWishChange?: (bikeId: number, wished: boolean) => void;
-}) {
-    const [wished,  setWished]  = useState(initialWished);
-    const [wishing, setWishing] = useState(false);
-    useEffect(() => { setWished(initialWished); }, [initialWished]);
-
-    const price  = bike.pricePoints ?? 0;
-    const img    = bike.media?.[0]?.url;
-    const condM  = CONDITION_META[bike.condition ?? ""];
-    const isVerified = bike.inspectionStatus === "APPROVED";
-
-    const toggleWish = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.stopPropagation();
-        if (wishing) return;
-        setWishing(true);
-        const run = async () => {
-            try {
-                if (wished) { await removeFromWishlistAPI(bike.id); } else { await addToWishlistAPI(bike.id); }
-                const next = !wished;
-                setWished(next);
-                onWishChange?.(bike.id, next);
-            } catch { /* keep state */ }
-            finally { setWishing(false); }
-        };
-        void run();
-    };
-
-    return (
-        <div
-            className="bike-card"
-            style={{ animationDelay: `${index * 0.04}s` }}
-            onClick={() => { window.location.href = `/bikes/${bike.id}`; }}
-        >
-            {/* Image */}
-            <div style={{ height: 210, background: "linear-gradient(135deg, #f8faff, #eef2ff)", position: "relative", overflow: "hidden", flexShrink: 0 }}>
-                {img ? (
-                    <img src={img} alt={bike.title}
-                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        <ImageIcon size={32} color="#c7d2e8" />
-                        <span style={{ fontSize: 11.5, color: "#c7d2e8" }}>Chưa có ảnh</span>
-                    </div>
-                )}
-
-                {/* Verified / condition badge — top left */}
-                {isVerified ? (
-                    <div style={{
-                        position: "absolute", top: 12, left: 12,
-                        display: "flex", alignItems: "center", gap: 5,
-                        background: "#16a34a", color: "white",
-                        padding: "4px 10px", borderRadius: 99,
-                        fontSize: 11, fontWeight: 700,
-                        boxShadow: "0 2px 8px rgba(22,163,74,.35)",
-                    }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                        </svg>
-                        Verified
-                    </div>
-                ) : condM ? (
-                    <div className={condM.cls} style={{
-                        position: "absolute", top: 12, left: 12,
-                        padding: "4px 10px", borderRadius: 99,
-                        fontSize: 11, fontWeight: 700,
-                    }}>
-                        {condM.label}
-                    </div>
-                ) : null}
-
-                {/* Wishlist btn — top right */}
-                <button className="wish-btn" onClick={toggleWish} disabled={wishing}>
-                    <Heart size={15} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />
-                </button>
-            </div>
-
-            {/* Info */}
-            <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1 }}>
-
-                {/* Title */}
-                <h3 style={{
-                    fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 6,
-                    lineHeight: 1.3,
-                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-                }}>
-                    {bike.title ?? "Không có tên"}
-                </h3>
-
-                {/* Price */}
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#2563eb", letterSpacing: "-0.5px", marginBottom: 12 }}>
-                    {fmtPrice(price)}
-                </div>
-
-                {/* Tags row */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                    {bike.bikeType && (
-                        <span style={{ padding: "3px 9px", borderRadius: 6, background: "#f1f5f9", color: "#374151", fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0" }}>
-                            {bike.bikeType}
-                        </span>
-                    )}
-                    {condM && !isVerified && (
-                        <span style={{ padding: "3px 9px", borderRadius: 6, background: "#f1f5f9", color: "#374151", fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0" }}>
-                            {condM.label}
-                        </span>
-                    )}
-                    {bike.year && (
-                        <span style={{ padding: "3px 9px", borderRadius: 6, background: "#f1f5f9", color: "#374151", fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0" }}>
-                            {bike.year}
-                        </span>
-                    )}
-                </div>
-
-                {/* Location + rating */}
-                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <MapPin size={11} color="#94a3b8" />
-                        <span style={{ fontSize: 11.5, color: "#94a3b8" }}>
-                            {bike.location && bike.location !== "Not specified" ? bike.location : "Việt Nam"}
-                        </span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <Star size={12} color="#f59e0b" fill="#f59e0b" />
-                        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>4.8</span>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

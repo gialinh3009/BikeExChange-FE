@@ -40,16 +40,51 @@ export default function ProfilePage() {
     const [editing, setEditing]   = useState(false);
     const [saving,  setSaving]    = useState(false);
     const [toast,   setToast]     = useState<{ type: "success" | "error"; msg: string } | null>(null);
+    const [confirmSave, setConfirmSave] = useState(false);
     const [form,    setForm]      = useState<EditForm>({ fullName: "", phone: "", address: "" });
+    // Địa chỉ cascade
+    const [provinces,   setProvinces]   = useState([]);
+    const [districts,   setDistricts]   = useState([]);
+    const [wards,       setWards]       = useState([]);
+    const [province,    setProvince]    = useState("");
+    const [district,    setDistrict]    = useState("");
+    const [ward,        setWard]        = useState("");
+    const [detail,      setDetail]      = useState("");
+    const [addrLoading, setAddrLoading] = useState(false);
 
     const user   = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const userId = user?.id ?? user?.userId;
 
     useEffect(() => {
-        if (!userId) { navigate("/login"); return; }
         void fetchProfile();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
+
+    // fetch provinces
+    useEffect(() => {
+        fetch("https://provinces.open-api.vn/api/?depth=1")
+            .then((r) => r.json()).then(setProvinces).catch(() => {});
+    }, []);
+
+    // fetch districts
+    useEffect(() => {
+        if (!province) { setDistricts([]); setDistrict(""); setWards([]); setWard(""); return; }
+        setAddrLoading(true);
+        fetch(`https://provinces.open-api.vn/api/p/${province}?depth=2`)
+            .then((r) => r.json())
+            .then((d) => { setDistricts(d.districts || []); setDistrict(""); setWards([]); setWard(""); })
+            .catch(() => {}).finally(() => setAddrLoading(false));
+    }, [province]);
+
+    // fetch wards
+    useEffect(() => {
+        if (!district) { setWards([]); setWard(""); return; }
+        setAddrLoading(true);
+        fetch(`https://provinces.open-api.vn/api/d/${district}?depth=2`)
+            .then((r) => r.json())
+            .then((d) => { setWards(d.wards || []); setWard(""); })
+            .catch(() => {}).finally(() => setAddrLoading(false));
+    }, [district]);
 
     const fetchProfile = async () => {
         setLoading(true);
@@ -61,6 +96,26 @@ export default function ProfilePage() {
                 phone:    data.phone    ?? "",
                 address:  data.address  ?? "",
             });
+            // Parse address nếu có
+            if (data.address) {
+                // address dạng: "123 Lê Lợi, Phường 1, Quận 1, TP.HCM"
+                const parts = data.address.split(",").map(s => s.trim());
+                setDetail(parts[0] || "");
+                setWard(""); setDistrict(""); setProvince("");
+                // Tìm tên tỉnh/thành, quận/huyện, phường/xã
+                if (provinces.length > 0) {
+                    const p = provinces.find(p => parts[3] && parts[3].includes(p.name));
+                    if (p) setProvince(String(p.code));
+                }
+                if (districts.length > 0) {
+                    const d = districts.find(d => parts[2] && parts[2].includes(d.name));
+                    if (d) setDistrict(String(d.code));
+                }
+                if (wards.length > 0) {
+                    const w = wards.find(w => parts[1] && parts[1].includes(w.name));
+                    if (w) setWard(String(w.code));
+                }
+            }
         } catch (e: unknown) {
             showToast("error", e instanceof Error ? e.message : "Không thể tải hồ sơ");
         } finally {
@@ -68,30 +123,43 @@ export default function ProfilePage() {
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
+        setConfirmSave(true);
+    };
+
+    const confirmSaveChanges = async () => {
         if (!userId || !profile) return;
+        setConfirmSave(false);
         setSaving(true);
         try {
-            // Gửi toàn bộ object, chỉ đổi 3 field được phép
+            // Build address giống Register.jsx
+            const pName = provinces.find((p) => String(p.code) === province)?.name || "";
+            const dName = districts.find((d) => String(d.code) === district)?.name || "";
+            const wName = wards.find((w) => String(w.code) === ward)?.name || "";
+            const address = [detail, wName, dName, pName].filter(Boolean).join(", ");
             const payload = {
                 ...profile,
                 fullName: form.fullName,
                 phone:    form.phone,
-                address:  form.address,
+                address,
             };
             const updated = await updateUserProfileAPI(userId, payload);
             setProfile(updated);
             setEditing(false);
             showToast("success", "Cập nhật hồ sơ thành công!");
-            // Cập nhật localStorage nếu có fullName
             if (user) {
                 localStorage.setItem("user", JSON.stringify({ ...user, fullName: form.fullName }));
             }
+            navigate("/buyer");
         } catch (e: unknown) {
             showToast("error", e instanceof Error ? e.message : "Cập nhật thất bại");
         } finally {
             setSaving(false);
         }
+    };
+
+    const cancelConfirm = () => {
+        setConfirmSave(false);
     };
 
     const showToast = (type: "success" | "error", msg: string) => {
@@ -146,6 +214,43 @@ export default function ProfilePage() {
                         ? <CheckCircle size={16} color="#16a34a"/>
                         : <AlertCircle size={16} color="#e11d48"/>}
                     {toast.msg}
+                </div>
+            )}
+
+            {/* Confirm Save Modal */}
+            {confirmSave && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", zIndex: 10000,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                    <div style={{
+                        background: "white", borderRadius: 16, padding: 24,
+                        maxWidth: 400, width: "90%", boxShadow: "0 20px 48px rgba(0,0,0,.2)",
+                    }}>
+                        <div style={{ textAlign: "center", marginBottom: 20 }}>
+                            <AlertCircle size={48} color="#f59e0b" style={{ margin: "0 auto 12px" }}/>
+                            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Xác nhận lưu thay đổi</h3>
+                            <p style={{ fontSize: 14, color: "#64748b" }}>Bạn có chắc chắn muốn lưu các thay đổi này không?</p>
+                        </div>
+                        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                            <button onClick={cancelConfirm} style={{
+                                padding: "10px 20px", background: "white", color: "#64748b",
+                                border: "1.5px solid #e2e8f0", borderRadius: 10,
+                                fontSize: 14, fontWeight: 600, cursor: "pointer",
+                            }}>
+                                Hủy
+                            </button>
+                            <button onClick={confirmSaveChanges} disabled={saving} style={{
+                                padding: "10px 20px", background: "#2563eb", color: "white",
+                                border: "none", borderRadius: 10,
+                                fontSize: 14, fontWeight: 600, cursor: "pointer",
+                                opacity: saving ? 0.6 : 1,
+                            }}>
+                                {saving ? "Đang lưu..." : "Xác nhận"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -334,15 +439,56 @@ export default function ProfilePage() {
                                     />
                                 </Field>
 
-                                {/* Địa chỉ */}
+                                {/* Địa chỉ cascade giống Register.jsx */}
                                 <Field icon={<MapPin size={14} color={editing ? "#3b82f6" : "#94a3b8"}/>} label="Địa chỉ">
-                                    <input
-                                        className="field-input"
-                                        value={form.address}
-                                        disabled={!editing}
-                                        placeholder="Nhập địa chỉ..."
-                                        onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                                    />
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                        {editing ? (
+                                            <>
+                                                {/* Tỉnh / Thành phố */}
+                                                <select value={province} onChange={e => setProvince(e.target.value)} disabled={!editing || provinces.length === 0} className="field-input">
+                                                    <option value="">Tỉnh / Thành phố</option>
+                                                    {provinces.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+                                                </select>
+                                                {/* Quận / Huyện */}
+                                                <select value={district} onChange={e => setDistrict(e.target.value)} disabled={!editing || !province || addrLoading} className="field-input">
+                                                    <option value="">Quận / Huyện</option>
+                                                    {districts.map((d) => <option key={d.code} value={d.code}>{d.name}</option>)}
+                                                </select>
+                                                {/* Phường / Xã */}
+                                                <select value={ward} onChange={e => setWard(e.target.value)} disabled={!editing || !district || addrLoading} className="field-input">
+                                                    <option value="">Phường / Xã</option>
+                                                    {wards.map((w) => <option key={w.code} value={w.code}>{w.name}</option>)}
+                                                </select>
+                                                {/* Địa chỉ chi tiết */}
+                                                <input
+                                                    className="field-input"
+                                                    value={detail}
+                                                    disabled={!editing || !ward}
+                                                    placeholder={ward ? "Số nhà, tên đường (VD: 123 Lê Lợi)" : "Chọn phường/xã trước"}
+                                                    onChange={e => setDetail(e.target.value)}
+                                                />
+                                                {/* Preview */}
+                                                {province && district && ward && detail && (
+                                                    <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 9, padding: "8px 12px", fontSize: 12, color: "#2563eb", marginTop: 4 }}>
+                                                        <CheckCircle size={13} style={{ marginRight: 6 }} />
+                                                        {[detail, wards.find(w => String(w.code) === ward)?.name, districts.find(d => String(d.code) === district)?.name, provinces.find(p => String(p.code) === province)?.name].filter(Boolean).join(", ")}
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                {/* Hiển thị từng phần địa chỉ */}
+                                                <input className="field-input" value={provinces.find(p => String(p.code) === province)?.name || ""} disabled placeholder="Tỉnh / Thành phố" />
+                                                <input className="field-input" value={districts.find(d => String(d.code) === district)?.name || ""} disabled placeholder="Quận / Huyện" />
+                                                <input className="field-input" value={wards.find(w => String(w.code) === ward)?.name || ""} disabled placeholder="Phường / Xã" />
+                                                <input className="field-input" value={detail} disabled placeholder="Chi tiết địa chỉ" />
+                                                {/* Dòng địa chỉ đã lưu */}
+                                                <div style={{ marginTop: 12, color: "#64748b", fontSize: 13, fontWeight: 600, background: "#f8fafc", borderRadius: 8, padding: "10px 14px", border: "1px solid #e8ecf4" }}>
+                                                    Địa chỉ đã lưu: {profile?.address || "Chưa có địa chỉ"}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
                                 </Field>
 
                                 {editing && (

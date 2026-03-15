@@ -10,11 +10,6 @@ const authHeaders = () => {
 };
 
 // ── POST /orders ───────────────────────────────────────────────────────────
-/**
- * Create a new order (buy a bike)
- * @param {Object} payload - { bikeId, idempotencyKey? }
- * @returns {Promise<Object>} - Order data
- */
 export async function createOrderAPI(payload) {
     const res = await fetch(`${BASE_URL}/orders`, {
         method: "POST",
@@ -28,16 +23,10 @@ export async function createOrderAPI(payload) {
         throw new Error(data.message || "Tạo đơn hàng thất bại.");
     }
 
-    // BE trả về { data: { id, bikeId, buyerId, amountPoints, status, ... }, success: true }
     return data.data;
 }
 
 // ── POST /orders/{id}/approve ──────────────────────────────────────────────
-/**
- * Approve an order (buyer confirms payment)
- * @param {number} orderId
- * @returns {Promise<Object>}
- */
 export async function approveOrderAPI(orderId) {
     const res = await fetch(`${BASE_URL}/orders/${orderId}/approve`, {
         method: "POST",
@@ -53,21 +42,42 @@ export async function approveOrderAPI(orderId) {
     return data.data;
 }
 
-// ── GET /orders (list user's orders) ───────────────────────────────────────
+// ── GET /orders/my-purchases ───────────────────────────────────────────────
 /**
- * Get all orders for the current user
+ * Get buyer's purchase history
  * @param {Object} params - { status?, page?, size? }
  */
-export async function getOrdersAPI(params = {}) {
+export async function getMyPurchasesAPI(params = {}) {
     const searchParams = new URLSearchParams();
 
     if (params.status) searchParams.append("status", params.status);
     if (params.page !== undefined) searchParams.append("page", String(params.page));
     if (params.size !== undefined) searchParams.append("size", String(params.size));
 
-    // Note: BE API docs don't list a GET /orders endpoint for listing
-    // This may need to be adapted based on actual BE implementation
-    // Or you could fetch from /wallet or a dedicated endpoint
+    const query = searchParams.toString();
+    const res = await fetch(`${BASE_URL}/orders/my-purchases${query ? `?${query}` : ""}`, {
+        method: "GET",
+        headers: authHeaders(),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+        console.warn("Could not fetch purchases:", data.message);
+        return [];
+    }
+
+    // Response: { data: [], summary: {...}, success: true }
+    return Array.isArray(data.data) ? data.data : [];
+}
+
+// ── GET /orders (legacy — BE không support GET, giữ lại để không break code cũ) ─
+export async function getOrdersAPI(params = {}) {
+    const searchParams = new URLSearchParams();
+
+    if (params.status) searchParams.append("status", params.status);
+    if (params.page !== undefined) searchParams.append("page", String(params.page));
+    if (params.size !== undefined) searchParams.append("size", String(params.size));
 
     const res = await fetch(`${BASE_URL}/orders?${searchParams.toString()}`, {
         method: "GET",
@@ -84,11 +94,7 @@ export async function getOrdersAPI(params = {}) {
     return data.data || data;
 }
 
-// ── GET /orders/:id (not in docs, but useful) ──────────────────────────────
-/**
- * Get order details
- * @param {number} orderId
- */
+// ── GET /orders/:id ────────────────────────────────────────────────────────
 export async function getOrderAPI(orderId) {
     const res = await fetch(`${BASE_URL}/orders/${orderId}`, {
         method: "GET",
