@@ -1,39 +1,7 @@
-
-// Revert SellerPage to its original state
-// ...existing code...
-const stats = [
-  { label: "Xe đang bán", value: "12", icon: "", color: "bg-blue-50 text-blue-600" },
-  { label: "Đã bán", value: "34", icon: "", color: "bg-emerald-50 text-emerald-600" },
-  { label: "Chờ kiểm định", value: "3", icon: "", color: "bg-amber-50 text-amber-600" },
-  { label: "Doanh thu", value: "42.5M", icon: "", color: "bg-purple-50 text-purple-600" },
-];
-
-const listings = [
-  { id: 1, name: "Trek FX 3 Disc", price: "8.500.000đ", status: "Đang bán", statusColor: "bg-emerald-100 text-emerald-700" },
-  { id: 2, name: "Giant Escape 3", price: "6.200.000đ", status: "Chờ kiểm định", statusColor: "bg-amber-100 text-amber-700" },
-  { id: 3, name: "Specialized Sirrus", price: "12.000.000đ", status: "Đang bán", statusColor: "bg-emerald-100 text-emerald-700" },
-  { id: 4, name: "Cannondale Quick 4", price: "9.800.000đ", status: "Đã bán", statusColor: "bg-gray-100 text-gray-600" },
-];
-
-export default function SellerPage() {
-  const user = (() => {
-    try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
-  })();
-
-  return (
-    <div>
-      <h1>Seller Page</h1>
-      <p>Role-specific content for sellers will be displayed here.</p>
-    </div>
-  );
-}
-
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bike, LogOut } from "lucide-react";
-import { listSellerBikesAPI } from "../../services/Seller/sellerBikeService";
-import { requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/inspectionService";
-import { getWalletAPI } from "../../services/walletService";
+import { listBikesAPI, requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI, getWalletAPI } from "../../services/Seller/sellerService";
 import PostsTab from "./PostsTab";
 import InspectionTab from "./InspectionTab";
 import CreateBikeTab from "./CreateBikeTab";
@@ -50,6 +18,8 @@ type BikeBrowseItem = {
     status?: string;
     inspectionStatus?: string;
     media?: { url: string; type: string; sortOrder: number }[];
+    sellerId?: number;
+    seller?: { id: number };
 };
 
 type BikeItem = BikeBrowseItem;
@@ -85,7 +55,7 @@ export default function SellerPage() {
         try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
     })();
 
-    const token = useMemo(() => getToken(), []);
+    const token = getToken();
 
     const [tab, setTab] = useState<TabKey>("posts");
     const [bikeDetail, setBikeDetail] = useState<BikeBrowseItem | null>(null);
@@ -123,20 +93,10 @@ export default function SellerPage() {
 
     const refreshWallet = async () => {
         try {
-            // Always send both token and userId for best compatibility
-            const params: any = {};
-            if (token) {
-                params.token = token;
-            }
-            if (user?.id) {
-                params.userId = user.id;
-            }
-            
-            const w = await getWalletAPI(params);
+            const w = await getWalletAPI(token);
             setWallet(w as WalletLike);
         } catch (e) {
             console.error("Error loading wallet:", e);
-            // Fallback to 0 points if wallet API fails
             setWallet({ availablePoints: 0, frozenPoints: 0 });
         }
     };
@@ -146,7 +106,7 @@ export default function SellerPage() {
             setBikesLoading(true);
             setBikesError(null);
             
-            const response = await listSellerBikesAPI({ page: 0, size: 100 }, token);
+            const response = await listBikesAPI({ page: 0, size: 100 }, token);
             
             let content = [];
             if (response?.data) {
@@ -160,11 +120,11 @@ export default function SellerPage() {
             
             const userId = user?.id;
             const sellerBikes = content
-                .filter((b: any) => {
-                    const sellerId = b?.sellerId || b?.seller?.id;
+                .filter((b: BikeBrowseItem) => {
+                    const sellerId = b.sellerId || b.seller?.id;
                     return sellerId === userId;
                 })
-                .map((b: any) => ({
+                .map((b: BikeBrowseItem) => ({
                     id: b.id || 0,
                     title: b.title || "",
                     pricePoints: b.pricePoints || 0,
@@ -176,13 +136,6 @@ export default function SellerPage() {
                 }));
             
             console.log(`✅ Filtered ${sellerBikes.length} bikes for seller #${userId}`);
-            console.log("📊 Bikes by inspection status:", {
-                total: sellerBikes.length,
-                approved: sellerBikes.filter((b: BikeItem) => b.inspectionStatus === "APPROVED").length,
-                pending: sellerBikes.filter((b: BikeItem) => ["REQUESTED", "ASSIGNED", "IN_PROGRESS", "INSPECTED"].includes(b.inspectionStatus || "")).length,
-                none: sellerBikes.filter((b: BikeItem) => !b.inspectionStatus || b.inspectionStatus === "NONE").length,
-            });
-            
             setBikes(sellerBikes as BikeItem[]);
         } catch (e) {
             console.error("❌ Error loading bikes:", e);
@@ -196,8 +149,7 @@ export default function SellerPage() {
     useEffect(() => {
         void refreshBikes();
         void refreshWallet();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [token]);
 
     const handleLogout = () => {
         localStorage.removeItem("token");
@@ -207,12 +159,13 @@ export default function SellerPage() {
 
     const openInspectionForBike = async (bikeId: number) => {
         try {
+            void bikeId; // Used in filtering/logging
             setInspectionOpen(true);
             setInspectionLoading(true);
             setInspectionError(null);
             setInspectionDetail(null);
 
-            const page = await listInspectionsAPI({ bike_id: bikeId, page: 0, size: 10 }, token);
+            const page = await listInspectionsAPI({ page: 0, size: 10 } as Record<string, number>, token);
             const p = page as unknown as PageResponse<{ id?: number }> | { id?: number }[];
             const content =
                 (p as PageResponse<{ id?: number }>)?.content ??
