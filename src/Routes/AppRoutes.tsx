@@ -16,7 +16,6 @@ import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
 import VerifyEmail from "../components/home/VerifyEmail";
 
-import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
@@ -109,11 +108,6 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
                     <Route path="payments" element={<ManagerPayment />} />
                     <Route path="reports" element={<ManagerReport />} />
                 </Route>
-            </Route>
-
-            {/* SELLER */}
-            <Route element={<PrivateRoute roles={["SELLER"]} />}>
-                <Route path="/seller" element={<SellerPage />} />
             </Route>
 
             {/* INSPECTOR */}
