@@ -1,4 +1,5 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+
 import AdminLayout from "../components/Admin/AdminLayout";
 import AdminDashboard from "../components/Admin/AdminDashboard";
 import ManagerPosts from "../components/Admin/Manager/ManagerPosts";
@@ -13,15 +14,21 @@ import ManagerUsers from "../components/Admin/Manager/ManagerUsers";
 import ManagerCategories from "../components/Admin/Manager/ManagerCategories";
 import ManagerBrand from "../components/Admin/Manager/ManagerBrand";
 import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
+import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
+
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
-import PaymentSuccess from "../components/Buyer/PaymentSuccess";
+import GuestLayout from "../components/home/Layout";
+import VerifyEmail from "../components/home/VerifyEmail";
+
 import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
+import PaymentSuccess from "../components/Buyer/PaymentSuccess";
 import ProfilePage from "../components/Buyer/Profilepage";
 import BikedetailPage from "../components/Buyer/BikedetailPage";
 import SellerProfileView from "../components/Buyer/SellerProfileView";
-import GuestLayout from "../components/home/Layout";
+import OrderDetailPage from "../components/Buyer/OrderDetailPage";
+
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
 import ManagerInspection from "../components/Inspector/ManagerInspection";
@@ -29,8 +36,14 @@ import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionSt
 import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
 import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
-import OrderDetailPage from "../components/Buyer/OrderDetailPage";
-function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
+
+function PrivateRoute({
+  redirectTo = "/login",
+  roles = [],
+}: {
+  redirectTo?: string;
+  roles?: string[];
+}) {
   const user = (() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
@@ -44,39 +57,51 @@ function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: stri
   return <Outlet />;
 }
 
-// ─── Route map ───────────────────────────────────────────────────────────────
-const ROLE_ROUTES: Record<string, string> = {
+const ROLE_HOME: Record<string, string> = {
   ADMIN: "/admin",
   SELLER: "/seller",
   INSPECTOR: "/inspector",
   BUYER: "/buyer",
 };
 
-// ─── AppRoutes ───────────────────────────────────────────────────────────────
+const getRoleHome = (role?: string | null) => {
+  if (!role) return "/";
+  return ROLE_HOME[role] ?? "/buyer";
+};
+
 interface AppRoutesProps {
   user: { role: string } | null;
   onLogout: () => void;
 }
 
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
+  const defaultHome = getRoleHome(user?.role);
+
   return (
     <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify" element={<VerifyEmail />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
-      {/* Profile — protected */}
+      {/* Profile */}
       <Route element={<PrivateRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
-      {/* Root: trang chính — hiển thị cho tất cả, kể cả đã đăng nhập */}
-      <Route path="/" element={<GuestLayout />} />
+      {/* Order detail - new route + backward-compatible alias */}
+      <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
+        <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/order-detail/:id" element={<OrderDetailPage />} />
+      </Route>
 
-      {/* Admin — protected */}
+      {/* Root */}
+      <Route path="/" element={user ? <Navigate to={defaultHome} replace /> : <GuestLayout />} />
+
+      {/* Admin */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>
         <Route path="/admin" element={<AdminLayout user={user} onLogout={onLogout} />}>
           <Route index element={<AdminDashboard />} />
@@ -92,16 +117,17 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="categories" element={<ManagerCategories />} />
           <Route path="brands" element={<ManagerBrand />} />
           <Route path="components" element={<ManagerComponent />} />
+          <Route path="disputes" element={<ManagementDisputes />} />
         </Route>
       </Route>
 
-      {/* Seller — protected */}
+      {/* Seller */}
       <Route element={<PrivateRoute roles={["SELLER"]} />}>
         <Route path="/seller" element={<SellerPage />} />
       </Route>
 
-      {/* Inspector — protected */}
-   <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
+      {/* Inspector */}
+      <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
         <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
           <Route index element={<InspectorDashboard />} />
           <Route path="inspections" element={<ManagerInspection />} />
@@ -111,14 +137,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="reports-list" element={<ManagerInspected />} />
         </Route>
       </Route>
-      {/* Buyer — protected */}
-      <Route element={<PrivateRoute roles={["BUYER"]} />}>
+
+      {/* Buyer */}
+      <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
-        <Route path="/order-detail/:id" element={<OrderDetailPage />} />
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to={user ? defaultHome : "/login"} replace />} />
     </Routes>
   );
 }
