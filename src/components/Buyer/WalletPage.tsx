@@ -14,7 +14,7 @@ import {
     Wallet, ArrowDownLeft, ArrowUpRight, Clock, CheckCircle,
     XCircle, Plus, History, RefreshCw, AlertTriangle, Package,
 } from "lucide-react";
-import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL } from "../../services/Buyer/walletService";
+import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL,withdrawWalletAPI } from "../../services/Buyer/walletService";
 // Danh sách ngân hàng Việt Nam
 const BANKS = [
     { code: "VCB", name: "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)" },
@@ -163,7 +163,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         if (!withdrawName) { setWithdrawErr("Vui lòng nhập tên chủ tài khoản"); return; }
         setWithdrawLoading(true);
         try {
-            const res = await withdrawWalletAPI({
+            await withdrawWalletAPI({
                 amount: Number(withdrawAmt),
                 bankName: withdrawBank,
                 bankAccount: withdrawAccount,
@@ -373,25 +373,27 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     ))}
                 </div>
             )}
-
             {/* ── Tab Navigation ── */}
             <div style={{ background: "white", borderRadius: 16, border: "1.5px solid #e8ecf4", overflow: "hidden" }}>
                 <div style={{ display: "flex", borderBottom: "1px solid #f1f5f9", padding: "0 16px" }}>
-                    {[
+                    {([
                         { id: "overview", label: "Tổng quan", icon: "📋" },
                         { id: "deposit",  label: "Nạp tiền",  icon: "⬇️" },
                         { id: "withdraw", label: "Rút tiền",  icon: "🏦" },
                         { id: "history",  label: "Lịch sử",   icon: "📜" },
-                    ].map(t => (
-                        <button key={t.id}
-                                className={`tab-btn${tab === t.id ? " active" : ""}`}
-                                onClick={() => setTab(t.id as any)}>
+                    ] as { id: TabType | "withdraw"; label: string; icon: string }[]).map((t) => (
+                        <button
+                            key={t.id}
+                            className={`tab-btn${tab === t.id ? " active" : ""}`}
+                            onClick={() => setTab(t.id)}
+                        >
                             {t.icon} {t.label}
                         </button>
                     ))}
                 </div>
 
                 <div style={{ padding: 24 }}>
+
                     {/* Withdraw */}
                     {tab === "withdraw" && (
                         <div className="fade-in" style={{ maxWidth: 480 }}>
@@ -411,11 +413,23 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                             </div>
                             <div style={{ marginBottom: 12 }}>
                                 <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Ngân hàng</label>
-                                <select className="wl-input" value={withdrawBank} onChange={e => { setWithdrawBank(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }}>
+                                <select
+                                    className="wl-input"
+                                    value={withdrawBank}
+                                    onChange={e => {
+                                        setWithdrawBank(e.target.value);
+                                        setWithdrawErr("");
+                                        setWithdrawSuccess(false);
+                                    }}
+                                >
                                     <option value="">Chọn ngân hàng</option>
-                                    {BANKS.map(b => (
-                                        <option key={b.code} value={b.name}>{b.name}</option>
+
+                                    {BANKS.map((b, i) => (
+                                        <option key={`${b.code}-${i}`} value={b.name}>
+                                            {b.name}
+                                        </option>
                                     ))}
+
                                 </select>
                             </div>
                             <div style={{ marginBottom: 12 }}>

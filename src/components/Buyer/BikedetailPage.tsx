@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import {
-    ChevronLeft, Heart, Share2, MapPin, Calendar,
+    ChevronLeft, Heart, MapPin, Calendar,
     Star, MessageSquare, CheckCircle, Image as ImageIcon,
-    ShieldCheck, Zap, Phone, Mail, User,
+    ShieldCheck, Zap,  User,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBikeDetailAPI } from "../../services/Buyer/Bikeservice";
@@ -46,7 +46,6 @@ interface SellerProfile {
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 const fmtPrice = (p: number) =>
     new Intl.NumberFormat("vi-VN").format(p) + " VND";
