@@ -90,15 +90,20 @@ export async function depositWalletAPI(amount, referenceId) {
 }
 
 /**
- * POST /wallet/withdraw
+ * POST /wallet/withdraw-request
  */
 export async function withdrawWalletAPI({ amount, bankName, bankAccount, accountName }) {
-    const res = await fetch(`${BASE_URL}/wallet/withdraw`, {
+    const payload = { amount, bankName, bankAccount, accountName };
+
+    const res = await fetch(`${BASE_URL}/wallet/withdraw-request`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ amount, bankName, bankAccount, accountName }),
+        body: JSON.stringify(payload),
     });
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Yêu cầu rút tiền thất bại.");
+    if (!res.ok) {
+        throw new Error(data.message || "Không thể tạo yêu cầu rút tiền.");
+    }
     return data.data ?? data;
 }
