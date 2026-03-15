@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
-import { createSellerBikeAPI } from "../../services/Seller/sellerBikeService";
+import { createSellerBikeAPI, listCategoriesAPI, listBrandsAPI } from "../../services/Seller/sellerBikeService";
 import { requestInspectionAPI } from "../../services/inspectionService";
-import { listCategoriesAPI } from "../../services/categoryService";
-import { listBrandsAPI } from "../../services/brandService";
 import { upgradeToSellerAPI } from "../../services/authService";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
@@ -31,8 +29,8 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const hasEnough = walletAvailable >= POSTING_FEE;
 
     useEffect(() => {
-        listCategoriesAPI({ page: 0, size: 100 }).then((res: any) => {
-            const data = res?.content || res?.data?.content || (Array.isArray(res) ? res : []);
+        listCategoriesAPI(token).then((res: any) => {
+            const data = Array.isArray(res) ? res : (res?.data || []);
             setCategories(data.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
         }).catch(() => {});
         listBrandsAPI(token).then((res: any) => {
@@ -51,32 +49,49 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         try {
             setLoading(true);
 
-            const fileMedias = images.map((img, i) => ({ url: img.dataUrl, type: "IMAGE", sortOrder: i }));
-            const media = fileMedias.map((m, i) => ({ ...m, sortOrder: i }));
-
-            const payload: any = {
-                title: form.title, 
-                description: form.description, 
-                brandId: form.brandId, 
-                model: form.model,
-                condition: form.condition, 
-                bikeType: form.bikeType, 
-                frameSize: form.frameSize, 
-                media, 
-                pricePoints: Number(form.priceVnd.replace(/[^\d]/g, ""))
-            };
+            // Tạo FormData để gửi file
+            const formDataToSend = new FormData();
+            formDataToSend.append("title", form.title);
+            formDataToSend.append("description", form.description);
+            formDataToSend.append("brandId", form.brandId.toString());
+            formDataToSend.append("model", form.model);
+            formDataToSend.append("condition", form.condition);
+            formDataToSend.append("bikeType", form.bikeType);
+            formDataToSend.append("frameSize", form.frameSize);
+            
+            // Chuyển priceVnd (string) thành pricePoints (number)
+            const pricePoints = Number(form.priceVnd.replace(/[^\d]/g, ""));
+            formDataToSend.append("pricePoints", pricePoints.toString());
 
             if (form.year) {
-                payload.year = Number(form.year);
+                formDataToSend.append("year", form.year);
             }
 
             if (form.categoryIds && form.categoryIds.length > 0) {
-                payload.categoryIds = form.categoryIds;
+                form.categoryIds.forEach((id) => {
+                    formDataToSend.append("categoryIds", id.toString());
+                });
             }
 
-            console.log("📤 Sending bike creation request with payload:", payload);
+            // Thêm file ảnh
+            images.forEach((img) => {
+                // Chuyển dataUrl thành File
+                const arr = img.dataUrl.split(',');
+                const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+                const bstr = atob(arr[1]);
+                const n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                for (let j = 0; j < n; j++) {
+                    u8arr[j] = bstr.charCodeAt(j);
+                }
+                const file = new File([u8arr], img.name, { type: mime });
+                formDataToSend.append("media", file);
+            });
 
-            const res: any = await createSellerBikeAPI(payload, token);
+            console.log("📤 Sending bike creation request with FormData");
+            console.log("Price Points:", pricePoints);
+
+            const res: any = await createSellerBikeAPI(formDataToSend, token);
             const bikeId = res?.id ?? res?.data?.id;
             if (!bikeId) throw new Error("Tạo xe thất bại.");
 
