@@ -20,6 +20,7 @@ import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import ProfilePage from "../components/Buyer/Profilepage";
 import BikedetailPage from "../components/Buyer/BikedetailPage";
+import SellerProfileView from "../components/Buyer/SellerProfileView";
 import GuestLayout from "../components/home/Layout";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
@@ -65,6 +66,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/register" element={<Register />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
+      <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
       {/* Profile — protected */}
       <Route element={<PrivateRoute />}>
