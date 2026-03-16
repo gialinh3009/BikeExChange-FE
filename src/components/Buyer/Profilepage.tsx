@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
     User, Mail, Phone, MapPin, ArrowLeft, Edit3, Save,
     X, CheckCircle, AlertCircle, Calendar, Star, ShoppingBag,
-    Shiel Clock,
+    Shield, Clock,
 } from "lucide-react";
 import { getUserProfileAPI, updateUserProfileAPI } from "../../services/Buyer/Userservice";
 
