@@ -10,15 +10,16 @@ import {
   X,
   Eye,
   ImageOff,
-  Filter,
 } from "lucide-react";
 import { getBikesAPI, getBikeDetailAPI } from "../../../services/Admin/bikeManagerService";
+
 
 interface BikeMedia {
   url: string;
   type: string;
   sortOrder: number;
 }
+
 
 interface BikeItem {
   id: number;
@@ -41,6 +42,7 @@ interface BikeItem {
   media: BikeMedia[];
 }
 
+
 const STATUS_CLS: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-600",
   ACTIVE: "bg-emerald-100 text-emerald-700",
@@ -48,6 +50,7 @@ const STATUS_CLS: Record<string, string> = {
   INACTIVE: "bg-red-100 text-red-600",
   PENDING: "bg-amber-100 text-amber-700",
 };
+
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Nháp",
@@ -57,6 +60,7 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING: "Chờ duyệt",
 };
 
+
 const INSPECT_CLS: Record<string, string> = {
   REQUESTED: "bg-amber-100 text-amber-700",
   ASSIGNED: "bg-blue-100 text-blue-700",
@@ -64,6 +68,7 @@ const INSPECT_CLS: Record<string, string> = {
   APPROVED: "bg-emerald-100 text-emerald-700",
   REJECTED: "bg-red-100 text-red-600",
 };
+
 
 const INSPECT_LABELS: Record<string, string> = {
   REQUESTED: "Yêu cầu KĐ",
@@ -73,6 +78,7 @@ const INSPECT_LABELS: Record<string, string> = {
   REJECTED: "Từ chối",
 };
 
+
 const CONDITION_LABELS: Record<string, string> = {
   NEW: "Mới",
   LIKE_NEW: "Như mới",
@@ -80,6 +86,7 @@ const CONDITION_LABELS: Record<string, string> = {
   FAIR: "Khá",
   POOR: "Kém",
 };
+
 
 const BIKE_TYPE_LABELS: Record<string, string> = {
   HYBRID: "Hybrid",
@@ -90,6 +97,7 @@ const BIKE_TYPE_LABELS: Record<string, string> = {
   ELECTRIC: "Điện",
 };
 
+
 const STATUS_FILTER_TABS = [
   { key: "ALL", label: "Tất cả" },
   { key: "DRAFT", label: "Nháp" },
@@ -99,13 +107,16 @@ const STATUS_FILTER_TABS = [
   { key: "PENDING", label: "Chờ duyệt" },
 ];
 
+
 function formatDate(val: string) {
   return new Date(val).toLocaleDateString("vi-VN");
 }
 
+
 function formatPoints(n: number) {
   return n.toLocaleString("vi-VN") + " đ";
 }
+
 
 export default function ManagerBike() {
   const [bikes, setBikes] = useState<BikeItem[]>([]);
@@ -117,10 +128,12 @@ export default function ManagerBike() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
 
+
   const [detail, setDetail] = useState<BikeItem | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+
 
   const fetchBikes = useCallback(async () => {
     setLoading(true);
@@ -144,9 +157,11 @@ export default function ManagerBike() {
     }
   }, [page]);
 
+
   useEffect(() => {
     fetchBikes();
   }, [fetchBikes]);
+
 
   async function openDetail(id: number) {
     setShowDetail(true);
@@ -163,6 +178,7 @@ export default function ManagerBike() {
     }
   }
 
+
   const filtered = bikes.filter((b) => {
     const matchSearch =
       b.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -172,8 +188,10 @@ export default function ManagerBike() {
     return matchSearch && matchStatus;
   });
 
+
   const firstImage = (media: BikeMedia[]) =>
     media?.find((m) => m.type === "IMAGE")?.url ?? null;
+
 
   return (
     <div className="space-y-5">
@@ -196,6 +214,7 @@ export default function ManagerBike() {
         </button>
       </div>
 
+
       {/* Summary card */}
       <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 w-fit">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
@@ -206,6 +225,7 @@ export default function ManagerBike() {
           <div className="text-xs text-gray-500">Tổng xe đạp</div>
         </div>
       </div>
+
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -226,6 +246,7 @@ export default function ManagerBike() {
           ))}
         </div>
 
+
         {/* Search */}
         <div className="relative ml-auto">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -239,6 +260,7 @@ export default function ManagerBike() {
         </div>
       </div>
 
+
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         {loading && (
@@ -248,6 +270,7 @@ export default function ManagerBike() {
           </div>
         )}
 
+
         {!loading && error && (
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-red-500">
             <AlertCircle size={32} />
@@ -256,12 +279,14 @@ export default function ManagerBike() {
           </div>
         )}
 
+
         {!loading && !error && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
             <Bike size={32} />
             <p className="text-sm">Không có xe đạp nào</p>
           </div>
         )}
+
 
         {!loading && !error && filtered.length > 0 && (
           <div className="overflow-x-auto">
@@ -340,6 +365,7 @@ export default function ManagerBike() {
           </div>
         )}
 
+
         {/* Pagination */}
         {!loading && !error && totalPages > 1 && (
           <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
@@ -366,6 +392,7 @@ export default function ManagerBike() {
         )}
       </div>
 
+
       {/* Detail Modal */}
       {showDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -384,6 +411,7 @@ export default function ManagerBike() {
               </button>
             </div>
 
+
             {/* Modal body */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
               {detailLoading && (
@@ -393,12 +421,14 @@ export default function ManagerBike() {
                 </div>
               )}
 
+
               {detailError && (
                 <div className="flex flex-col items-center justify-center py-16 gap-2 text-red-500">
                   <AlertCircle size={28} />
                   <p className="text-sm">{detailError}</p>
                 </div>
               )}
+
 
               {!detailLoading && !detailError && detail && (
                 <div className="space-y-5">
@@ -416,6 +446,7 @@ export default function ManagerBike() {
                     </div>
                   )}
 
+
                   {/* Title + badges */}
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">{detail.title}</h3>
@@ -431,10 +462,12 @@ export default function ManagerBike() {
                     </div>
                   </div>
 
+
                   {/* Description */}
                   {detail.description && (
                     <p className="text-sm text-gray-600 leading-relaxed">{detail.description}</p>
                   )}
+
 
                   {/* Info grid */}
                   <div className="grid grid-cols-2 gap-3">
@@ -462,6 +495,7 @@ export default function ManagerBike() {
               )}
             </div>
 
+
             {/* Modal footer */}
             <div className="px-6 py-4 border-t border-gray-100">
               <button
@@ -477,3 +511,6 @@ export default function ManagerBike() {
     </div>
   );
 }
+
+
+

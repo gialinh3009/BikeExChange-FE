@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
     User, Mail, Phone, MapPin, ArrowLeft, Edit3, Save,
     X, CheckCircle, AlertCircle, Calendar, Star, ShoppingBag,
-    Shield, Clock,
+    Shiel Clock,
 } from "lucide-react";
 import { getUserProfileAPI, updateUserProfileAPI } from "../../services/Buyer/Userservice";
 
@@ -109,7 +109,7 @@ export default function ProfilePage() {
             // Parse address nếu có
             if (data.address) {
                 // address dạng: "123 Lê Lợi, Phường 1, Quận 1, TP.HCM"
-                const parts = data.address.split(",").map(s => s.trim());
+                const parts = data.address.split(",").map((s: string) => s.trim());
                 setDetail(parts[0] || "");
                 setWard(""); setDistrict(""); setProvince("");
                 // Tìm tên tỉnh/thành, quận/huyện, phường/xã
@@ -588,5 +588,4 @@ function Field({ icon, label, children }: { icon: React.ReactNode; label: string
         </div>
     );
 }
-
 
