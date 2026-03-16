@@ -8,11 +8,18 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Lock,
+  Unlock,
+  Plus,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   getAdminUsersAPI,
   updateUserStatusAPI,
   deleteUserAPI,
+  lockUserAPI,
+  unlockUserAPI,
+  createInspectorAPI,
 } from "../../../services/adminUserService";
 
 type UserRole = "ADMIN" | "SELLER" | "BUYER" | "INSPECTOR";
@@ -145,6 +152,126 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+// ─── Create Inspector Modal ───────────────────────────────────────────────────
+
+interface CreateInspectorForm {
+  email: string; password: string; fullName: string; phone: string; address: string;
+}
+
+function CreateInspectorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState<CreateInspectorForm>({ email: "", password: "", fullName: "", phone: "", address: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const set = (k: keyof CreateInspectorForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.email || !form.password || !form.fullName) { setErr("Vui lòng điền đầy đủ thông tin bắt buộc."); return; }
+    setSubmitting(true); setErr(null);
+    try {
+      await createInspectorAPI(form);
+      onSuccess();
+      onClose();
+    } catch (e: any) { setErr(e.message); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <ClipboardCheck size={16} className="text-blue-700" /> Tạo tài khoản kiểm định viên
+          </h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-3">
+          {[
+            { k: "fullName", label: "Họ tên *", placeholder: "Nguyễn Văn A" },
+            { k: "email",    label: "Email *",  placeholder: "inspector@gmail.com", type: "email" },
+            { k: "password", label: "Mật khẩu *", placeholder: "Password123!", type: "password" },
+            { k: "phone",    label: "SĐT",      placeholder: "0987654321" },
+            { k: "address",  label: "Địa chỉ",  placeholder: "123 Lê Lợi, Q1, HCM" },
+          ].map(({ k, label, placeholder, type }) => (
+            <div key={k}>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+              <input
+                type={type ?? "text"}
+                value={form[k as keyof CreateInspectorForm]}
+                onChange={set(k as keyof CreateInspectorForm)}
+                placeholder={placeholder}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+              />
+            </div>
+          ))}
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Hủy</button>
+            <button type="submit" disabled={submitting} className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50">
+              {submitting ? "Đang tạo..." : "Tạo tài khoản"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Lock Modal ───────────────────────────────────────────────────────────────
+
+function LockModal({ user, onClose, onSuccess }: { user: User; onClose: () => void; onSuccess: () => void }) {
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reason.trim()) { setErr("Vui lòng nhập lý do khóa."); return; }
+    setSubmitting(true); setErr(null);
+    try {
+      await lockUserAPI(user.id, reason.trim());
+      onSuccess();
+      onClose();
+    } catch (e: any) { setErr(e.message); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Lock size={16} className="text-red-500" /> Khóa tài khoản
+          </h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <p className="text-sm text-gray-600">Khóa tài khoản <span className="font-semibold">{user.fullName}</span>?</p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Lý do khóa *</label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Nhập lý do..."
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400"
+            />
+          </div>
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Hủy</button>
+            <button type="submit" disabled={submitting} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+              {submitting ? "Đang khóa..." : "Xác nhận khóa"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function ManagerUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,6 +285,8 @@ export default function ManagerUsers() {
   const [totalElements, setTotalElements] = useState(0);
 
   const [detailUser, setDetailUser] = useState<User | null>(null);
+  const [lockUser, setLockUser] = useState<User | null>(null);
+  const [showCreateInspector, setShowCreateInspector] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [toast, setToast] = useState<{
     msg: string;
@@ -222,6 +351,19 @@ export default function ManagerUsers() {
     }
   };
 
+  const handleUnlock = async (user: User) => {
+    setActionLoading(user.id);
+    try {
+      await unlockUserAPI(user.id);
+      showToast(`Đã mở khóa tài khoản "${user.fullName}".`);
+      fetchUsers();
+    } catch (err: any) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleDelete = async (user: User) => {
     if (!window.confirm(`Bạn có chắc muốn xóa "${user.fullName}"?`)) return;
     setActionLoading(user.id);
@@ -265,28 +407,44 @@ export default function ManagerUsers() {
         </div>
       )}
 
-      {/* Detail modal */}
-      {detailUser && (
-        <DetailModal user={detailUser} onClose={() => setDetailUser(null)} />
+      {/* Modals */}
+      {detailUser && <DetailModal user={detailUser} onClose={() => setDetailUser(null)} />}
+      {lockUser && (
+        <LockModal
+          user={lockUser}
+          onClose={() => setLockUser(null)}
+          onSuccess={() => { showToast(`Đã khóa tài khoản "${lockUser.fullName}".`); fetchUsers(); }}
+        />
+      )}
+      {showCreateInspector && (
+        <CreateInspectorModal
+          onClose={() => setShowCreateInspector(false)}
+          onSuccess={() => showToast("Tạo tài khoản kiểm định viên thành công!")}
+        />
       )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Quản Lý Người Dùng
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Danh sách tất cả người dùng trong hệ thống
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Người Dùng</h1>
+          <p className="text-sm text-gray-500 mt-1">Danh sách tất cả người dùng trong hệ thống</p>
         </div>
-        <button
-          type="button"
-          onClick={fetchUsers}
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium hover:bg-blue-50"
-        >
-          <RefreshCw size={14} /> Làm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCreateInspector(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+          >
+            <Plus size={15} /> Tạo kiểm định viên
+          </button>
+          <button
+            type="button"
+            onClick={fetchUsers}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium hover:bg-blue-50"
+          >
+            <RefreshCw size={14} /> Làm mới
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -430,6 +588,22 @@ export default function ManagerUsers() {
                             className={`text-xs hover:underline ${user.status === "ACTIVE" ? "text-amber-600" : "text-emerald-600"} disabled:opacity-50`}
                           >
                             {user.status === "ACTIVE" ? "Vô hiệu" : "Kích hoạt"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLoading === user.id}
+                            onClick={() => setLockUser(user)}
+                            className="inline-flex items-center gap-0.5 text-xs text-red-500 hover:underline disabled:opacity-50"
+                          >
+                            <Lock size={11} /> Khóa
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLoading === user.id}
+                            onClick={() => handleUnlock(user)}
+                            className="inline-flex items-center gap-0.5 text-xs text-emerald-600 hover:underline disabled:opacity-50"
+                          >
+                            <Unlock size={11} /> Mở khóa
                           </button>
                           <button
                             type="button"
