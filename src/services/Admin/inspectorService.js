@@ -1,59 +1,49 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-function authHeader(token) {
+function authHeaders() {
+  const token = localStorage.getItem("token");
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
-/**
- * Lấy danh sách inspectors (Admin)
- */
-export async function getAdminInspectorsAPI(params = {}, token) {
-  const queryParams = new URLSearchParams();
-  
-  if (params.page !== undefined) queryParams.append("page", params.page);
-  if (params.size !== undefined) queryParams.append("size", params.size);
-  if (params.status) queryParams.append("status", params.status);
-  if (params.search) queryParams.append("search", params.search);
-
-  const res = await fetch(`${BASE_URL}/admin/inspectors?${queryParams.toString()}`, {
-    headers: authHeader(token),
+export async function getAdminInspectionReportsAPI({ page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams({ page, size });
+  const res = await fetch(`${BASE_URL}/admin/inspection-reports?${params}`, {
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy danh sách inspectors thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Không thể tải danh sách báo cáo kiểm định.");
+  return data;
 }
 
 /**
- * Lấy chi tiết inspector
+ * Duyệt hoặc từ chối kết quả kiểm định
+ * POST /inspections/{id}/approve?result=true|false
  */
-export async function getInspectorDetailAPI(id, token) {
-  const res = await fetch(`${BASE_URL}/admin/inspectors/${id}`, {
-    headers: authHeader(token),
+/**
+ * Lấy danh sách yêu cầu kiểm định theo trạng thái
+ * GET /inspections?status=REQUESTED&page=0&size=20
+ * status: REQUESTED | ASSIGNED | INSPECTED | APPROVED | REJECTED | (bỏ trống = tất cả)
+ */
+export async function getInspectionsByStatusAPI({ status, page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams({ page, size });
+  if (status && status !== "ALL") params.append("status", status);
+  const res = await fetch(`${BASE_URL}/inspections?${params}`, {
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy chi tiết inspector thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Không thể tải danh sách kiểm định.");
+  return data;
 }
 
-/**
- * Cập nhật trạng thái inspector
- */
-export async function updateInspectorStatusAPI(id, status, token) {
-  const res = await fetch(`${BASE_URL}/admin/inspectors/${id}/status`, {
-    method: "PUT",
-    headers: authHeader(token),
-    body: JSON.stringify({ status }),
+export async function approveInspectionAPI(inspectionId, result) {
+  const res = await fetch(`${BASE_URL}/inspections/${inspectionId}/approve?result=${result}`, {
+    method: "POST",
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Cập nhật trạng thái inspector thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Không thể xử lý kiểm định.");
+  return data;
 }

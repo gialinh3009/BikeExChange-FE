@@ -167,7 +167,7 @@ export default function AdminDashboard() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(val: number | undefined) => [val ?? 0, "Người dùng"]}
+                  formatter={(val: number) => [val, "Người dùng"]}
                   contentStyle={{ borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: 13 }}
                 />
                 <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
@@ -191,7 +191,7 @@ export default function AdminDashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
               <Tooltip
-                formatter={(val: number | undefined) => [val ?? 0, "Đơn hàng"]}
+                formatter={(val: number) => [val, "Đơn hàng"]}
                 contentStyle={{ borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: 13 }}
               />
               <Bar dataKey="count" radius={[6, 6, 0, 0]}>
