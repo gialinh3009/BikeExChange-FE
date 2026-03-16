@@ -10,8 +10,9 @@ import {
   X,
   Eye,
   ImageOff,
+  Trash2,
 } from "lucide-react";
-import { getBikesAPI, getBikeDetailAPI } from "../../../services/Admin/bikeManagerService";
+import { getBikesAPI, getBikeDetailAPI, deleteBikeAPI } from "../../../services/Admin/bikeManagerService";
 
 
 interface BikeMedia {
@@ -133,6 +134,29 @@ export default function ManagerBike() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+
+  const showToast = (type: "success" | "error", msg: string) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+
+  const handleDelete = async (bike: BikeItem) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa xe "${bike.title}"?`)) return;
+    setDeleteLoading(bike.id);
+    try {
+      await deleteBikeAPI(bike.id);
+      showToast("success", `Đã xóa xe "${bike.title}".`);
+      fetchBikes();
+    } catch (err: any) {
+      showToast("error", err.message || "Xóa xe thất bại.");
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
 
 
   const fetchBikes = useCallback(async () => {
@@ -195,6 +219,14 @@ export default function ManagerBike() {
 
   return (
     <div className="space-y-5">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed right-4 top-4 z-50 rounded-xl px-4 py-3 text-sm font-medium shadow-lg ${toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"}`}>
+          {toast.msg}
+        </div>
+      )}
+
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -349,13 +381,23 @@ export default function ManagerBike() {
                       </td>
                       <td className="px-5 py-3.5 text-gray-400 text-xs">{formatDate(bike.createdAt)}</td>
                       <td className="px-5 py-3.5">
-                        <button
-                          onClick={() => openDetail(bike.id)}
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          <Eye size={12} />
-                          Chi tiết
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openDetail(bike.id)}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <Eye size={12} />
+                            Chi tiết
+                          </button>
+                          <button
+                            onClick={() => handleDelete(bike)}
+                            disabled={deleteLoading === bike.id}
+                            className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <Trash2 size={12} />
+                            Xóa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

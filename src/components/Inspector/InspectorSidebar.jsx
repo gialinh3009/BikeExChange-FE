@@ -17,11 +17,11 @@ function clsx(...arr) {
 }
 
 const NAV = [
-  { to: "/inspector", label: "Tổng quan", icon: LayoutDashboard, end: true },
+  // { to: "/inspector", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/inspector/inspections", label: "Quản lý kiểm định", icon: ClipboardList },
   { to: "/inspector/status", label: "Trạng thái kiểm định", icon: RefreshCw },
   { to: "/inspector/reports", label: "Quản lý báo cáo", icon: FileBarChart2 },
-  { to: "/inspector/create-report", label: "Tạo báo cáo", icon: FilePlus },
+  // { to: "/inspector/create-report", label: "Tạo báo cáo", icon: FilePlus },
   { to: "/inspector/reports-list", label: "Danh sách báo cáo", icon: FilePlus },
 ];
 

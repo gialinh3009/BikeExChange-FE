@@ -17,6 +17,7 @@ import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
 import ManagementWithdrawal from "../components/Admin/Manager/ManagementWithdrawal";
 import ManagerOrder from "../components/Admin/Manager/ManagerOrder";
 import ManagerTransactions from "../components/Admin/Manager/ManagerTransactions";
+import ManagerBike from "../components/Admin/Manager/ManagerBike";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
@@ -38,6 +39,8 @@ import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
 
 
+
+
 function PrivateRoute({
   redirectTo = "/login",
   roles = [],
@@ -54,10 +57,14 @@ function PrivateRoute({
   })();
 
 
+
+
   if (!user) return <Navigate to={redirectTo} replace />;
   if (roles.length > 0 && !roles.includes(user.role)) return <Navigate to="/login" replace />;
   return <Outlet />;
 }
+
+
 
 
 const ROLE_HOME: Record<string, string> = {
@@ -68,10 +75,14 @@ const ROLE_HOME: Record<string, string> = {
 };
 
 
+
+
 const getRoleHome = (role?: string | null) => {
   if (!role) return "/";
   return ROLE_HOME[role] ?? "/buyer";
 };
+
+
 
 
 interface AppRoutesProps {
@@ -80,8 +91,12 @@ interface AppRoutesProps {
 }
 
 
+
+
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
   const defaultHome = getRoleHome(user?.role);
+
+
 
 
   return (
@@ -95,10 +110,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
 
+
+
       {/* Profile */}
       <Route element={<PrivateRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
+
+
 
 
       {/* Order detail - new route + backward-compatible alias */}
@@ -109,8 +128,12 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       </Route>
 
 
+
+
       {/* Root */}
       <Route path="/" element={user ? <Navigate to={defaultHome} replace /> : <GuestLayout />} />
+
+
 
 
       {/* Admin */}
@@ -130,6 +153,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="brands" element={<ManagerBrand />} />
           <Route path="components" element={<ManagerComponent />} />
           <Route path="disputes" element={<ManagementDisputes />} />
+          <Route path="bikes" element={<ManagerBike />} />
           <Route path="orders" element={<ManagerOrder />} />
           <Route path="transactions" element={<ManagerTransactions />} />
           <Route path="withdrawals" element={<ManagementWithdrawal />} />
@@ -138,10 +162,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       </Route>
 
 
+
+
       {/* Seller */}
       <Route element={<PrivateRoute roles={["SELLER"]} />}>
         <Route path="/seller" element={<SellerPage />} />
       </Route>
+
+
 
 
       {/* Inspector */}
@@ -157,10 +185,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       </Route>
 
 
+
+
       {/* Buyer */}
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
       </Route>
+
+
 
 
       {/* Fallback */}
@@ -168,6 +200,12 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
     </Routes>
   );
 }
+
+
+
+
+
+
 
 
 

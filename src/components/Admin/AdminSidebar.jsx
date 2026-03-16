@@ -2,12 +2,6 @@ import React, { useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  FileText,
-  Users,
-  Package,
-  UserCircle,
-  CreditCard,
-  BarChart2,
   ShoppingCart,
   ClipboardCheck,
   UserCog,
@@ -25,9 +19,11 @@ import {
   X,
 } from "lucide-react";
 
+
 function clsx(...arr) {
   return arr.filter(Boolean).join(" ");
 }
+
 
 const IconWrap = ({ icon: Icon, active }) => (
   <span
@@ -40,6 +36,7 @@ const IconWrap = ({ icon: Icon, active }) => (
   </span>
 );
 
+
 export default function AdminSidebar({
   isOpen = false,
   onClose,
@@ -49,6 +46,7 @@ export default function AdminSidebar({
 }) {
   const location = useLocation();
   const [openGroup, setOpenGroup] = useState(null);
+
 
   const navActive = useMemo(
     () => [
@@ -63,6 +61,12 @@ export default function AdminSidebar({
         label: "Quản Lý Người Dùng",
         key: "users",
         icon: UserCog,
+      },
+      {
+        to: "/admin/bikes",
+        label: "Quản Lý Xe Đạp",
+        key: "bikes",
+        icon: Bike,
       },
       {
         to: "/admin/orders",
@@ -122,55 +126,9 @@ export default function AdminSidebar({
     [],
   );
 
-  const navDev = useMemo(
-    () => [
-      {
-        to: "/admin/posts",
-        label: "Quản Lý Bài Viết",
-        key: "posts",
-        icon: FileText,
-      },
-      {
-        to: "/admin/staff",
-        label: "Quản Lý Nhân Viên",
-        key: "staff",
-        icon: Users,
-      },
-      {
-        to: "/admin/inventory",
-        label: "Quản Lý Tồn Kho",
-        key: "inventory",
-        icon: Package,
-      },
-      {
-        to: "/admin/customers",
-        label: "Quản Lý Khách Hàng",
-        key: "customers",
-        icon: UserCircle,
-      },
-      {
-        to: "/admin/buyers",
-        label: "Quản Lý Người Mua",
-        key: "buyers",
-        icon: ShoppingCart,
-      },
-      {
-        to: "/admin/payments",
-        label: "Quản Lý Thanh Toán",
-        key: "payments",
-        icon: CreditCard,
-      },
-      {
-        to: "/admin/reports",
-        label: "Quản Lý Báo Cáo",
-        key: "reports",
-        icon: BarChart2,
-      },
-    ],
-    [],
-  );
 
-  const nav = useMemo(() => [...navActive, ...navDev], [navActive, navDev]);
+  const nav = useMemo(() => [...navActive], [navActive]);
+
 
   React.useEffect(() => {
     const matchedGroup = nav.find(
@@ -180,6 +138,7 @@ export default function AdminSidebar({
     );
     if (matchedGroup) setOpenGroup(matchedGroup.key);
   }, [location.pathname, nav]);
+
 
   const SidebarContent = (
     <aside
@@ -194,6 +153,7 @@ export default function AdminSidebar({
           BX
         </div>
 
+
         {!collapsed && (
           <div className="min-w-0">
             <div className="font-semibold text-gray-900 leading-tight">
@@ -202,6 +162,7 @@ export default function AdminSidebar({
             <div className="text-xs text-gray-500 truncate">Admin Console</div>
           </div>
         )}
+
 
         <button
           onClick={onToggleCollapsed}
@@ -219,6 +180,7 @@ export default function AdminSidebar({
           )}
         </button>
 
+
         <button
           onClick={onClose}
           className="ml-auto md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
@@ -228,6 +190,7 @@ export default function AdminSidebar({
           <X size={16} className="text-gray-600" />
         </button>
       </div>
+
 
       {/* Nav */}
       <nav className="px-3 py-3 flex-1 overflow-y-auto">
@@ -260,49 +223,9 @@ export default function AdminSidebar({
           ))}
         </div>
 
-        {/* Divider – under development */}
-        <div className="my-3">
-          {collapsed ? (
-            <div className="mx-auto h-px w-8 bg-gray-200" />
-          ) : (
-            <div className="flex items-center gap-2 px-1">
-              <div className="h-px flex-1 bg-gray-200" />
-              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-                Đang phát triển
-              </span>
-              <div className="h-px flex-1 bg-gray-200" />
-            </div>
-          )}
-        </div>
 
-        {/* Under-development features */}
-        <div className="space-y-1">
-          {navDev.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-3 px-3 py-2 rounded-xl opacity-60",
-                  isActive
-                    ? "bg-gray-200 text-gray-700"
-                    : "text-gray-600 hover:bg-gray-100",
-                )
-              }
-              title={`${item.label} (đang phát triển)`}
-            >
-              {({ isActive }) => (
-                <>
-                  <IconWrap icon={item.icon} active={isActive} />
-                  {!collapsed && (
-                    <span className="font-medium text-sm">{item.label}</span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
       </nav>
+
 
       {/* Footer actions */}
       <div className="p-3 border-t border-gray-200">
@@ -321,12 +244,14 @@ export default function AdminSidebar({
     </aside>
   );
 
+
   return (
     <>
       {/* Desktop */}
       <div className="hidden md:block h-screen sticky top-0">
         {SidebarContent}
       </div>
+
 
       {/* Mobile Drawer */}
       <div className={clsx("md:hidden", isOpen ? "block" : "hidden")}>
@@ -340,3 +265,6 @@ export default function AdminSidebar({
     </>
   );
 }
+
+
+
