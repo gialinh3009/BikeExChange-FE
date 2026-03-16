@@ -14,6 +14,13 @@ import ManagerCategories from "../components/Admin/Manager/ManagerCategories";
 import ManagerBrand from "../components/Admin/Manager/ManagerBrand";
 import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
 import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
+import ManagementWithdrawal from "../components/Admin/Manager/ManagementWithdrawal";
+import ManagerOrder from "../components/Admin/Manager/ManagerOrder";
+import ManagerTransactions from "../components/Admin/Manager/ManagerTransactions";
+import ManagerBike from "../components/Admin/Manager/ManagerBike";
+import AdminInspectionStatus from "../components/Inspector/ManagerInspectionStatus";
+/* ========================== */
+
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import SellerPage from "../components/Seller/SellerPage";
@@ -90,7 +97,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="categories" element={<ManagerCategories />} />
           <Route path="brands" element={<ManagerBrand />} />
           <Route path="components" element={<ManagerComponent />} />
-          <Route path="disputes" element={<ManagementDisputes />} /> 
+          <Route path="disputes" element={<ManagementDisputes />} />
+
+          {/* ===== ROUTES THÊM ===== */}
+          <Route path="withdrawals" element={<ManagementWithdrawal />} />
+          <Route path="orders" element={<ManagerOrder />} />
+          <Route path="transactions" element={<ManagerTransactions />} />
+          <Route path="inspection-status" element={<AdminInspectionStatus />} />
+          <Route path="bikes" element={<ManagerBike />} />
         </Route>
       </Route>
 
