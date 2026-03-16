@@ -15,6 +15,7 @@ import {
     XCircle, Plus, History, RefreshCw, Package,
 } from "lucide-react";
 import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL,withdrawWalletAPI } from "../../services/Buyer/walletService";
+import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 // Danh sách ngân hàng Việt Nam
 const BANKS = [
     { code: "VCB", name: "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)" },
@@ -59,8 +60,6 @@ const BANKS = [
     { code: "VTB", name: "Ngân hàng TMCP Việt Thái (VietThai Bank)" },
     { code: "WOO", name: "Ngân hàng TNHH MTV Woori Việt Nam (Woori Bank)" }
 ];
-
-const BASE = import.meta.env.VITE_API_BASE_URL as string;
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface WalletData {
@@ -194,30 +193,27 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         }
     };
 
-    const token = localStorage.getItem("token") ?? "";
-    const authHeader = `Bearer ${token}`;
-
     /* ── Fetch wallet + ESCROWED orders song song ── */
     const fetchWallet = useCallback(async () => {
         setLoading(true);
         try {
-            const [walletData, ordersRes] = await Promise.all([
+            const [walletData, purchases] = await Promise.all([
                 getWalletAPI(),
-                fetch(`${BASE}/orders/my-purchases?status=ESCROWED`, {
-                    headers: { Authorization: authHeader, "Content-Type": "application/json" },
-                }).then(r => r.json()).catch(() => ({ success: false, data: [] })),
+                getMyPurchasesAPI({ status: "ESCROWED" }),
             ]);
 
             setWallet(walletData);
 
-            // BuyerPurchaseHistoryResponse: mỗi item { order: { id, bikeTitle, amountPoints, ... } }
-            if (ordersRes.success && Array.isArray(ordersRes.data)) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setEscrowedOrders(ordersRes.data.map((p: any) => ({
-                    id:           p.order.id,
-                    bikeTitle:    p.order.bikeTitle,
-                    amountPoints: p.order.amountPoints,
-                })));
+            // BuyerPurchaseHistoryResponse: item có thể là { order } hoặc object order trực tiếp.
+            if (Array.isArray(purchases)) {
+                setEscrowedOrders(purchases.map((p: EscrowedOrder & { order?: EscrowedOrder }) => {
+                    const order = p.order ?? p;
+                    return {
+                        id: order.id,
+                        bikeTitle: order.bikeTitle,
+                        amountPoints: order.amountPoints,
+                    };
+                }));
             } else {
                 setEscrowedOrders([]);
             }
@@ -226,7 +222,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, []);
 
     useEffect(() => { void fetchWallet(); }, [fetchWallet]);
 
