@@ -25,7 +25,7 @@ const vnpayReturnPlugin: Plugin = {
 export default defineConfig({
   plugins: [react(), vnpayReturnPlugin],
   server: {
-    port: 8080,
-    strictPort: false, // fallback to next available port if 8080 is taken
+    port: 5173,
+    strictPort: false, // fallback to next available port if 5173 is taken
   },
 })
