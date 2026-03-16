@@ -15,15 +15,16 @@ import {
 } from "lucide-react";
 import {
   getAdminUsersAPI,
-  updateUserStatusAPI,
   deleteUserAPI,
   lockUserAPI,
   unlockUserAPI,
   createInspectorAPI,
 } from "../../../services/adminUserService";
 
+
 type UserRole = "ADMIN" | "SELLER" | "BUYER" | "INSPECTOR";
 type UserStatus = "ACTIVE" | "INACTIVE" | "BANNED";
+
 
 interface User {
   id: number;
@@ -41,12 +42,14 @@ interface User {
   shopDescription: string | null;
 }
 
+
 const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Quản trị",
   SELLER: "Người bán",
   BUYER: "Người mua",
   INSPECTOR: "Kiểm định viên",
 };
+
 
 const ROLE_COLORS: Record<UserRole, string> = {
   ADMIN: "bg-purple-100 text-purple-700",
@@ -55,11 +58,13 @@ const ROLE_COLORS: Record<UserRole, string> = {
   INSPECTOR: "bg-orange-100 text-orange-700",
 };
 
+
 const STATUS_COLORS: Record<UserStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-gray-100 text-gray-500",
   BANNED: "bg-red-100 text-red-600",
 };
+
 
 const STATUS_LABELS: Record<UserStatus, string> = {
   ACTIVE: "Hoạt động",
@@ -67,14 +72,17 @@ const STATUS_LABELS: Record<UserStatus, string> = {
   BANNED: "Bị cấm",
 };
 
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("vi-VN");
 }
+
 
 interface DetailModalProps {
   user: User;
   onClose: () => void;
 }
+
 
 function DetailModal({ user, onClose }: DetailModalProps) {
   return (
@@ -98,6 +106,7 @@ function DetailModal({ user, onClose }: DetailModalProps) {
             <X size={18} className="text-gray-500" />
           </button>
         </div>
+
 
         <div className="space-y-3 text-sm">
           <Row label="ID" value={`#${user.id}`} />
@@ -143,6 +152,7 @@ function DetailModal({ user, onClose }: DetailModalProps) {
   );
 }
 
+
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-2">
@@ -152,19 +162,24 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+
 // ─── Create Inspector Modal ───────────────────────────────────────────────────
+
 
 interface CreateInspectorForm {
   email: string; password: string; fullName: string; phone: string; address: string;
 }
+
 
 function CreateInspectorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [form, setForm] = useState<CreateInspectorForm>({ email: "", password: "", fullName: "", phone: "", address: "" });
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+
   const set = (k: keyof CreateInspectorForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +192,7 @@ function CreateInspectorModal({ onClose, onSuccess }: { onClose: () => void; onS
     } catch (e: any) { setErr(e.message); }
     finally { setSubmitting(false); }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -219,12 +235,15 @@ function CreateInspectorModal({ onClose, onSuccess }: { onClose: () => void; onS
   );
 }
 
+
 // ─── Lock Modal ───────────────────────────────────────────────────────────────
+
 
 function LockModal({ user, onClose, onSuccess }: { user: User; onClose: () => void; onSuccess: () => void }) {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,6 +256,7 @@ function LockModal({ user, onClose, onSuccess }: { user: User; onClose: () => vo
     } catch (e: any) { setErr(e.message); }
     finally { setSubmitting(false); }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -272,10 +292,12 @@ function LockModal({ user, onClose, onSuccess }: { user: User; onClose: () => vo
   );
 }
 
+
 export default function ManagerUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -283,6 +305,7 @@ export default function ManagerUsers() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+
 
   const [detailUser, setDetailUser] = useState<User | null>(null);
   const [lockUser, setLockUser] = useState<User | null>(null);
@@ -293,10 +316,12 @@ export default function ManagerUsers() {
     type: "success" | "error";
   } | null>(null);
 
+
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
+
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -326,30 +351,17 @@ export default function ManagerUsers() {
     }
   }, [page, search, roleFilter, statusFilter]);
 
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
 
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
   }, [search, roleFilter, statusFilter]);
 
-  const handleToggleStatus = async (user: User) => {
-    const next: UserStatus = user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    setActionLoading(user.id);
-    try {
-      await updateUserStatusAPI(user.id, next);
-      showToast(
-        `Đã ${next === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa"} người dùng.`,
-      );
-      fetchUsers();
-    } catch (err: any) {
-      showToast(err.message, "error");
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const handleUnlock = async (user: User) => {
     setActionLoading(user.id);
@@ -363,6 +375,7 @@ export default function ManagerUsers() {
       setActionLoading(null);
     }
   };
+
 
   const handleDelete = async (user: User) => {
     if (!window.confirm(`Bạn có chắc muốn xóa "${user.fullName}"?`)) return;
@@ -378,6 +391,7 @@ export default function ManagerUsers() {
     }
   };
 
+
   const stats = [
     { label: "Tổng người dùng", value: totalElements, icon: Users },
     {
@@ -391,6 +405,7 @@ export default function ManagerUsers() {
       icon: ShieldCheck,
     },
   ];
+
 
   return (
     <div className="space-y-6">
@@ -407,6 +422,7 @@ export default function ManagerUsers() {
         </div>
       )}
 
+
       {/* Modals */}
       {detailUser && <DetailModal user={detailUser} onClose={() => setDetailUser(null)} />}
       {lockUser && (
@@ -422,6 +438,7 @@ export default function ManagerUsers() {
           onSuccess={() => showToast("Tạo tài khoản kiểm định viên thành công!")}
         />
       )}
+
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -447,6 +464,7 @@ export default function ManagerUsers() {
         </div>
       </div>
 
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {stats.map(({ label, value, icon: Icon }) => (
@@ -465,6 +483,7 @@ export default function ManagerUsers() {
         ))}
       </div>
 
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 w-full max-w-xs">
@@ -476,6 +495,7 @@ export default function ManagerUsers() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
 
         <select
           value={roleFilter}
@@ -489,6 +509,7 @@ export default function ManagerUsers() {
           <option value="INSPECTOR">Kiểm định viên</option>
         </select>
 
+
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -500,6 +521,7 @@ export default function ManagerUsers() {
           <option value="BANNED">Bị cấm</option>
         </select>
       </div>
+
 
       {/* Table */}
       <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
@@ -584,14 +606,6 @@ export default function ManagerUsers() {
                           <button
                             type="button"
                             disabled={actionLoading === user.id}
-                            onClick={() => handleToggleStatus(user)}
-                            className={`text-xs hover:underline ${user.status === "ACTIVE" ? "text-amber-600" : "text-emerald-600"} disabled:opacity-50`}
-                          >
-                            {user.status === "ACTIVE" ? "Vô hiệu" : "Kích hoạt"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionLoading === user.id}
                             onClick={() => setLockUser(user)}
                             className="inline-flex items-center gap-0.5 text-xs text-red-500 hover:underline disabled:opacity-50"
                           >
@@ -634,6 +648,7 @@ export default function ManagerUsers() {
         )}
       </div>
 
+
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">
@@ -663,3 +678,6 @@ export default function ManagerUsers() {
     </div>
   );
 }
+
+
+
