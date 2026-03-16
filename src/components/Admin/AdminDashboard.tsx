@@ -7,7 +7,9 @@ import {
   getOrderStatisticsAPI,
 } from "../../services/Admin/dashboardAdminService";
 
+
 const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Quản trị viên",
@@ -16,30 +18,36 @@ const ROLE_LABEL: Record<string, string> = {
   INSPECTOR: "Kiểm định viên",
 };
 
+
 function fmtCurrency(v: number) {
   return v.toLocaleString("vi-VN") + "₫";
 }
+
 
 interface UserStats {
   total: number;
   byRole: Record<string, number>;
 }
 
+
 interface RevenueStats {
   totalCommissionRevenue: number;
   completedOrders: number;
 }
+
 
 interface OrderStats {
   total: number;
   byStatus: Record<string, number>;
 }
 
+
 export default function AdminDashboard() {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [revenueStats, setRevenueStats] = useState<RevenueStats | null>(null);
   const [orderStats, setOrderStats] = useState<OrderStats | null>(null);
   const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
     Promise.all([
@@ -55,6 +63,7 @@ export default function AdminDashboard() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
 
   const topStats = [
     {
@@ -83,12 +92,14 @@ export default function AdminDashboard() {
     },
   ];
 
+
   const roleChartData = userStats
     ? Object.entries(userStats.byRole).map(([role, count]) => ({
         name: ROLE_LABEL[role] ?? role,
         value: count,
       }))
     : [];
+
 
   const orderStatusData = orderStats && Object.keys(orderStats.byStatus).length > 0
     ? Object.entries(orderStats.byStatus).map(([status, count]) => ({
@@ -97,11 +108,13 @@ export default function AdminDashboard() {
       }))
     : [];
 
+
   const roleCards = [
     { role: "SELLER", label: "Người bán", icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-100" },
     { role: "BUYER", label: "Người mua", icon: ShoppingCart, color: "text-blue-600", bg: "bg-blue-100" },
     { role: "INSPECTOR", label: "Kiểm định viên", icon: ClipboardCheck, color: "text-amber-600", bg: "bg-amber-100" },
   ];
+
 
   return (
     <div className="space-y-6">
@@ -109,6 +122,7 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold text-gray-900">Tổng Quan</h1>
         <p className="text-sm text-gray-500 mt-1">Hiệu suất kinh doanh BikeExchange</p>
       </div>
+
 
       {/* Top stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -124,6 +138,7 @@ export default function AdminDashboard() {
           </div>
         ))}
       </div>
+
 
       {/* Users by role */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -144,6 +159,7 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+
 
         {/* Role pie chart */}
         <div className="rounded-2xl bg-white border border-gray-200 p-5">
@@ -167,7 +183,7 @@ export default function AdminDashboard() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(val: number) => [val, "Người dùng"]}
+                  formatter={(val: number | undefined) => [val ?? 0, "Người dùng"]}
                   contentStyle={{ borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: 13 }}
                 />
                 <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
@@ -178,6 +194,7 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
 
       {/* Orders by status */}
       <div className="rounded-2xl bg-white border border-gray-200 p-5">
@@ -191,7 +208,7 @@ export default function AdminDashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
               <Tooltip
-                formatter={(val: number) => [val, "Đơn hàng"]}
+                formatter={(val: number | undefined) => [val ?? 0, "Đơn hàng"]}
                 contentStyle={{ borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: 13 }}
               />
               <Bar dataKey="count" radius={[6, 6, 0, 0]}>
@@ -210,3 +227,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+

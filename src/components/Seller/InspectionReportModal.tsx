@@ -1,10 +1,12 @@
 import { X, ShieldCheck, CheckCircle2 } from "lucide-react";
 
+
 type InspectionDetail = {
     inspection?: unknown;
     report?: unknown;
     history?: unknown;
 };
+
 
 interface InspectionReportModalProps {
     isOpen: boolean;
@@ -14,6 +16,7 @@ interface InspectionReportModalProps {
     onClose: () => void;
 }
 
+
 export default function InspectionReportModal({
     isOpen,
     isLoading,
@@ -22,6 +25,7 @@ export default function InspectionReportModal({
     onClose,
 }: InspectionReportModalProps) {
     if (!isOpen) return null;
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -39,6 +43,7 @@ export default function InspectionReportModal({
                     </button>
                 </div>
 
+
                 <div className="p-6">
                     {isLoading && (
                         <div className="text-center py-8">
@@ -47,11 +52,13 @@ export default function InspectionReportModal({
                         </div>
                     )}
 
+
                     {error && (
                         <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
                             {error}
                         </div>
                     )}
+
 
                     {!isLoading && !error && detail && (
                         <div className="space-y-6">
@@ -65,7 +72,8 @@ export default function InspectionReportModal({
                                 </div>
                             </div>
 
-                            {detail.inspection && (
+
+                            {Boolean(detail.inspection) && (
                                 <div>
                                     <h3 className="font-semibold text-gray-900 mb-3">Thông tin kiểm định</h3>
                                     <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
@@ -74,7 +82,8 @@ export default function InspectionReportModal({
                                 </div>
                             )}
 
-                            {detail.report && (
+
+                            {Boolean(detail.report) && (
                                 <div>
                                     <h3 className="font-semibold text-gray-900 mb-3">Báo cáo chi tiết</h3>
                                     <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
@@ -83,7 +92,8 @@ export default function InspectionReportModal({
                                 </div>
                             )}
 
-                            {detail.history && (
+
+                            {Boolean(detail.history) && (
                                 <div>
                                     <h3 className="font-semibold text-gray-900 mb-3">Lịch sử</h3>
                                     <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
@@ -94,12 +104,14 @@ export default function InspectionReportModal({
                         </div>
                     )}
 
+
                     {!isLoading && !error && !detail && (
                         <div className="text-center py-8">
                             <p className="text-sm text-gray-500">Không có dữ liệu báo cáo</p>
                         </div>
                     )}
                 </div>
+
 
                 <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
                     <button
@@ -113,3 +125,6 @@ export default function InspectionReportModal({
         </div>
     );
 }
+
+
+
