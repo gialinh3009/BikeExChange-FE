@@ -3,7 +3,7 @@
  * Trang hiển thị xe: carousel xe kiểm định + danh sách tất cả xe + bộ lọc
  * State management + API calls — UI được tách ra BikeCards / FilterPanel / WishlistModals
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";
@@ -98,6 +98,7 @@ export default function ListProduct() {
   const [page,       setPage]       = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [sellerRatings, setSellerRatings] = useState({});
+  const fetchSeqRef = useRef(0);
 
   // ── Wishlist ───────────────────────────────────────────────────────────────
   const [wishedIds,   setWishedIds]   = useState(new Set());
@@ -144,12 +145,15 @@ export default function ListProduct() {
 
   // ── Fetch all bikes ────────────────────────────────────────────────────────
   useEffect(() => {
+    const fetchSeq = ++fetchSeqRef.current;
     setAllLoading(true);
     // Khi sort theo giá: fetch toàn bộ data (page=0, size lớn) để sort global
     // Khi sort khác: dùng server-side pagination bình thường
     const isPriceSort = activeSortBy === "price_asc" || activeSortBy === "price_desc";
     const isInspectedOnly = activeFilter.inspectedOnly === true;
-    const useClientPagination = isPriceSort || isInspectedOnly;
+    // Fetch toàn bộ khi filter category để bikeType guard + pagination chính xác
+    const isCategoryFilter = !!activeFilter.categoryId;
+    const useClientPagination = isPriceSort || isInspectedOnly || isCategoryFilter;
 
     getBuyerListAPI({
       category_id:    activeFilter.categoryId || undefined,
@@ -164,7 +168,12 @@ export default function ListProduct() {
       size:           useClientPagination ? 500  : PAGE_SIZE,
     })
       .then(({ content, totalPages: tp }) => {
+        // Ignore stale responses to prevent older requests overriding latest filter.
+        if (fetchSeq !== fetchSeqRef.current) return;
+
+        // Backend already filters by category_id / brand_id — just status-guard client side.
         const activeOnly = content.filter((bike) => bike?.status === "ACTIVE");
+
         const inspectedFiltered = isInspectedOnly
           ? activeOnly.filter(isInspectedBike)
           : activeOnly;
@@ -181,8 +190,12 @@ export default function ListProduct() {
           setTotalPages(tp);
         }
       })
-      .catch(() => setAllBikes([]))
-      .finally(() => setAllLoading(false));
+      .catch(() => {
+        if (fetchSeq === fetchSeqRef.current) setAllBikes([]);
+      })
+      .finally(() => {
+        if (fetchSeq === fetchSeqRef.current) setAllLoading(false);
+      });
   }, [activeFilter, activeSortBy, page]);
 
   // ── Resolve seller rating by sellerId (list API có thể không trả rating) ──
@@ -296,6 +309,26 @@ export default function ListProduct() {
   const hasFilter = Boolean(
     activeFilter.keyword
     || activeFilter.categoryId
+  );
+
+  // ── Lọc bikeType client-side theo tên category ────────────────────────────
+  // bikeType ("HYBRID", "GRAVEL"...) khớp trực tiếp với tên category.
+  // Guard này loại bỏ xe bị gắn sai category bởi seller.
+  const displayedBikes = useMemo(() => {
+    if (!activeFilter.categoryId || categories.length === 0) return allBikes;
+    const selectedCat = categories.find(c => String(c.id) === activeFilter.categoryId);
+    if (!selectedCat) return allBikes;
+    // Chuẩn hóa: uppercase + bỏ ký tự đặc biệt (City/Urban → CITYURBAN)
+    const catNorm = selectedCat.name.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    return allBikes.filter(bike => {
+      const typeNorm = (bike.bikeType || bike.type || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      return typeNorm === catNorm || typeNorm.includes(catNorm) || catNorm.includes(typeNorm);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allBikes, activeFilter.categoryId, categories]);
+
+  const hasFilterFull = Boolean(
+    activeFilter.keyword
     || activeFilter.brandId
     || activeFilter.priceMin
     || activeFilter.priceMax
@@ -329,7 +362,7 @@ export default function ListProduct() {
             </div>
             {!allLoading && (
               <p className="text-sm text-gray-400 shrink-0">
-                Hiển thị <span className="font-semibold text-gray-600">{allBikes.length}</span> xe / trang {page + 1}
+                Hiển thị <span className="font-semibold text-gray-600">{displayedBikes.length}</span> xe / trang {page + 1}
               </p>
             )}
           </div>
@@ -343,7 +376,7 @@ export default function ListProduct() {
           />
 
           {/* Active filter chips */}
-          {hasFilter && (
+          {(hasFilter || hasFilterFull) && (
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               <span className="text-xs text-gray-400">Đang lọc:</span>
               {activeFilter.keyword    && <FilterChip label={`"${activeFilter.keyword}"`} onRemove={() => removeFilter("keyword")} />}
@@ -361,13 +394,13 @@ export default function ListProduct() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {[...Array(8)].map((_, i) => <Skeleton key={i} />)}
             </div>
-          ) : allBikes.length === 0 ? (
+          ) : displayedBikes.length === 0 ? (
             <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border border-gray-100">
               Không có xe phù hợp. Thử điều chỉnh bộ lọc nhé!
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {allBikes.map(bike => (
+              {displayedBikes.map(bike => (
                 <RegularCard
                   key={bike.id}
                   bike={{
