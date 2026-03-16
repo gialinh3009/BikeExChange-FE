@@ -8,24 +8,24 @@ import {
   Bike,
   Loader2,
   CheckCircle2,
+  ShieldCheck,
+  Handshake,
+  BadgeCheck,
 } from "lucide-react";
 import { loginAPI } from "../../services/authService";
 
 const ROLE_REDIRECT = {
   ADMIN: "/admin",
-  // Seller dùng chung dashboard Buyer tại /buyer,
-  // còn trang quản lý bài đăng riêng là /seller.
-  SELLER: "/buyer",
+  SELLER: "/seller",
   INSPECTOR: "/inspector",
   BUYER: "/buyer",
 };
 
-const ROLE_LABELS = {
-  ADMIN: { label: "Quản trị viên", color: "text-purple-600 bg-purple-50" },
-  SELLER: { label: "Người bán", color: "text-blue-600 bg-blue-50" },
-  INSPECTOR: { label: "Kiểm định viên", color: "text-amber-600 bg-amber-50" },
-  BUYER: { label: "Người mua", color: "text-emerald-600 bg-emerald-50" },
-};
+const BENEFITS = [
+  { icon: BadgeCheck, text: "Đăng tin mua / bán xe đạp miễn phí" },
+  { icon: ShieldCheck, text: "Kiểm định xe bởi chuyên gia uy tín" },
+  { icon: Handshake, text: "Thanh toán an toàn, bảo vệ người mua" },
+];
 
 export default function Login() {
   const navigate = useNavigate();
@@ -50,7 +50,8 @@ export default function Login() {
       const userData = await loginAPI(form);
       localStorage.setItem("token", userData.accessToken);
       localStorage.setItem("user", JSON.stringify(userData));
-      const redirect = ROLE_REDIRECT[userData.role] || "/";
+      const roleKey = String(userData?.role || "").toUpperCase();
+      const redirect = ROLE_REDIRECT[roleKey] || "/";
       navigate(redirect, { replace: true });
     } catch (err) {
       const msg = err.message || "";
@@ -67,151 +68,143 @@ export default function Login() {
   };
 
   return (
-      <div className="min-h-screen flex">
-        {/* ── Left panel ── */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 flex-col justify-between p-12 relative overflow-hidden">
-          <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-white/10" />
-          <div className="absolute bottom-10 -right-16 w-96 h-96 rounded-full bg-white/10" />
-          <div className="absolute top-1/2 left-1/3 w-40 h-40 rounded-full bg-white/5" />
-
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
-              <Bike size={22} className="text-white" />
-            </div>
-            <span className="text-white font-bold text-xl">BikeExchange</span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-600">
+      <header className="px-6 py-4">
+        <Link to="/" className="inline-flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/25">
+            <Bike size={18} className="text-white" />
           </div>
+          <span className="text-lg font-bold text-white">BikeExchange</span>
+        </Link>
+      </header>
 
-          <div className="relative z-10">
-            <h2 className="text-4xl font-extrabold text-white leading-tight">
-              Mua bán xe đạp
-              <br />
-              <span className="text-blue-200">uy tín – dễ dàng</span>
-            </h2>
-            <p className="text-blue-100 mt-4 text-base leading-relaxed max-w-sm">
-              Nền tảng kết nối người mua và người bán xe đạp hàng đầu Việt Nam.
-              Kiểm định chất lượng – giao dịch an tâm.
-            </p>
-            <div className="mt-8 flex gap-6">
-              {[
-                { value: "2.400+", label: "Xe đã bán" },
-                { value: "1.800+", label: "Người dùng" },
-                { value: "99%", label: "Hài lòng" },
-              ].map((s) => (
-                  <div key={s.label}>
-                    <div className="text-2xl font-bold text-white">{s.value}</div>
-                    <div className="text-blue-200 text-xs mt-0.5">{s.label}</div>
+      <div className="flex flex-1 items-center justify-center px-4 py-8">
+        <div className="flex w-full max-w-5xl items-start gap-16">
+          <div className="hidden flex-1 flex-col gap-8 pt-6 lg:flex">
+            <div>
+              <h2 className="text-3xl font-extrabold leading-snug text-white">
+                Chào mừng trở lại với<br />
+                <span className="text-blue-100">BikeExchange Việt Nam</span>
+              </h2>
+              <p className="mt-3 max-w-sm text-base leading-relaxed text-blue-50">
+                Đăng nhập để tiếp tục mua bán xe đạp, theo dõi đơn hàng và quản lý giao dịch an toàn trên cùng một nền tảng.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {BENEFITS.map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-4 rounded-2xl bg-white/15 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/25">
+                    <Icon size={18} className="text-white" />
                   </div>
+                  <span className="text-sm font-medium text-white">{text}</span>
+                </div>
               ))}
             </div>
-            <div className="mt-8">
-              <p className="text-blue-200 text-xs mb-3 uppercase tracking-wider font-medium">
-                Dành cho tất cả vai trò
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(ROLE_LABELS).map(([key, { label }]) => (
-                    <span key={key} className="px-3 py-1 rounded-full bg-white/20 text-white text-xs font-medium">
-                      {label}
-                    </span>
-                ))}
+
+            <div className="max-w-sm rounded-2xl border border-white/25 bg-white/10 px-4 py-3 backdrop-blur">
+              <div className="flex items-start gap-2 text-blue-50">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                <p className="text-xs leading-relaxed">
+                  Hệ thống lưu token và vai trò tài khoản theo phiên bảo mật, đảm bảo an toàn khi đăng nhập.
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="relative z-10 text-blue-200 text-xs">
-            © {new Date().getFullYear()} BikeExchange. All rights reserved.
-          </div>
-        </div>
-
-        {/* ── Right panel ── */}
-        <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
-          <div className="w-full max-w-md">
-            <div className="lg:hidden flex items-center gap-2 mb-8">
-              <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center">
-                <Bike size={18} className="text-white" />
-              </div>
-              <span className="font-bold text-lg text-gray-900">BikeExchange</span>
-            </div>
-
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-              <div className="mb-7">
-                <h1 className="text-2xl font-extrabold text-gray-900">Đăng nhập</h1>
-                <p className="text-sm text-gray-500 mt-1">Chào mừng bạn trở lại!</p>
-              </div>
+          <div className="w-full flex-shrink-0 lg:w-[460px]">
+            <div className="rounded-2xl bg-white p-8 shadow-xl">
+              <h1 className="mb-6 text-xl font-bold text-gray-900">Đăng nhập</h1>
 
               {verifyEmail && (
-                  <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700 flex items-start gap-2">
-                    <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-semibold">Đăng ký thành công! 🎉</div>
-                      <div className="mt-0.5">
-                        Chúng tôi đã gửi email xác thực tới <strong>{registeredEmail || "hộp thư của bạn"}</strong>.
-                        Vui lòng kiểm tra email và nhấn vào link xác thực trước khi đăng nhập.
-                      </div>
-                      <div className="mt-1 text-xs text-blue-500">Không thấy email? Kiểm tra thư mục Spam / Junk.</div>
+                <div className="mb-4 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                  <div>
+                    <div className="font-semibold">Đăng ký thành công! 🎉</div>
+                    <div className="mt-0.5">
+                      Chúng tôi đã gửi email xác thực tới <strong>{registeredEmail || "hộp thư của bạn"}</strong>.
+                      Vui lòng kiểm tra email và nhấn vào link xác thực trước khi đăng nhập.
                     </div>
+                    <div className="mt-1 text-xs text-blue-500">Không thấy email? Kiểm tra thư mục Spam / Junk.</div>
                   </div>
+                </div>
               )}
+
               {justRegistered && !verifyEmail && (
-                  <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
-                    <CheckCircle2 size={16} className="shrink-0" />
-                    Tài khoản đã được tạo thành công! Vui lòng đăng nhập.
-                  </div>
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  <CheckCircle2 size={16} className="shrink-0" />
+                  Tài khoản đã được tạo thành công! Vui lòng đăng nhập.
+                </div>
               )}
 
               {error && (
-                  <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                    {error}
-                  </div>
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Email <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
-                        type="email" placeholder="ban@email.com" value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                        disabled={loading}
+                      type="email"
+                      placeholder="example@email.com"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
+                      disabled={loading}
+                      autoComplete="email"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Mật khẩu <span className="text-red-500">*</span>
+                    </label>
                     <button type="button" className="text-xs text-blue-600 hover:underline">
                       Quên mật khẩu?
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
-                        type={showPass ? "text" : "password"} placeholder="••••••••" value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
-                        className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                        disabled={loading}
+                      type={showPass ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
+                      disabled={loading}
+                      autoComplete="current-password"
                     />
-                    <button type="button" onClick={() => setShowPass((v) => !v)}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <button
+                      type="button"
+                      onClick={() => setShowPass((v) => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
 
-                <button type="submit" disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm transition mt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60"
+                >
                   {loading && <Loader2 size={16} className="animate-spin" />}
                   {loading ? "Đang đăng nhập..." : "Đăng nhập"}
                 </button>
               </form>
 
-              {/* ĐÃ XÓA: divider "hoặc" và nút "Tiếp tục với Google" */}
-
-              <p className="text-center text-sm text-gray-500 mt-6">
+              <p className="mt-6 text-center text-sm text-gray-500">
                 Chưa có tài khoản?{" "}
-                <Link to="/register" className="text-blue-600 font-semibold hover:underline">
+                <Link to="/register" className="font-semibold text-blue-600 hover:underline">
                   Đăng ký ngay
                 </Link>
               </p>
@@ -219,5 +212,6 @@ export default function Login() {
           </div>
         </div>
       </div>
+    </div>
   );
 }
