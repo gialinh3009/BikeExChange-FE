@@ -1,12 +1,10 @@
-import { X, ShieldCheck, CheckCircle2 } from "lucide-react";
-
+import { X, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 
 type InspectionDetail = {
-    inspection?: unknown;
-    report?: unknown;
-    history?: unknown;
+    inspection?: any;
+    report?: any;
+    history?: any;
 };
-
 
 interface InspectionReportModalProps {
     isOpen: boolean;
@@ -16,6 +14,94 @@ interface InspectionReportModalProps {
     onClose: () => void;
 }
 
+function formatDate(dateString?: string) {
+    if (!dateString) return "N/A";
+    try {
+        return new Date(dateString).toLocaleString("vi-VN");
+    } catch {
+        return dateString;
+    }
+}
+
+function renderInspectionInfo(inspection: any) {
+    if (!inspection) return null;
+    
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">ID</p>
+                    <p className="text-sm font-medium text-gray-900">#{inspection.id}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">Trạng thái</p>
+                    <p className="text-sm font-medium text-gray-900">{inspection.status || "N/A"}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">Xe đạp</p>
+                    <p className="text-sm font-medium text-gray-900">{inspection.bikeTitle || "N/A"}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">Chủ xe</p>
+                    <p className="text-sm font-medium text-gray-900">{inspection.ownerName || "N/A"}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">Kiểm định viên</p>
+                    <p className="text-sm font-medium text-gray-900">{inspection.inspectorName || "N/A"}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">Phí kiểm định</p>
+                    <p className="text-sm font-medium text-gray-900">{inspection.feePoints || 0} điểm</p>
+                </div>
+                <div className="col-span-2">
+                    <p className="text-xs text-gray-500 font-semibold">Ngày tạo</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(inspection.createdAt)}</p>
+                </div>
+                {inspection.preferredDate && (
+                    <div className="col-span-2">
+                        <p className="text-xs text-gray-500 font-semibold">Ngày ưu tiên</p>
+                        <p className="text-sm font-medium text-gray-900">{inspection.preferredDate}</p>
+                    </div>
+                )}
+                {inspection.address && (
+                    <div className="col-span-2">
+                        <p className="text-xs text-gray-500 font-semibold">Địa chỉ</p>
+                        <p className="text-sm font-medium text-gray-900">{inspection.address}</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function renderReportInfo(report: any) {
+    if (!report) return null;
+    
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">ID</p>
+                    <p className="text-sm font-medium text-gray-900">#{report.id}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-gray-500 font-semibold">Kết quả</p>
+                    <p className={`text-sm font-medium ${report.result ? "text-emerald-600" : "text-red-600"}`}>
+                        {report.result ? "✓ Đạt" : "✗ Không đạt"}
+                    </p>
+                </div>
+                <div className="col-span-2">
+                    <p className="text-xs text-gray-500 font-semibold">Ghi chú</p>
+                    <p className="text-sm font-medium text-gray-900">{report.notes || "Không có ghi chú"}</p>
+                </div>
+                <div className="col-span-2">
+                    <p className="text-xs text-gray-500 font-semibold">Ngày báo cáo</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(report.createdAt)}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function InspectionReportModal({
     isOpen,
@@ -25,7 +111,6 @@ export default function InspectionReportModal({
     onClose,
 }: InspectionReportModalProps) {
     if (!isOpen) return null;
-
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -43,7 +128,6 @@ export default function InspectionReportModal({
                     </button>
                 </div>
 
-
                 <div className="p-6">
                     {isLoading && (
                         <div className="text-center py-8">
@@ -52,13 +136,12 @@ export default function InspectionReportModal({
                         </div>
                     )}
 
-
                     {error && (
-                        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex gap-2">
+                            <AlertCircle size={18} className="flex-shrink-0" />
                             {error}
                         </div>
                     )}
-
 
                     {!isLoading && !error && detail && (
                         <div className="space-y-6">
@@ -72,38 +155,42 @@ export default function InspectionReportModal({
                                 </div>
                             </div>
 
-
-                            {Boolean(detail.inspection) && (
+                            {detail.inspection && (
                                 <div>
                                     <h3 className="font-semibold text-gray-900 mb-3">Thông tin kiểm định</h3>
-                                    <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
-                                        <pre>{JSON.stringify(detail.inspection, null, 2) || ""}</pre>
+                                    <div className="bg-gray-50 rounded-xl p-4">
+                                        {renderInspectionInfo(detail.inspection)}
                                     </div>
                                 </div>
                             )}
 
-
-                            {Boolean(detail.report) && (
+                            {detail.report && (
                                 <div>
                                     <h3 className="font-semibold text-gray-900 mb-3">Báo cáo chi tiết</h3>
-                                    <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
-                                        <pre>{JSON.stringify(detail.report, null, 2) || ""}</pre>
+                                    <div className="bg-gray-50 rounded-xl p-4">
+                                        {renderReportInfo(detail.report)}
                                     </div>
                                 </div>
                             )}
 
-
-                            {Boolean(detail.history) && (
+                            {detail.history && Array.isArray(detail.history) && detail.history.length > 0 && (
                                 <div>
-                                    <h3 className="font-semibold text-gray-900 mb-3">Lịch sử</h3>
-                                    <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
-                                        <pre>{JSON.stringify(detail.history, null, 2) || ""}</pre>
+                                    <h3 className="font-semibold text-gray-900 mb-3">Lịch sử hoạt động</h3>
+                                    <div className="space-y-2">
+                                        {detail.history.map((event: any, idx: number) => (
+                                            <div key={idx} className="bg-gray-50 rounded-lg p-3 text-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-medium text-gray-900">{event.action || event.entityType}</span>
+                                                    <span className="text-xs text-gray-500">{formatDate(event.timestamp)}</span>
+                                                </div>
+                                                {event.note && <p className="text-gray-600 mt-1">{event.note}</p>}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
                         </div>
                     )}
-
 
                     {!isLoading && !error && !detail && (
                         <div className="text-center py-8">
@@ -111,7 +198,6 @@ export default function InspectionReportModal({
                         </div>
                     )}
                 </div>
-
 
                 <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
                     <button
@@ -125,6 +211,3 @@ export default function InspectionReportModal({
         </div>
     );
 }
-
-
-

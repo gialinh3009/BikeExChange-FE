@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
+import { Plus, X, Wallet, AlertCircle, Bike, Upload } from "lucide-react";
 import { createBikeAPI, getCategoriesAPI, getBrandsAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
+import { uploadImageToCloudinary } from "../../services/firebaseService";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
 interface CreateBikeTabProps { token: string; wallet: WalletLike | null; onBikeCreated: () => void; onWalletRefresh: () => void }
@@ -12,9 +13,10 @@ const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qu
 
 export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRefresh }: CreateBikeTabProps) {
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [images, setImages] = useState<{ name: string; dataUrl: string }[]>([]);
+    const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
     const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
     const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
     const [form, setForm] = useState({
@@ -46,35 +48,35 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
 
         try {
             setLoading(true);
-            const formDataToSend = new FormData();
-            formDataToSend.append("title", form.title);
-            formDataToSend.append("description", form.description);
-            formDataToSend.append("brandId", form.brandId.toString());
-            formDataToSend.append("model", form.model);
-            formDataToSend.append("condition", form.condition);
-            formDataToSend.append("bikeType", form.bikeType);
-            formDataToSend.append("frameSize", form.frameSize);
+            setUploading(true);
             
-            const pricePoints = Number(form.priceVnd.replace(/[^\d]/g, ""));
-            formDataToSend.append("pricePoints", pricePoints.toString());
+            const uploadedUrls = await Promise.all(
+                images.map(async (img, idx) => {
+                    if (!img.file) {
+                        throw new Error("File ảnh không hợp lệ");
+                    }
+                    const url = await uploadImageToCloudinary(img.file);
+                    return { url, type: "IMAGE", sortOrder: idx + 1 };
+                })
+            );
 
-            if (form.year) formDataToSend.append("year", form.year);
-            if (form.categoryIds && form.categoryIds.length > 0) {
-                form.categoryIds.forEach((id) => formDataToSend.append("categoryIds", id.toString()));
-            }
+            setUploading(false);
+            
+            const payload = {
+                title: form.title,
+                description: form.description,
+                brandId: form.brandId,
+                model: form.model,
+                condition: form.condition,
+                bikeType: form.bikeType,
+                frameSize: form.frameSize,
+                pricePoints: Number(form.priceVnd.replace(/[^\d]/g, "")),
+                year: form.year ? Number(form.year) : null,
+                categoryIds: form.categoryIds && form.categoryIds.length > 0 ? form.categoryIds : [],
+                media: uploadedUrls
+            };
 
-            images.forEach((img) => {
-                const arr = img.dataUrl.split(',');
-                const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-                const bstr = atob(arr[1]);
-                const n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                for (let j = 0; j < n; j++) u8arr[j] = bstr.charCodeAt(j);
-                const file = new File([u8arr], img.name, { type: mime });
-                formDataToSend.append("media", file);
-            });
-
-            const res: any = await createBikeAPI(formDataToSend, token);
+            const res: any = await createBikeAPI(payload, token);
             const bikeId = res?.id ?? res?.data?.id;
             if (!bikeId) throw new Error("Tạo xe thất bại.");
 
@@ -91,15 +93,17 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
             setImages([]);
             onBikeCreated(); onWalletRefresh();
         } catch (e: any) {
+            console.error("Create bike error:", e);
             setError(e.message || "Không thể đăng bài.");
         } finally {
             setLoading(false);
+            setUploading(false);
         }
     };
 
     const handleImages = async (files: FileList | null) => {
         if (!files) return;
-        const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string }>((resolve, reject) => {
+        const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string; file: File }>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
                 const img = new Image();
@@ -114,7 +118,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                             if (blob) {
                                 const reader2 = new FileReader();
                                 reader2.onload = () => {
-                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result) });
+                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result), file: new File([blob], f.name, { type: "image/png" }) });
                                 };
                                 reader2.readAsDataURL(blob);
                             } else {
@@ -171,9 +175,9 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center"><Plus size={20} className="text-blue-600" /></div>
                         <div><div className="font-bold text-gray-900">Hình ảnh xe</div><div className="text-sm text-gray-500">Tải lên ảnh thực tế</div></div>
                     </div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 shadow-md">
-                        <Plus size={18} />Chọn ảnh
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} />
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 shadow-md disabled:opacity-50" style={{ pointerEvents: uploading ? 'none' : 'auto', opacity: uploading ? 0.6 : 1 }}>
+                        <Plus size={18} />{uploading ? "Đang upload..." : "Chọn ảnh"}
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} disabled={uploading} />
                     </label>
                     <span className="ml-3 text-sm text-gray-600">Đã chọn: <b className="text-blue-600">{images.length}</b> ảnh</span>
                     {images.length > 0 && (
@@ -315,9 +319,9 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         className="rounded-xl border-2 border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                         Huỷ
                     </button>
-                    <button onClick={handleSubmit} disabled={loading || !hasEnough}
+                    <button onClick={handleSubmit} disabled={loading || uploading || !hasEnough}
                         className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-                        {loading ? "Đang đăng..." : "Đăng tin"}
+                        {uploading ? "Đang upload ảnh..." : loading ? "Đang đăng..." : "Đăng tin"}
                     </button>
                 </div>
             </div>
