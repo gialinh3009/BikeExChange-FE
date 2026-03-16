@@ -6,11 +6,14 @@ import {
   rejectWithdrawalAPI,
 } from "../../../services/Admin/withdrawalsManagerServices.js";
 
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+
 
 type WithdrawalStatus = "SUCCESS" | "PENDING" | "FAILED" | "CANCELLED";
 type WithdrawalType = "WITHDRAW" | "DEPOSIT";
 type FilterStatus = "all" | Lowercase<WithdrawalStatus>;
+
 
 interface Withdrawal {
   id: number;
@@ -25,7 +28,9 @@ interface Withdrawal {
   createdAt: string;
 }
 
+
 // ─── Constants ────────────────────────────────────────────────────────────────
+
 
 const STATUS_LABEL: Record<WithdrawalStatus, { label: string; color: string }> = {
   SUCCESS: { label: "Thành công", color: "bg-green-100 text-green-700" },
@@ -34,10 +39,12 @@ const STATUS_LABEL: Record<WithdrawalStatus, { label: string; color: string }> =
   CANCELLED: { label: "Đã hủy", color: "bg-gray-100 text-gray-600" },
 };
 
+
 const TYPE_LABEL: Record<WithdrawalType, { label: string; color: string }> = {
   WITHDRAW: { label: "Rút điểm", color: "bg-orange-100 text-orange-700" },
   DEPOSIT: { label: "Nạp điểm", color: "bg-blue-100 text-blue-700" },
 };
+
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("vi-VN", {
@@ -49,19 +56,24 @@ function formatDate(value: string) {
   });
 }
 
+
 function formatPoints(value: number) {
-  return value.toLocaleString("vi-VN") + " pts";
+  return value.toLocaleString("vi-VN") + " ₫";
 }
+
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+
 // ─── Reject Modal ─────────────────────────────────────────────────────────────
+
 
 interface RejectModalProps {
   onConfirm: (reason: string) => void;
   onClose: () => void;
   loading: boolean;
 }
+
 
 function RejectModal({ onConfirm, onClose, loading }: RejectModalProps) {
   const [reason, setReason] = useState("");
@@ -98,7 +110,9 @@ function RejectModal({ onConfirm, onClose, loading }: RejectModalProps) {
   );
 }
 
+
 // ─── Main Component ───────────────────────────────────────────────────────────
+
 
 export default function ManagementWithdrawal() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -110,10 +124,12 @@ export default function ManagementWithdrawal() {
   const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
+
   const showToast = (type: "success" | "error", msg: string) => {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 3000);
   };
+
 
   const fetchWithdrawals = useCallback(async () => {
     setLoading(true);
@@ -129,9 +145,11 @@ export default function ManagementWithdrawal() {
     }
   }, []);
 
+
   useEffect(() => {
     fetchWithdrawals();
   }, [fetchWithdrawals]);
+
 
   const filtered = withdrawals.filter((w) => {
     const keyword = search.trim().toLowerCase();
@@ -146,6 +164,7 @@ export default function ManagementWithdrawal() {
     return matchSearch && matchStatus;
   });
 
+
   const handleApprove = async (id: number) => {
     if (!window.confirm("Xác nhận duyệt yêu cầu rút điểm này?")) return;
     setActionLoading(true);
@@ -159,6 +178,7 @@ export default function ManagementWithdrawal() {
       setActionLoading(false);
     }
   };
+
 
   const handleReject = async (reason: string) => {
     if (!rejectTargetId) return;
@@ -175,11 +195,13 @@ export default function ManagementWithdrawal() {
     }
   };
 
+
   const successCount = withdrawals.filter((w) => w.status === "SUCCESS").length;
   const pendingCount = withdrawals.filter((w) => w.status === "PENDING").length;
   const totalPoints = withdrawals
     .filter((w) => w.status === "SUCCESS" && w.type === "WITHDRAW")
     .reduce((sum, w) => sum + w.amount, 0);
+
 
   return (
     <div className="space-y-6">
@@ -192,6 +214,7 @@ export default function ManagementWithdrawal() {
         </div>
       )}
 
+
       {/* Reject Modal */}
       {rejectTargetId !== null && (
         <RejectModal
@@ -200,6 +223,7 @@ export default function ManagementWithdrawal() {
           loading={actionLoading}
         />
       )}
+
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -217,6 +241,7 @@ export default function ManagementWithdrawal() {
           <RefreshCw size={15} /> Làm mới
         </button>
       </div>
+
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -237,6 +262,7 @@ export default function ManagementWithdrawal() {
         ))}
       </div>
 
+
       {/* Total withdrawn points banner */}
       <div className="rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4 flex items-center gap-3">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100">
@@ -247,6 +273,7 @@ export default function ManagementWithdrawal() {
           <div className="text-xs text-gray-500">Tổng điểm đã rút thành công</div>
         </div>
       </div>
+
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -272,6 +299,7 @@ export default function ManagementWithdrawal() {
         </select>
       </div>
 
+
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         {loading ? (
@@ -289,7 +317,7 @@ export default function ManagementWithdrawal() {
               <tr className="border-b border-gray-100 text-left text-gray-500">
                 <th className="px-5 py-3 font-medium">#</th>
                 <th className="px-5 py-3 font-medium">Người dùng</th>
-                <th className="px-5 py-3 font-medium text-right">Số điểm</th>
+                <th className="px-5 py-3 font-medium text-right">Số tiền (VND)</th>
                 <th className="px-5 py-3 font-medium">Loại</th>
                 <th className="px-5 py-3 font-medium">Trạng thái</th>
                 <th className="px-5 py-3 font-medium">Mã tham chiếu</th>
@@ -366,3 +394,6 @@ export default function ManagementWithdrawal() {
     </div>
   );
 }
+
+
+
