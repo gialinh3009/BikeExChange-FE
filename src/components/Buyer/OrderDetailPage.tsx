@@ -14,8 +14,14 @@ import {
     RotateCcw, AlertTriangle, Clock, RefreshCw, MessageSquare,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
-
-const BASE = import.meta.env.VITE_API_BASE_URL as string;
+import RequestReturnModal from "./RequestReturnModal";
+import {
+    getOrderHistoryAPI,
+    cancelOrderAPI,
+    confirmReceiptAPI,
+    requestReturnAPI,
+    openReturnDisputeAPI,
+} from "../../services/Buyer/orderActionService";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 type OrderStatus =
@@ -60,7 +66,7 @@ interface OrderHistoryDetail {
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
-const fmtPoints = (p: number) => new Intl.NumberFormat("vi-VN").format(p) + " điểm";
+const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
 const fmtDateTime = (iso?: string) => {
     if (!iso) return "—";
@@ -72,12 +78,12 @@ const fmtDateTime = (iso?: string) => {
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode; desc: string }> = {
     PENDING_PAYMENT:  { label: "Chờ thanh toán",      color: "#f59e0b", bg: "#fffbeb", icon: <Clock size={14} />,          desc: "Đang chờ xử lý thanh toán" },
-    ESCROWED:         { label: "Đang ký quỹ",          color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Điểm của bạn đã bị khóa, chờ seller xác nhận" },
+    ESCROWED:         { label: "Đơn hàng đã được tạo", color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Đơn hàng của bạn đã được tạo, đang chờ seller xác nhận" },
     ACCEPTED:         { label: "Seller đã xác nhận",   color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Seller đã nhận đơn, đang chuẩn bị giao hàng" },
     DELIVERED:        { label: "Đang giao hàng",       color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Hàng đã được giao, vui lòng xác nhận khi nhận được" },
-    COMPLETED:        { label: "Hoàn thành",           color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, điểm đã về tay seller" },
-    CANCELLED:        { label: "Đã hủy",               color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Đơn hàng đã bị hủy, điểm đã hoàn về ví bạn" },
-    REFUNDED:         { label: "Đã hoàn tiền",         color: "#10b981", bg: "#f0fdf4", icon: <RotateCcw size={14} />,      desc: "Điểm đã được hoàn về ví của bạn" },
+    COMPLETED:        { label: "Hoàn thành",           color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về tay seller" },
+    CANCELLED:        { label: "Đã hủy",               color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Đơn hàng đã bị hủy, tiền đã hoàn về ví bạn" },
+    REFUNDED:         { label: "Đã hoàn tiền",         color: "#10b981", bg: "#f0fdf4", icon: <RotateCcw size={14} />,      desc: "Tiền đã được hoàn về ví của bạn" },
     RETURN_REQUESTED: { label: "Yêu cầu hoàn hàng",   color: "#f59e0b", bg: "#fffbeb", icon: <RotateCcw size={14} />,      desc: "Đang chờ seller xác nhận nhận lại hàng" },
     DISPUTED:         { label: "Đang tranh chấp",      color: "#ef4444", bg: "#fef2f2", icon: <AlertTriangle size={14} />,  desc: "Admin đang xử lý tranh chấp giữa hai bên" },
 };
@@ -105,44 +111,35 @@ function getStepIndex(status: OrderStatus): number {
 export default function OrderDetailPage() {
     const { id }  = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const token    = localStorage.getItem("token") ?? "";
+    const orderId = Number(id);
 
     const [detail, setDetail]       = useState<OrderHistoryDetail | null>(null);
     const [loading, setLoading]     = useState(true);
     const [error, setError]         = useState("");
     const [actionBusy, setAction]   = useState<string | null>(null);
+    const [showReturnModal, setShowReturnModal] = useState(false);
 
     const fetchDetail = useCallback(async () => {
-        if (!id) return;
-        const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+        if (!orderId) return;
         setLoading(true);
         try {
-            const res  = await fetch(`${BASE}/orders/${id}/history`, { headers: authHeaders });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || "Không tải được đơn hàng");
-            setDetail(data.data);
+            const data = await getOrderHistoryAPI(orderId);
+            setDetail(data);
         } catch (e) {
             setError(String(e instanceof Error ? e.message : e));
         } finally {
             setLoading(false);
         }
-    }, [id, token]);
+    }, [orderId]);
 
     useEffect(() => { void fetchDetail(); }, [fetchDetail]);
 
     /* ── Actions ── */
-    const doPost = async (endpoint: string, body?: object, confirmMsg?: string) => {
+    const doAction = async (actionKey: string, fn: () => Promise<unknown>, confirmMsg?: string) => {
         if (confirmMsg && !confirm(confirmMsg)) return;
-        setAction(endpoint);
-        const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+        setAction(actionKey);
         try {
-            const res  = await fetch(`${BASE}/orders/${id}/${endpoint}`, {
-                method: "POST",
-                headers: authHeaders,
-                body: body ? JSON.stringify(body) : undefined,
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || "Lỗi thao tác");
+            await fn();
             await fetchDetail();
         } catch (e) {
             alert(String(e instanceof Error ? e.message : e));
@@ -151,19 +148,38 @@ export default function OrderDetailPage() {
         }
     };
 
-    const handleCancel = () => doPost("cancel", undefined, "Bạn chắc chắn muốn hủy đơn hàng này?");
-
-    const handleConfirmReceipt = () =>
-        doPost("confirm-receipt", undefined, "Xác nhận đã nhận hàng? Điểm sẽ được giải ngân ngay cho người bán.");
-
-    const handleRequestReturn = async () => {
-        const reason = prompt("Nhập lý do yêu cầu hoàn hàng:");
-        if (!reason?.trim()) return;
-        await doPost("request-return", { reason });
+    const handleCancel = () => {
+        if (!orderId) return;
+        void doAction("cancel", () => cancelOrderAPI(orderId), "Bạn chắc chắn muốn hủy đơn hàng này?");
     };
 
-    const handleDispute = () =>
-        doPost("return-dispute", undefined, "Mở tranh chấp với Admin? Hành động này sẽ đưa đơn hàng vào trạng thái xem xét.");
+    const handleConfirmReceipt = () => {
+        if (!orderId) return;
+        void doAction(
+            "confirm-receipt",
+            () => confirmReceiptAPI(orderId),
+            "Xác nhận đã nhận hàng? Tiền sẽ được giải ngân ngay cho người bán.",
+        );
+    };
+
+    const handleRequestReturn = () => {
+        setShowReturnModal(true);
+    };
+
+    const submitRequestReturn = async (reason: string) => {
+        if (!orderId) return;
+        await doAction("request-return", () => requestReturnAPI(orderId, reason));
+        setShowReturnModal(false);
+    };
+
+    const handleDispute = () => {
+        if (!orderId) return;
+        void doAction(
+            "return-dispute",
+            () => openReturnDisputeAPI(orderId),
+            "Mở tranh chấp với Admin? Hành động này sẽ đưa đơn hàng vào trạng thái xem xét.",
+        );
+    };
 
     /* ── Loading / Error ── */
     if (loading) return (
@@ -283,8 +299,8 @@ export default function OrderDetailPage() {
                     </div>
                     {[
                         { label: "Xe đạp",       value: order.bikeTitle,                    link: `/bikes/${order.bikeId}` },
-                        { label: "Người bán",    value: order.sellerName },
-                        { label: "Số điểm",      value: fmtPoints(order.amountPoints),      highlight: true },
+                        { label: "Người bán",    value: order.sellerName,                  link: `/sellers/${order.sellerId}` },
+                        { label: "Số tiền",      value: fmtMoney(order.amountPoints),       highlight: true },
                         { label: "Ngày tạo",     value: fmtDateTime(order.createdAt) },
                         { label: "Cập nhật",     value: fmtDateTime(order.updatedAt) },
                         order.acceptedAt ? { label: "Seller xác nhận", value: fmtDateTime(order.acceptedAt) } : null,
@@ -350,7 +366,7 @@ export default function OrderDetailPage() {
                     if (order.status === "ESCROWED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
-                                Đơn hàng đang chờ seller xác nhận. Bạn có thể hủy đơn để lấy lại điểm.
+                                Đơn hàng đang chờ seller xác nhận. Bạn có thể hủy đơn để lấy lại tiền.
                             </p>
                             <button className="action-btn" onClick={handleCancel} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#fef2f2", color: "#ef4444", border: "1.5px solid #fecaca", opacity: busy ? .6 : 1 }}>
@@ -362,7 +378,7 @@ export default function OrderDetailPage() {
                     if (order.status === "DELIVERED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#64748b", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "10px 14px" }}>
-                                ⏱ Hàng đã được giao. Xác nhận nhận hàng để giải ngân điểm cho seller, hoặc yêu cầu hoàn hàng nếu có vấn đề.
+                                ⏱ Hàng đã được giao. Xác nhận nhận hàng để giải ngân tiền cho seller, hoặc yêu cầu hoàn hàng nếu có vấn đề.
                                 {order.daysUntilAutoRelease !== undefined && ` Hệ thống tự động xác nhận sau ${order.daysUntilAutoRelease} ngày.`}
                             </p>
                             <button className="action-btn" onClick={handleConfirmReceipt} disabled={busy}
@@ -399,6 +415,13 @@ export default function OrderDetailPage() {
                     return null;
                 })()}
             </div>
+
+            <RequestReturnModal
+                open={showReturnModal}
+                loading={actionBusy === "request-return"}
+                onClose={() => setShowReturnModal(false)}
+                onConfirm={submitRequestReturn}
+            />
         </div>
     );
 }

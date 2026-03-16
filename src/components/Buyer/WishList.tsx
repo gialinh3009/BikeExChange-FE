@@ -57,11 +57,7 @@ export default function WishList({ formatPrice }: WishlistProps) {
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Có lỗi xảy ra";
             setError(message);
-            setItems([
-                { id: 1, bike: { id: 1, name: "Trek FX 3 Disc",    price: 8500000,  condition: 95, brand: "Trek"        } },
-                { id: 2, bike: { id: 2, name: "Giant Escape 3",     price: 6200000,  condition: 88, brand: "Giant"       } },
-                { id: 3, bike: { id: 3, name: "Specialized Sirrus", price: 12000000, condition: 92, brand: "Specialized" } },
-            ]);
+            setItems([]);
         } finally {
             setLoading(false);
         }
@@ -141,7 +137,7 @@ export default function WishList({ formatPrice }: WishlistProps) {
                 </div>
                 {error && (
                     <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, color: "#c2410c", fontSize: 13 }}>
-                        ⚠️ {error} — Đang hiển thị dữ liệu mẫu
+                        ⚠️ {error}
                     </div>
                 )}
             </div>

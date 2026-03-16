@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import {
-    ChevronLeft, Heart, Share2, MapPin, Calendar,
+    ChevronLeft, Heart, MapPin, Calendar,
     Star, MessageSquare, CheckCircle, Image as ImageIcon,
-    ShieldCheck, Zap, Phone, Mail, User,
+    ShieldCheck, Zap,  User,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBikeDetailAPI } from "../../services/Buyer/Bikeservice";
@@ -10,6 +10,7 @@ import { getUserProfileAPI } from "../../services/Buyer/Userservice";
 import { createOrderAPI } from "../../services/Buyer/Orderservice";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
+import { WishlistAuthModal } from "./WishlistModals.jsx";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 interface MediaItem { url: string; type: string; sortOrder: number; }
@@ -46,7 +47,6 @@ interface SellerProfile {
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 const fmtPrice = (p: number) =>
     new Intl.NumberFormat("vi-VN").format(p) + " VND";
@@ -90,9 +90,14 @@ export default function BikedetailPage() {
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
+    const isPurchasable = bike?.status === "ACTIVE";
 
     /* Fetch bike */
     useEffect(() => {
+        if (!token) {
+            setLoading(false);
+            return;
+        }
         if (!id) return;
         (async () => {
             try {
@@ -132,6 +137,7 @@ export default function BikedetailPage() {
     const handleBuyNow = async () => {
         if (!user?.id) { navigate("/login"); return; }
         if (user.id === bike?.sellerId) { alert("Bạn không thể mua xe của chính mình"); return; }
+        if (!isPurchasable) { alert("Xe này hiện không còn sẵn để mua."); return; }
         setOrdering(true);
         try {
             await createOrderAPI({ bikeId: bike?.id, idempotencyKey: `${user.id}-${bike?.id}-${Date.now()}` });
@@ -167,11 +173,26 @@ export default function BikedetailPage() {
 
     // Đồng bộ wishlist
     useEffect(() => {
+        if (!token) return;
         getWishlistAPI().then(list => {
             const ids = list.map(item => item.bike?.id ?? item.bikeId ?? item.id);
             setWished(ids.includes(Number(id)));
         });
-    }, [id]);
+    }, [id, token]);
+
+    if (!token) {
+        return (
+            <div style={{ minHeight: "100vh", background: "#f4f6fb" }}>
+                <WishlistAuthModal
+                    title="BikeExchange"
+                    message="Vui lòng đăng nhập hoặc đăng ký để tiếp tục xem chi tiết xe."
+                    onClose={() => navigate("/")}
+                    onLogin={() => navigate("/login")}
+                    onRegister={() => navigate("/register")}
+                />
+            </div>
+        );
+    }
 
     /* ── Loading ── */
     if (loading) return (
@@ -337,6 +358,11 @@ export default function BikedetailPage() {
                         <div>
                             <h1 style={{ fontSize: 25, fontWeight: 800, color: "#0f172a", lineHeight: 1.25, marginBottom: 10 }}>{bike.title}</h1>
                             <p style={{ fontSize: 27, fontWeight: 800, color: "#2563eb", marginBottom: 10 }}>{fmtPrice(bike.pricePoints)}</p>
+                            {!isPurchasable && (
+                                <p style={{ fontSize: 13, fontWeight: 700, color: "#ef4444", marginBottom: 10 }}>
+                                    Xe này hiện không còn ở trạng thái mở bán.
+                                </p>
+                            )}
                             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                                 {bike.location && bike.location !== "Not specified" && (
                                     <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 13 }}>
@@ -361,11 +387,11 @@ export default function BikedetailPage() {
                             <button
                                 className="btn-primary"
                                 onClick={() => setShowConfirm(true)}
-                                disabled={ordering}
-                                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 0", background: ordering ? "#93c5fd" : "#2563eb", color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: ordering ? "not-allowed" : "pointer", transition: "background .15s", boxShadow: "0 2px 12px rgba(37,99,235,.25)" }}
+                                disabled={ordering || !isPurchasable}
+                                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 0", background: ordering || !isPurchasable ? "#93c5fd" : "#2563eb", color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: ordering || !isPurchasable ? "not-allowed" : "pointer", transition: "background .15s", boxShadow: "0 2px 12px rgba(37,99,235,.25)" }}
                             >
                                 <Zap size={15} fill="white" color="white" />
-                                {ordering ? "Đang xử lý..." : "Mua ngay"}
+                                {ordering ? "Đang xử lý..." : !isPurchasable ? "Không khả dụng" : "Mua ngay"}
                             </button>
                             <button className="icon-btn" onClick={handleWishlist} style={{ width: 48, flexShrink: 0, borderRadius: 10, border: `1.5px solid ${wished ? "#fecdd3" : "#e8ecf4"}`, background: wished ? "#fff0f3" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
                                 <Heart size={18} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />
@@ -388,6 +414,7 @@ export default function BikedetailPage() {
                                 <button
                                     className="btn-outline"
                                     style={{ padding: "7px 13px", background: "white", color: "#2563eb", border: "1.5px solid #2563eb", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "background .15s", flexShrink: 0 }}
+                                    onClick={() => bike?.sellerId && navigate(`/sellers/${bike.sellerId}`)}
                                 >
                                     Xem hồ sơ
                                 </button>

@@ -23,6 +23,26 @@ export function fmtVND(n) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n ?? 0);
 }
 
+function getBikeCategoryLabel(bike) {
+  return safeStr(
+    bike?.category?.name
+    ?? bike?.categoryName
+    ?? bike?.bikeType
+    ?? bike?.type,
+    "Loại xe"
+  );
+}
+
+function getSellerRating(bike) {
+  return Number(
+    bike?.sellerRating
+    ?? bike?.seller_rating
+    ?? bike?.seller?.rating
+    ?? bike?.user?.rating
+    ?? 0
+  );
+}
+
 // ─── Xe đã được kiểm định Card ───────────────────────────────────────────────────────
 export function XeDaDuocKiemDinhCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   const img = bike.media?.find(m => m.type === "IMAGE" && !m.url?.includes("example.com"))?.url;
@@ -93,6 +113,8 @@ export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   const cond = CONDITION_META[condKey2] ?? { label: condKey2 || "—", cls: "bg-gray-100 text-gray-600" };
   const isInspected = bike.inspectionStatus === "APPROVED" || bike.inspection_status === "APPROVED";
   const wished = wishedIds?.has(bike.id);
+  const sellerRating = getSellerRating(bike);
+  const roundedRating = Math.max(0, Math.min(5, Math.round(sellerRating)));
 
   return (
     <div
@@ -125,7 +147,7 @@ export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
       <div className="p-4 space-y-2.5 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs text-blue-600 font-medium truncate">{safeStr(bike.brand)}</p>
+            <p className="text-xs text-blue-600 font-medium truncate">{getBikeCategoryLabel(bike)}</p>
             <h3 className="font-semibold text-gray-800 text-sm leading-tight group-hover:text-blue-600 transition-colors line-clamp-2">
               {bike.title}
             </h3>
@@ -136,9 +158,11 @@ export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
         </div>
 
         <div className="flex items-center justify-between text-xs text-gray-400">
-          <span className="flex items-center gap-1">
-            <MapPin size={11} />
-            {safeStr(bike.location, "") && safeStr(bike.location, "") !== "Not specified" ? safeStr(bike.location, "") : "Việt Nam"}
+          <span className="flex items-center gap-0.5 text-amber-500">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} size={11} className={i < roundedRating ? "fill-amber-400 text-amber-400" : "text-gray-300"} />
+            ))}
+            <span className="ml-1 text-gray-500 font-medium">{sellerRating.toFixed(1)}</span>
           </span>
           {bike.year && <span>Năm {bike.year}</span>}
         </div>

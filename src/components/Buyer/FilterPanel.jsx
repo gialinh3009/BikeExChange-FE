@@ -2,7 +2,7 @@
  * FilterPanel.jsx
  * Bộ lọc xe: tìm kiếm, loại xe, thương hiệu, giá, năm sản xuất, sắp xếp
  */
-import { SlidersHorizontal, ChevronDown, Search, X } from "lucide-react";
+import { SlidersHorizontal, ChevronDown, Search, ShieldCheck, X } from "lucide-react";
 
 export const SORTS = [
   { label: "Mới nhất",         value: "newest"    },
@@ -82,6 +82,17 @@ export default function FilterPanel({
               {cat.name}
             </button>
           ))}
+          <button
+            onClick={() => setFilterForm(f => ({ ...f, inspectedOnly: !f.inspectedOnly }))}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-semibold border transition-all ${
+              filterForm.inspectedOnly
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-200 ring-2 ring-emerald-100"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300"
+            }`}
+          >
+            <ShieldCheck size={14} />
+            Xe đã kiểm định chất lượng
+          </button>
         </div>
       </div>
 
@@ -125,7 +136,7 @@ export default function FilterPanel({
         <div>
           <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1 block">Năm sản xuất (từ)</label>
           <input
-            type="number" min="2000" max="2025" placeholder="Ví dụ: 2020"
+            type="number" min="2000" max={new Date().getFullYear()} placeholder="Ví dụ: 2020"
             value={filterForm.minYear}
             onChange={e => setFilterForm(f => ({ ...f, minYear: e.target.value }))}
             className="w-full border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:bg-white transition-all"

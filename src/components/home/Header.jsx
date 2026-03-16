@@ -116,12 +116,6 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 bg-white shadow-md">
-        {/* Top bar */}
-        <div className="bg-blue-700 text-white text-xs py-1.5 text-center tracking-wide">
-          Miễn phí vận chuyển cho đơn hàng trên 2.000.000 ₫ &nbsp;|&nbsp; Hotline:{" "}
-          <span className="font-semibold">0909 123 456</span>
-        </div>
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
 
