@@ -14,6 +14,7 @@ const ACTION_TO_STATUS = {
     accepted: "ACCEPTED",
     delivered: "DELIVERED",
     confirm_receipt: "COMPLETED",
+    confirm_return: "REFUNDED",
     request_return: "RETURN_REQUESTED",
     return_dispute: "DISPUTED",
     seller_cancel: "CANCELLED",
@@ -21,15 +22,79 @@ const ACTION_TO_STATUS = {
     refunded: "REFUNDED",
 };
 
+const STATUS_ALIASES = {
+    CREATED: "ESCROWED",
+    ORDER_CREATED: "ESCROWED",
+    ESCROW: "ESCROWED",
+    ACCEPT: "ACCEPTED",
+    ACCEPT_ORDER: "ACCEPTED",
+    SHIPPED: "DELIVERED",
+    RETURNED: "RETURN_REQUESTED",
+    REQUESTED_RETURN: "RETURN_REQUESTED",
+    REQUEST_REFUND: "RETURN_REQUESTED",
+    REFUND_REQUESTED: "RETURN_REQUESTED",
+    RETURN_DISPUTE: "DISPUTED",
+    OPEN_DISPUTE: "DISPUTED",
+    REFUND: "REFUNDED",
+    REFUND_APPROVED: "REFUNDED",
+    RETURN_CONFIRMED: "REFUNDED",
+    CONFIRM_RETURN: "REFUNDED",
+};
+
+const KNOWN_STATUSES = new Set([
+    "PENDING_PAYMENT",
+    "ESCROWED",
+    "ACCEPTED",
+    "DELIVERED",
+    "COMPLETED",
+    "CANCELLED",
+    "REFUNDED",
+    "RETURN_REQUESTED",
+    "DISPUTED",
+]);
+
+function canonicalizeStatus(rawStatus) {
+    if (!rawStatus) return null;
+
+    const normalized = String(rawStatus).trim().toUpperCase().replace(/[\s-]+/g, "_");
+    if (!normalized) return null;
+
+    if (KNOWN_STATUSES.has(normalized)) {
+        return normalized;
+    }
+
+    if (STATUS_ALIASES[normalized]) {
+        return STATUS_ALIASES[normalized];
+    }
+
+    if (normalized.includes("REFUND")) return "REFUNDED";
+    if (normalized.includes("DISPUTE")) return "DISPUTED";
+    if (normalized.includes("RETURN")) return "RETURN_REQUESTED";
+    if (normalized.includes("CANCEL")) return "CANCELLED";
+    if (normalized.includes("COMPLETE") || normalized.includes("CONFIRM_RECEIPT")) return "COMPLETED";
+    if (normalized.includes("DELIVER") || normalized.includes("SHIP")) return "DELIVERED";
+    if (normalized.includes("ACCEPT")) return "ACCEPTED";
+    if (normalized.includes("ESCROW") || normalized.includes("CREATE")) return "ESCROWED";
+
+    return null;
+}
+
 function normalizeHistoryEvents(rawEvents = []) {
     if (!Array.isArray(rawEvents)) return [];
 
     return rawEvents
         .map((evt) => {
-            const status = evt?.status || ACTION_TO_STATUS[String(evt?.action || "").toLowerCase()] || "ESCROWED";
+            const actionStatus = ACTION_TO_STATUS[String(evt?.action || "").toLowerCase()];
+            const status =
+                canonicalizeStatus(evt?.status) ||
+                canonicalizeStatus(evt?.newStatus) ||
+                canonicalizeStatus(actionStatus) ||
+                canonicalizeStatus(evt?.type) ||
+                "PENDING_PAYMENT";
+
             return {
                 status,
-                timestamp: evt?.timestamp,
+                timestamp: evt?.timestamp || evt?.createdAt || evt?.updatedAt,
                 actor: evt?.performedByName || evt?.actor || (evt?.performedBy != null ? `User #${evt.performedBy}` : undefined),
                 note: evt?.note || evt?.metadata?.reason || undefined,
             };
@@ -49,11 +114,13 @@ export async function getOrderHistoryAPI(orderId) {
     }
 
     const payload = data.data ?? {};
+    const sourceTimeline = Array.isArray(payload.timeline) && payload.timeline.length > 0
+        ? payload.timeline
+        : payload.history;
+
     return {
         ...payload,
-        timeline: Array.isArray(payload.timeline)
-            ? payload.timeline
-            : normalizeHistoryEvents(payload.history),
+        timeline: normalizeHistoryEvents(sourceTimeline),
         isReviewed: payload.isReviewed ?? payload.reviewed ?? false,
     };
 }
