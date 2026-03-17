@@ -23,6 +23,7 @@ function categoryIcon(name = "") {
 export default function Header() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [keyword, setKeyword] = useState("");
 
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [catOpen,     setCatOpen]     = useState(false);
@@ -38,6 +39,10 @@ export default function Header() {
 
   const catRef   = useRef(null);
   const brandRef = useRef(null);
+
+  useEffect(() => {
+    setKeyword(searchParams.get("q") || "");
+  }, [searchParams]);
 
   /* ── fetch categories + brands ── */
   useEffect(() => {
@@ -83,27 +88,49 @@ export default function Header() {
     }, 50);
   };
 
+  const goToMarketplace = (params) => {
+    const search = params.toString();
+    const target = search ? `/?${search}` : "/";
+    if (window.location.pathname !== "/" || window.location.search !== (search ? `?${search}` : "")) {
+      navigate(target);
+    } else {
+      setSearchParams(params);
+    }
+    scrollToAllBikes();
+  };
+
+  const submitKeyword = () => {
+    const next = new URLSearchParams(searchParams);
+    const q = keyword.trim();
+    if (q) next.set("q", q);
+    else next.delete("q");
+    goToMarketplace(next);
+  };
+
   const selectCategory = (cat) => {
-    setSearchParams({ categoryId: cat.id });
+    const next = new URLSearchParams(searchParams);
+    next.set("categoryId", String(cat.id));
     setCatOpen(false);
     setCatSearch("");
-    if (window.location.pathname !== "/") navigate("/");
-    scrollToAllBikes();
+    goToMarketplace(next);
   };
 
   const selectBrand = (brand) => {
     // toggle: click lại brand đang active thì clear
+    const next = new URLSearchParams(searchParams);
     if (String(brand.id) === searchParams.get("brandId")) {
-      setSearchParams({});
+      next.delete("brandId");
     } else {
-      setSearchParams({ brandId: brand.id });
+      next.set("brandId", String(brand.id));
     }
     setBrandOpen(false);
-    if (window.location.pathname !== "/") navigate("/");
-    scrollToAllBikes();
+    goToMarketplace(next);
   };
 
-  const clearFilter = () => setSearchParams({});
+  const clearFilter = () => {
+    setKeyword("");
+    goToMarketplace(new URLSearchParams());
+  };
 
   const activeCategoryId = searchParams.get("categoryId");
   const activeBrandId    = searchParams.get("brandId");
@@ -116,8 +143,10 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+        <div className="w-full px-3 sm:px-5 lg:px-6">
+          <div className="flex h-16 items-center gap-4">
+
+            <div className="flex items-center gap-3 lg:gap-6">
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 group" onClick={clearFilter}>
@@ -131,11 +160,6 @@ export default function Header() {
 
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center gap-1">
-
-              <Link to="/" onClick={clearFilter}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                Trang chủ
-              </Link>
 
               {/* ── Sản phẩm dropdown ── */}
               <div className="relative" ref={catRef}>
@@ -232,13 +256,38 @@ export default function Header() {
               </div>
 
             </nav>
+            </div>
+
+            {/* Desktop Search */}
+            <div className="hidden lg:flex items-center flex-1 min-w-[380px] max-w-4xl">
+              <div className="relative w-full">
+                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitKeyword();
+                  }}
+                  placeholder="Tìm xe đạp, thương hiệu, mẫu xe..."
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-24 text-sm text-gray-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                />
+                <button
+                  type="button"
+                  onClick={submitKeyword}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Tìm
+                </button>
+              </div>
+            </div>
 
             {/* Right actions */}
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <button
                 onClick={() => {
                   const token = localStorage.getItem("token");
-                  navigate(token ? "/buyer" : "/login");
+                  navigate(token ? "/buyer" : "/login", token ? { state: { tab: "wishlist" } } : undefined);
                 }}
                 className="relative p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                 title="Xe yêu thích"
@@ -296,10 +345,34 @@ export default function Header() {
         {/* Mobile menu */}
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
-            <Link to="/" onClick={() => { clearFilter(); setMobileOpen(false); }}
-              className="block px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
-              Trang chủ
-            </Link>
+            <div className="mb-2 flex items-center gap-2 px-1">
+              <div className="relative flex-1">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      submitKeyword();
+                      setMobileOpen(false);
+                    }
+                  }}
+                  placeholder="Tìm sản phẩm..."
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  submitKeyword();
+                  setMobileOpen(false);
+                }}
+                className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+              >
+                Tìm
+              </button>
+            </div>
             <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Loại xe</div>
             {categories.map(cat => (
               <button key={cat.id} onClick={() => { selectCategory(cat); setMobileOpen(false); }}

@@ -278,7 +278,7 @@ export default function ProfilePage() {
             <header style={{
                 background: "white", borderBottom: "1px solid #e8ecf4",
                 padding: "14px 24px", display: "flex", alignItems: "center",
-                gap: 12, position: "sticky", top: 0, zIndex: 20,
+                gap: 12,
             }}>
                 <button onClick={() => navigate(-1)} style={{
                     width: 36, height: 36, borderRadius: 9, border: "1.5px solid #e8ecf4",

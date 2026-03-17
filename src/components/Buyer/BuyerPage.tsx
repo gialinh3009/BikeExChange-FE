@@ -3,11 +3,13 @@ import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, Tren
 import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
-import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 import { getMyPurchasesAPI, getOrderAPI } from "../../services/Buyer/Orderservice";
+import { getWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 import OrdersTab from "./OrdersTab";
 import DisputesTab from "./DisputesTab";
 import { getWalletAPI } from "../../services/Buyer/walletService";
+import Header from "../home/Header";
+import WishList from "./WishList";
 
 
 interface WishlistItem {
@@ -41,8 +43,10 @@ export default function BuyerPage() {
     const location      = useLocation();
     const navigate      = useNavigate();
     const locationState = location.state as { tab?: string; walletTab?: string } | null;
+    const isValidTab = (tab?: string) => ["overview", "orders", "review", "disputes", "wallet", "wishlist", "settings"].includes(String(tab || ""));
+    const initialTab = isValidTab(locationState?.tab) ? String(locationState?.tab) : "overview";
 
-    const [activeTab,        setActiveTab]        = useState(locationState?.tab === "wallet" ? "wallet" : "overview");
+    const [activeTab,        setActiveTab]        = useState(initialTab);
     const [wishCount,        setWishCount]        = useState(0);
     const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
     const [wishPage,         setWishPage]         = useState(0);
@@ -101,16 +105,45 @@ export default function BuyerPage() {
         return () => { cancelled = true; };
     }, [activeTab]);
 
+    useEffect(() => {
+        if (isValidTab(locationState?.tab)) {
+            setActiveTab(String(locationState?.tab));
+        }
+    }, [locationState?.tab]);
+
     const navItems = [
         { id: "overview",  icon: User,       label: "Tổng quan" },
         { id: "orders",    icon: Package,     label: "Lịch sử mua hàng"  },
         { id: "review",    icon: Star,        label: "Cần đánh giá" },
         { id: "disputes",  icon: AlertTriangle, label: "Tranh chấp" },
         { id: "wallet",    icon: Wallet,      label: "Ví & ưu đãi"   },
+        { id: "wishlist",  icon: Heart,       label: "Yêu thích" },
     ];
 
+    const handleRemoveOverviewWish = async (bikeId: number) => {
+        try {
+            await removeFromWishlistAPI(bikeId);
+            setOverview(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    wishlist: prev.wishlist.filter(item => (item.bike?.id ?? item.bikeId ?? item.id) !== bikeId),
+                };
+            });
+            setWishCount(prev => {
+                const next = Math.max(0, prev - 1);
+                window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count: next } }));
+                return next;
+            });
+        } catch {
+            // Silent fail to keep dashboard lightweight.
+        }
+    };
+
     return (
-        <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7ff", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+        <div style={{ minHeight: "100vh", background: "#f5f7ff", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+            <Header />
+            <div style={{ display: "flex", minHeight: "calc(100vh - 64px)" }}>
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
                 *{box-sizing:border-box;margin:0;padding:0}
@@ -174,24 +207,6 @@ export default function BuyerPage() {
                 position: "sticky", top: 0, height: "100vh",
                 flexShrink: 0,
             }}>
-                {/* Logo */}
-                <button onClick={() => navigate("/")}
-                    style={{
-                        display: "flex", alignItems: "center", gap: 9,
-                        marginBottom: 24, paddingLeft: 6,
-                        background: "none", border: "none", cursor: "pointer",
-                    }}>
-                    <div style={{
-                        width: 34, height: 34, borderRadius: 10,
-                        background: "linear-gradient(135deg, #2563eb, #4f46e5)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        boxShadow: "0 4px 12px rgba(79,70,229,.3)",
-                    }}>
-                        <Bike size={17} color="white" />
-                    </div>
-                    <span style={{ color: "#0f172a", fontWeight: 800, fontSize: 16, letterSpacing: "-0.3px" }}>BikeExchange</span>
-                </button>
-
                 {/* User card */}
                 <div style={{
                     background: "linear-gradient(135deg, #eff6ff, #eef2ff)",
@@ -262,15 +277,6 @@ export default function BuyerPage() {
                     {/* ── OVERVIEW (CellphoneS style) ── */}
                     {activeTab === "overview" && (
                         <div className="fade-up">
-
-                            {/* Header */}
-                            <div style={{ marginBottom: 24 }}>
-                                <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.5px" }}>
-                                    Xin chào, {user?.fullName?.split(" ").pop() || "bạn"} 👋
-                                </h2>
-                                <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>Quản lý tài khoản và hoạt động mua sắm của bạn</p>
-                            </div>
-
                             {/* Top row: Đơn hàng gần đây + Ưu đãi */}
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
 
@@ -412,7 +418,33 @@ export default function BuyerPage() {
                                                              style={{ borderRadius: 12, border: "1px solid #e8ecf5", overflow: "hidden", cursor: "pointer", transition: "all .2s" }}
                                                              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 24px rgba(37,99,235,.1)"; (e.currentTarget as HTMLDivElement).style.borderColor = "#c7d2fe"; }}
                                                              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.borderColor = "#e8ecf5"; }}>
-                                                            <div style={{ height: 120, background: "#f8fafc", overflow: "hidden" }}>
+                                                            <div style={{ height: 120, background: "#f8fafc", overflow: "hidden", position: "relative" }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleRemoveOverviewWish(bikeId);
+                                                                    }}
+                                                                    style={{
+                                                                        position: "absolute",
+                                                                        top: 8,
+                                                                        right: 8,
+                                                                        width: 30,
+                                                                        height: 30,
+                                                                        borderRadius: "50%",
+                                                                        border: "1px solid #fecdd3",
+                                                                        background: "rgba(255,255,255,.96)",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        color: "#e11d48",
+                                                                        cursor: "pointer",
+                                                                        zIndex: 2,
+                                                                    }}
+                                                                    title="Bỏ yêu thích"
+                                                                >
+                                                                    <Heart size={14} fill="#e11d48" />
+                                                                </button>
                                                                 {img
                                                                     ? <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                                                                     : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Bike size={24} color="#c7d2e8" /></div>
@@ -486,6 +518,13 @@ export default function BuyerPage() {
                         </div>
                     )}
 
+                    {/* ── WISHLIST ── */}
+                    {activeTab === "wishlist" && (
+                        <div className="fade-up">
+                            <WishList token={token} formatPrice={fmtPrice} />
+                        </div>
+                    )}
+
                     {/* ── SETTINGS ── */}
                     {activeTab === "settings" && (
                         <div className="fade-up" style={{ maxWidth: 560 }}>
@@ -556,6 +595,7 @@ export default function BuyerPage() {
                     window.location.reload();
                 }}
             />
+            </div>
         </div>
     );
 }

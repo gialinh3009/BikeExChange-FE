@@ -94,6 +94,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
     REFUNDED:         { label: "Đã hoàn tiền",         color: "#10b981", bg: "#f0fdf4", icon: <RotateCcw size={14} />,      desc: "Tiền đã được hoàn về ví của bạn" },
     RETURN_REQUESTED: { label: "Yêu cầu hoàn hàng",   color: "#f59e0b", bg: "#fffbeb", icon: <RotateCcw size={14} />,      desc: "Đang chờ seller xác nhận nhận lại hàng" },
     DISPUTED:         { label: "Đang tranh chấp",      color: "#ef4444", bg: "#fef2f2", icon: <AlertTriangle size={14} />,  desc: "Admin đang xử lý tranh chấp giữa hai bên" },
+    UNKNOWN:          { label: "Cập nhật trạng thái",  color: "#64748b", bg: "#f8fafc", icon: <Clock size={14} />,          desc: "Hệ thống vừa cập nhật trạng thái đơn hàng" },
 };
 
 // Thứ tự timeline chuẩn theo flow
@@ -346,7 +347,7 @@ export default function OrderDetailPage() {
                         </div>
                         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
                             {detail.timeline.map((evt, i) => {
-                                const evtMeta = STATUS_META[evt.status] ?? STATUS_META.ESCROWED;
+                                const evtMeta = STATUS_META[evt.status] ?? STATUS_META.UNKNOWN;
                                 const isLast  = i === detail.timeline!.length - 1;
                                 return (
                                     <div key={i} style={{ display: "flex", gap: 12 }}>

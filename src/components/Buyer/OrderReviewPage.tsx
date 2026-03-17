@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Star } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Star } from "lucide-react";
 import { getOrderHistoryAPI } from "../../services/Buyer/orderActionService";
 import { createReviewAPI } from "../../services/reviewService";
 
@@ -34,6 +34,7 @@ export default function OrderReviewPage() {
   const [detail, setDetail] = useState<OrderHistoryDetail | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -55,7 +56,7 @@ export default function OrderReviewPage() {
   }, [orderId]);
 
   const submitReview = async () => {
-    if (!detail?.order?.sellerId) return;
+    if (!detail?.order?.id) return;
     if (rating < 1 || rating > 5) {
       alert("Vui lòng chọn số sao từ 1 đến 5.");
       return;
@@ -68,15 +69,14 @@ export default function OrderReviewPage() {
 
       await createReviewAPI(
         {
-          sellerId: detail.order.sellerId,
+          orderId,
           rating,
           comment: comment.trim(),
         },
         token,
       );
 
-      alert("Đánh giá thành công.");
-      navigate(`/orders/${orderId}`);
+      setShowSuccess(true);
     } catch (e) {
       alert(String(e instanceof Error ? e.message : e));
     } finally {
@@ -122,6 +122,54 @@ export default function OrderReviewPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
+      {showSuccess && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.35)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: "min(92vw, 420px)",
+              background: "white",
+              borderRadius: 16,
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 16px 48px rgba(15, 23, 42, 0.2)",
+              padding: "24px 22px",
+              textAlign: "center",
+            }}
+          >
+            <CheckCircle2 size={42} color="#16a34a" style={{ marginBottom: 10 }} />
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0f172a" }}>Đánh giá thành công</p>
+            <p style={{ margin: "8px 0 20px", fontSize: 14, color: "#64748b" }}>Xin cảm ơn bạn đã gửi đánh giá.</p>
+            <button
+              onClick={() => {
+                setShowSuccess(false);
+                navigate(`/orders/${orderId}`);
+              }}
+              style={{
+                minWidth: 160,
+                background: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: 10,
+                padding: "10px 16px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Xem đơn hàng
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ background: "white", borderBottom: "1px solid #e8ecf4", height: 54, display: "flex", alignItems: "center", padding: "0 24px", gap: 12 }}>
         <button onClick={() => navigate(-1)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#2563eb", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
           <ChevronLeft size={17} strokeWidth={2.5} /> Quay lại
