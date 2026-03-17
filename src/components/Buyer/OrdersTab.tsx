@@ -61,7 +61,8 @@ interface OrderItem {
 interface ApiPurchase {
     order: OrderItem;
     canReview: boolean;
-    isReviewed: boolean;
+    isReviewed?: boolean;
+    reviewed?: boolean;
 }
 
 interface OpenDisputePayload {
@@ -188,8 +189,8 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
 
                 const list: OrderItem[] = (purchases as ApiPurchase[]).map((p) => ({
                     ...p.order,
-                    canReview: p.canReview,
-                    isReviewed: p.isReviewed,
+                    canReview: p.canReview ?? false,
+                    isReviewed: p.isReviewed ?? p.reviewed ?? false,
                 }));
 
                 setOrders(
@@ -460,19 +461,35 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                                     </p>
                                 </div>
 
-                                <span style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    padding: "4px 10px",
-                                    borderRadius: 20,
-                                    background: meta.bg,
-                                    color: meta.color,
-                                    fontSize: 11,
-                                    fontWeight: 700
-                                }}>
-                                    {meta.icon} {meta.label}
-                                </span>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                                    <span style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                        padding: "4px 10px",
+                                        borderRadius: 20,
+                                        background: meta.bg,
+                                        color: meta.color,
+                                        fontSize: 11,
+                                        fontWeight: 700
+                                    }}>
+                                        {meta.icon} {meta.label}
+                                    </span>
+
+                                    {order.status === "COMPLETED" && order.isReviewed && (
+                                        <span style={{
+                                            padding: "3px 10px",
+                                            borderRadius: 20,
+                                            background: "#ecfdf3",
+                                            color: "#059669",
+                                            border: "1px solid #a7f3d0",
+                                            fontSize: 11,
+                                            fontWeight: 700
+                                        }}>
+                                            Đã đánh giá
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             <p style={{ fontSize: 16, fontWeight: 800, color: "#2563eb", marginBottom: 14 }}>
