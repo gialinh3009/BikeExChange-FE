@@ -14,6 +14,10 @@ import ManagerCategories from "../components/Admin/Manager/ManagerCategories";
 import ManagerBrand from "../components/Admin/Manager/ManagerBrand";
 import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
 import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
+import ManagementWithdrawal from "../components/Admin/Manager/ManagementWithdrawal";
+import ManagerOrder from "../components/Admin/Manager/ManagerOrder";
+import ManagerTransactions from "../components/Admin/Manager/ManagerTransactions";
+import ManagerBike from "../components/Admin/Manager/ManagerBike";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
@@ -21,7 +25,12 @@ import VerifyEmail from "../components/home/VerifyEmail";
 import ResetPassword from "../components/home/ResetPassword";
 import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
-import GuestLayout from "../components/home/Layout";
+import PaymentSuccess from "../components/Buyer/PaymentSuccess";
+import ProfilePage from "../components/Buyer/Profilepage";
+import BikedetailPage from "../components/Buyer/BikedetailPage";
+import SellerProfileView from "../components/Buyer/SellerProfileView";
+import OrderDetailPage from "../components/Buyer/OrderDetailPage";
+import RolePlaceholder from "./RolePlaceHolder";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
 import ManagerInspection from "../components/Inspector/ManagerInspection";
@@ -30,7 +39,13 @@ import ManagerInspectionReport from "../components/Inspector/ManagerInspectionRe
 import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
 
-function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: string; roles?: string[] }) {
+function PrivateRoute({
+  redirectTo = "/login",
+  roles = [],
+}: {
+  redirectTo?: string;
+  roles?: string[];
+}) {
   const user = (() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
@@ -44,15 +59,18 @@ function PrivateRoute({ redirectTo = "/login", roles = [] }: { redirectTo?: stri
   return <Outlet />;
 }
 
-// ─── Route map ───────────────────────────────────────────────────────────────
-const ROLE_ROUTES: Record<string, string> = {
+const ROLE_HOME: Record<string, string> = {
   ADMIN: "/admin",
   SELLER: "/seller",
   INSPECTOR: "/inspector",
   BUYER: "/buyer",
 };
 
-// ─── AppRoutes ───────────────────────────────────────────────────────────────
+const getRoleHome = (role?: string | null) => {
+  if (!role) return "/";
+  return ROLE_HOME[role] ?? "/buyer";
+};
+
 interface AppRoutesProps {
   user: { role: string } | null;
   onLogout: () => void;
@@ -62,9 +80,6 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
   const defaultHome = getRoleHome(user?.role);
   const roleUpper = String(user?.role || "").toUpperCase();
   const canBrowseMarketplace = roleUpper === "BUYER" || roleUpper === "SELLER";
-
-
-
 
   return (
     <Routes>
@@ -77,26 +92,17 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
-
-
-
       {/* Profile */}
       <Route element={<PrivateRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
-
-
-
-      {/* Order detail - new route + backward-compatible alias */}
+      {/* Order detail */}
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/order-detail/:id" element={<OrderDetailPage />} />
         <Route path="/orders/:id/review" element={<RolePlaceholder label="Đánh giá giao dịch" />} />
       </Route>
-
-
-
 
       {/* Root */}
       <Route
@@ -107,9 +113,6 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
             : <Navigate to={defaultHome} replace />
         }
       />
-
-
-
 
       {/* Admin */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>
@@ -128,15 +131,20 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="brands" element={<ManagerBrand />} />
           <Route path="components" element={<ManagerComponent />} />
           <Route path="disputes" element={<ManagementDisputes />} />
+          <Route path="bikes" element={<ManagerBike />} />
+          <Route path="orders" element={<ManagerOrder />} />
+          <Route path="transactions" element={<ManagerTransactions />} />
+          <Route path="withdrawals" element={<ManagementWithdrawal />} />
+          <Route path="inspection-status" element={<ManagerInspectionStatus />} />
         </Route>
       </Route>
 
-      {/* Seller — protected */}
+      {/* Seller */}
       <Route element={<PrivateRoute roles={["SELLER"]} />}>
         <Route path="/seller" element={<SellerPage />} />
       </Route>
 
-      {/* Inspector — protected */}
+      {/* Inspector */}
       <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
         <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
           <Route index element={<InspectorDashboard />} />
@@ -148,13 +156,13 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         </Route>
       </Route>
 
-      {/* Buyer — protected */}
-      <Route element={<PrivateRoute roles={["BUYER"]} />}>
+      {/* Buyer — BUYER and SELLER can access */}
+      <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to={user ? defaultHome : "/login"} replace />} />
     </Routes>
   );
 }
