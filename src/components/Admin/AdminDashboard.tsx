@@ -20,7 +20,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 
 function fmtCurrency(v: number) {
-  return v.toLocaleString("vi-VN") + "₫";
+  return v.toLocaleString("vi-VN") + " ₫";
 }
 
 
