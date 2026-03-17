@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User } from "lucide-react";
+import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User, AlertTriangle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 import { getMyPurchasesAPI, getOrderAPI } from "../../services/Buyer/Orderservice";
 import OrdersTab from "./OrdersTab";
+import DisputesTab from "./DisputesTab";
 import { getWalletAPI } from "../../services/Buyer/walletService";
 
 
@@ -79,10 +80,8 @@ export default function BuyerPage() {
 
 
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (activeTab !== "overview") return;
-        setOverview(null); // eslint-disable-line react-hooks/exhaustive-deps
         let cancelled = false;
         Promise.allSettled([
             getWalletAPI() as Promise<WalletData>,
@@ -105,6 +104,7 @@ export default function BuyerPage() {
     const navItems = [
         { id: "overview",  icon: User,       label: "Tổng quan" },
         { id: "orders",    icon: Package,     label: "Lịch sử mua hàng"  },
+        { id: "disputes",  icon: AlertTriangle, label: "Tranh chấp" },
         { id: "wallet",    icon: Wallet,      label: "Ví & ưu đãi"   },
     ];
 
@@ -461,6 +461,13 @@ export default function BuyerPage() {
                     {activeTab === "orders" && (
                         <div className="fade-up">
                             <OrdersTab token={token} navigate={navigate} />
+                        </div>
+                    )}
+
+                    {/* ── DISPUTES ── */}
+                    {activeTab === "disputes" && (
+                        <div className="fade-up">
+                            <DisputesTab />
                         </div>
                     )}
 

@@ -7,6 +7,7 @@ import InspectionTab from "./InspectionTab";
 import CreateBikeTab from "./CreateBikeTab";
 import WalletTab from "./WalletTab";
 import SellerOrdersTab from "./SellerOrdersTab";
+import SellerDisputesTab from "./SellerDisputesTab";
 import BikeDetailModal from "./BikeDetailModal";
 import InspectionReportModal from "./InspectionReportModal";
 import RequestInspectionModal from "./RequestInspectionModal";
@@ -25,7 +26,7 @@ type BikeBrowseItem = {
 
 type BikeItem = BikeBrowseItem;
 
-type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders";
+type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders" | "disputes";
 
 type InspectionDetail = {
     inspection?: unknown;
@@ -277,6 +278,7 @@ export default function SellerPage() {
                     {[
                         { key: "posts", label: "Bài đăng của tôi" },
                         { key: "orders", label: "Đơn hàng" },
+                        { key: "disputes", label: "Tranh chấp" },
                         { key: "create", label: "Đăng tin bán xe" },
                         { key: "inspection", label: "Kiểm định" },
                         { key: "wallet", label: "Ví" },
@@ -317,6 +319,11 @@ export default function SellerPage() {
                 {/* ORDERS TAB */}
                 {tab === "orders" && (
                     <SellerOrdersTab token={token} />
+                )}
+
+                {/* DISPUTES TAB */}
+                {tab === "disputes" && (
+                    <SellerDisputesTab token={token} />
                 )}
 
                 {/* CREATE TAB */}
