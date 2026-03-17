@@ -24,6 +24,7 @@ import {
     openReturnDisputeAPI,
 } from "../../services/Buyer/orderActionService";
 import RequestReturnModal from "./RequestReturnModal";
+import OrderConfirmationModal from "./OrderConfirmationModal";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -49,6 +50,8 @@ interface OrderItem {
     createdAt: string;
     deliveredAt?: string;
     daysUntilAutoRelease?: number;
+    shippingCarrier?: string;
+    trackingCode?: string;
 }
 
 interface ApiPurchase {
@@ -156,6 +159,7 @@ export default function OrdersTab({ token, navigate }: Props) {
     const [actionLoading, setAction] = useState<number | null>(null);
     const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
     const [showReturnModalForOrder, setShowReturnModalForOrder] = useState<number | null>(null);
+    const [confirmationModal, setConfirmationModal] = useState<{ open: boolean; order: OrderItem | null }>({ open: false, order: null });
 
     void token;
 
@@ -226,7 +230,15 @@ export default function OrdersTab({ token, navigate }: Props) {
     };
 
     const handleConfirmReceipt = (id: number) => {
-        void doAction(id, "confirm-receipt");
+        const order = orders.find(o => o.id === id);
+        if (order) {
+            setConfirmationModal({ open: true, order });
+        }
+    };
+
+    const handleConfirmationSuccess = () => {
+        setConfirmationModal({ open: false, order: null });
+        void fetchOrders();
     };
 
     const handleRequestReturn = (id: number) => {
@@ -515,6 +527,14 @@ export default function OrdersTab({ token, navigate }: Props) {
                 loading={actionLoading !== null}
                 onClose={() => setShowReturnModalForOrder(null)}
                 onConfirm={submitRequestReturn}
+            />
+
+            <OrderConfirmationModal
+                isOpen={confirmationModal.open}
+                order={confirmationModal.order}
+                token={token}
+                onClose={() => setConfirmationModal({ open: false, order: null })}
+                onSuccess={handleConfirmationSuccess}
             />
         </div>
     );

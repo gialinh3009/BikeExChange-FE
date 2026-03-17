@@ -23,6 +23,7 @@ import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
 import VerifyEmail from "../components/home/VerifyEmail";
 import SellerPage from "../components/Seller/SellerPage";
+import SellerOrderDetailPage from "../components/Seller/SellerOrderDetailPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
 import ProfilePage from "../components/Buyer/Profilepage";
@@ -37,9 +38,6 @@ import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionSt
 import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
 import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
-
-
-
 
 function PrivateRoute({
   redirectTo = "/login",
@@ -56,16 +54,10 @@ function PrivateRoute({
     }
   })();
 
-
-
-
   if (!user) return <Navigate to={redirectTo} replace />;
   if (roles.length > 0 && !roles.includes(user.role)) return <Navigate to="/login" replace />;
   return <Outlet />;
 }
-
-
-
 
 const ROLE_HOME: Record<string, string> = {
   ADMIN: "/admin",
@@ -74,30 +66,18 @@ const ROLE_HOME: Record<string, string> = {
   BUYER: "/buyer",
 };
 
-
-
-
 const getRoleHome = (role?: string | null) => {
   if (!role) return "/";
   return ROLE_HOME[role] ?? "/buyer";
 };
-
-
-
 
 interface AppRoutesProps {
   user: { role: string } | null;
   onLogout: () => void;
 }
 
-
-
-
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
   const defaultHome = getRoleHome(user?.role);
-
-
-
 
   return (
     <Routes>
@@ -109,16 +89,10 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
-
-
-
       {/* Profile */}
       <Route element={<PrivateRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
-
-
-
 
       {/* Order detail - new route + backward-compatible alias */}
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
@@ -127,14 +101,8 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         <Route path="/orders/:id/review" element={<RolePlaceholder label="Đánh giá giao dịch" />} />
       </Route>
 
-
-
-
       {/* Root */}
       <Route path="/" element={user ? <Navigate to={defaultHome} replace /> : <GuestLayout />} />
-
-
-
 
       {/* Admin */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>
@@ -161,16 +129,11 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         </Route>
       </Route>
 
-
-
-
       {/* Seller */}
       <Route element={<PrivateRoute roles={["SELLER"]} />}>
         <Route path="/seller" element={<SellerPage />} />
+        <Route path="/seller/orders/:id" element={<SellerOrderDetailPage />} />
       </Route>
-
-
-
 
       {/* Inspector */}
       <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
@@ -184,28 +147,13 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         </Route>
       </Route>
 
-
-
-
       {/* Buyer */}
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
       </Route>
-
-
-
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to={user ? defaultHome : "/login"} replace />} />
     </Routes>
   );
 }
-
-
-
-
-
-
-
-
-
