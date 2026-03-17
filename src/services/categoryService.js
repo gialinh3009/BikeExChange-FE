@@ -23,6 +23,9 @@ export async function getCategoriesAPI({ page = 0, size = 20 } = {}) {
   return res.json();
 }
 
+// Alias for compatibility
+export const listCategoriesAPI = getCategoriesAPI;
+
 export async function createCategoryAPI(payload) {
   const res = await fetch(`${BASE_URL}/categories`, {
     method: "POST",

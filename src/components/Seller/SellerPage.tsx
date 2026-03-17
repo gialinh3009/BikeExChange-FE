@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Bike, LogOut } from "lucide-react";
 import { listBikesAPI, requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI, getWalletAPI } from "../../services/Seller/sellerService";
@@ -6,7 +6,6 @@ import PostsTab from "./PostsTab";
 import InspectionTab from "./InspectionTab";
 import CreateBikeTab from "./CreateBikeTab";
 import WalletTab from "./WalletTab";
-import SellerOrdersTab from "./SellerOrdersTab";
 import BikeDetailModal from "./BikeDetailModal";
 import InspectionReportModal from "./InspectionReportModal";
 import RequestInspectionModal from "./RequestInspectionModal";
@@ -25,7 +24,7 @@ type BikeBrowseItem = {
 
 type BikeItem = BikeBrowseItem;
 
-type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders";
+type TabKey = "posts" | "create" | "inspection" | "wallet";
 
 type InspectionDetail = {
     inspection?: unknown;
@@ -61,21 +60,17 @@ export default function SellerPage() {
     const [tab, setTab] = useState<TabKey>("posts");
     const [bikeDetail, setBikeDetail] = useState<BikeBrowseItem | null>(null);
 
-    // Seller bikes
     const [bikesLoading, setBikesLoading] = useState(false);
     const [bikesError, setBikesError] = useState<string | null>(null);
     const [bikes, setBikes] = useState<BikeItem[]>([]);
 
-    // Inspection tab filter
     const [inspectionFilter, setInspectionFilter] = useState<"all" | "approved" | "pending">("all");
 
-    // Inspection sticker modal (xem báo cáo đã có)
     const [inspectionOpen, setInspectionOpen] = useState(false);
     const [inspectionLoading, setInspectionLoading] = useState(false);
     const [inspectionError, setInspectionError] = useState<string | null>(null);
     const [inspectionDetail, setInspectionDetail] = useState<InspectionDetail | null>(null);
 
-    // Request inspection for existing bikes
     const [requestOpen, setRequestOpen] = useState(false);
     const [requestBike, setRequestBike] = useState<BikeBrowseItem | null>(null);
     const [requestLoading, setRequestLoading] = useState(false);
@@ -89,10 +84,9 @@ export default function SellerPage() {
         notes: "",
     });
 
-    // Wallet
     const [wallet, setWallet] = useState<WalletLike | null>(null);
 
-    const refreshWallet = async () => {
+    const refreshWallet = useCallback(async () => {
         try {
             const w = await getWalletAPI(token);
             setWallet(w as WalletLike);
@@ -100,9 +94,9 @@ export default function SellerPage() {
             console.error("Error loading wallet:", e);
             setWallet({ availablePoints: 0, frozenPoints: 0 });
         }
-    };
+    }, [token]);
 
-    const refreshBikes = async () => {
+    const refreshBikes = useCallback(async () => {
         try {
             setBikesLoading(true);
             setBikesError(null);
@@ -145,12 +139,12 @@ export default function SellerPage() {
         } finally {
             setBikesLoading(false);
         }
-    };
+    }, [token, user?.id]);
 
     useEffect(() => {
         void refreshBikes();
         void refreshWallet();
-    }, [token]);
+    }, [refreshBikes, refreshWallet]);
 
     const handleLogout = () => {
         localStorage.removeItem("token");
@@ -160,13 +154,12 @@ export default function SellerPage() {
 
     const openInspectionForBike = async (bikeId: number) => {
         try {
-            void bikeId; // Used in filtering/logging
             setInspectionOpen(true);
             setInspectionLoading(true);
             setInspectionError(null);
             setInspectionDetail(null);
 
-            const page = await listInspectionsAPI({ page: 0, size: 10 } as Record<string, number>, token);
+            const page = await listInspectionsAPI({ bike_id: bikeId, page: 0, size: 10 } as Record<string, number>, token);
             const p = page as unknown as PageResponse<{ id?: number }> | { id?: number }[];
             const content =
                 (p as PageResponse<{ id?: number }>)?.content ??
@@ -230,7 +223,7 @@ export default function SellerPage() {
                 },
                 token
             );
-            setRequestSuccess("Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ điểm từ ví của bạn.");
+            setRequestSuccess("Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ tiền từ ví của bạn.");
             void refreshBikes();
         } catch (e) {
             setRequestError((e as Error).message || "Không thể gửi yêu cầu kiểm định.");
@@ -241,7 +234,6 @@ export default function SellerPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
             <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                 <Link to="/buyer" className="flex items-center gap-3 group">
                     <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center group-hover:bg-blue-700 transition">
@@ -266,19 +258,16 @@ export default function SellerPage() {
             </header>
 
             <main className="max-w-5xl mx-auto px-6 py-8">
-                {/* Welcome */}
                 <div className="mb-8">
                     <h1 className="text-2xl font-bold text-gray-900">Xin chào, {user?.email ?? "bạn"} 👋</h1>
                     <p className="text-gray-500 text-sm mt-1">Quản lý danh sách xe và đơn hàng của bạn.</p>
                 </div>
 
-                {/* Tabs */}
                 <div className="mb-6 flex flex-wrap gap-2">
                     {[
                         { key: "posts", label: "Bài đăng của tôi" },
                         { key: "create", label: "Đăng tin bán xe" },
                         { key: "inspection", label: "Kiểm định" },
-                        { key: "orders", label: "Đơn hàng" },
                         { key: "wallet", label: "Ví" },
                     ].map((t) => (
                         <button
@@ -301,7 +290,6 @@ export default function SellerPage() {
                     ))}
                 </div>
 
-                {/* POSTS TAB */}
                 {tab === "posts" && (
                     <PostsTab
                         bikes={bikes}
@@ -314,7 +302,6 @@ export default function SellerPage() {
                     />
                 )}
 
-                {/* CREATE TAB */}
                 {tab === "create" && (
                     <CreateBikeTab
                         token={token}
@@ -324,7 +311,6 @@ export default function SellerPage() {
                     />
                 )}
 
-                {/* INSPECTION TAB */}
                 {tab === "inspection" && (
                     <InspectionTab
                         bikes={bikes}
@@ -340,17 +326,11 @@ export default function SellerPage() {
                     />
                 )}
 
-                {/* WALLET TAB */}
                 {tab === "wallet" && <WalletTab token={token} />}
-
-                {/* ORDERS TAB */}
-                {tab === "orders" && <SellerOrdersTab token={token} />}
             </main>
 
-            {/* Bike detail modal */}
             <BikeDetailModal bike={bikeDetail} onClose={() => setBikeDetail(null)} />
 
-            {/* Inspection report modal */}
             <InspectionReportModal
                 isOpen={inspectionOpen}
                 isLoading={inspectionLoading}
@@ -362,7 +342,6 @@ export default function SellerPage() {
                 }}
             />
 
-            {/* Request inspection modal */}
             <RequestInspectionModal
                 isOpen={requestOpen}
                 bike={requestBike}
