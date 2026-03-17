@@ -46,34 +46,37 @@ export default function PostsTab({
 
     return (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h2 className="font-semibold text-gray-800">Bài đăng của tôi</h2>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <div>
+                    <h2 className="font-bold text-gray-900 text-lg">Bài đăng của tôi</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">Quản lý tất cả bài đăng bán xe của bạn</p>
+                </div>
                 <button
                     onClick={onCreateClick}
-                    className="flex items-center gap-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition"
+                    className="flex items-center gap-2 text-sm bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-xl transition shadow-md"
                 >
-                    <Plus size={15} />
-                    Đăng tin
+                    <Plus size={16} />
+                    Đăng tin mới
                 </button>
             </div>
 
             {!bikesLoading && !bikesError && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-6 py-4 border-b border-gray-100 bg-gray-50">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                        <p className="text-gray-600 text-sm">Tổng xe</p>
-                        <p className="text-3xl font-bold text-gray-900">{totalBikes}</p>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 px-6 py-5 border-b border-gray-100 bg-gray-50">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 hover:border-blue-200 hover:shadow-sm transition">
+                        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Tổng xe</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-1">{totalBikes}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                        <p className="text-gray-600 text-sm">Xe đang bán</p>
-                        <p className="text-3xl font-bold text-green-600">{activeBikes}</p>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 hover:border-green-200 hover:shadow-sm transition">
+                        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Xe đang bán</p>
+                        <p className="text-3xl font-bold text-green-600 mt-1">{activeBikes}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                        <p className="text-gray-600 text-sm">Xe đã bán</p>
-                        <p className="text-3xl font-bold text-blue-600">{soldBikes}</p>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 hover:border-blue-200 hover:shadow-sm transition">
+                        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Xe đã bán</p>
+                        <p className="text-3xl font-bold text-blue-600 mt-1">{soldBikes}</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                        <p className="text-gray-600 text-sm">Xe bị ẩn</p>
-                        <p className="text-3xl font-bold text-gray-600">{hiddenBikes}</p>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition">
+                        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Xe bị ẩn</p>
+                        <p className="text-3xl font-bold text-gray-600 mt-1">{hiddenBikes}</p>
                     </div>
                 </div>
             )}

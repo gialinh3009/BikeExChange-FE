@@ -190,95 +190,70 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   ];
 
   return (
-    <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-        .ot-wrap { animation: fadeUp .3s ease; }
-        .order-card:hover { background: #f8faff !important; }
-      `}</style>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "1px solid #e8ecf4", paddingBottom: 12 }}>
-        {tabConfig.map(t => (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-gray-900 text-lg">Đơn hàng của tôi</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Quản lý tất cả đơn hàng bán hàng</p>
+          </div>
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: tab === t.key ? "#2563eb" : "transparent",
-              color: tab === t.key ? "white" : "#64748b",
-              fontWeight: tab === t.key ? 700 : 600,
-              fontSize: 13,
-              cursor: "pointer",
-              transition: "all .2s",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            onClick={() => void fetchOrders()}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition"
           >
-            {t.label}
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              background: tab === t.key ? "rgba(255,255,255,.3)" : "#f1f5f9",
-              fontSize: 11,
-              fontWeight: 700,
-            }}>
-              {t.count}
-            </span>
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            Làm mới
           </button>
-        ))}
-        <button
-          onClick={() => void fetchOrders()}
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            background: "none",
-            border: "1.5px solid #e8ecf4",
-            borderRadius: 8,
-            padding: "6px 12px",
-            color: "#64748b",
-            fontSize: 12,
-            cursor: "pointer",
-            transition: "all .2s",
-          }}
-        >
-          <RefreshCw size={12} /> Làm mới
-        </button>
+        </div>
       </div>
 
+      {/* Tabs */}
+      <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+        <div className="flex items-center gap-2 flex-wrap">
+          {tabConfig.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 ${
+                tab === t.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              {t.label}
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                tab === t.key ? "bg-white/30" : "bg-gray-200"
+              }`}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
       {/* Loading */}
       {loading && (
-        <div style={{ textAlign: "center", padding: "40px 20px" }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #e8ecf4", borderTopColor: "#2563eb", animation: "spin .8s linear infinite", margin: "0 auto" }} />
+        <div className="flex justify-center py-12">
+          <div className="inline-flex items-center justify-center w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
         </div>
       )}
 
       {/* Error */}
       {error && !loading && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: 16, marginBottom: 20 }}>
-          <p style={{ color: "#dc2626", fontSize: 13, fontWeight: 600 }}>Lỗi: {error}</p>
+        <div className="mx-6 my-4 bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-red-700 text-sm font-semibold">Lỗi: {error}</p>
         </div>
       )}
 
       {/* Empty state */}
       {!loading && filtered.length === 0 && (
-        <div style={{ background: "white", borderRadius: 16, border: "1.5px solid #e8ecf4", padding: 40, textAlign: "center" }}>
-          <Package size={40} style={{ color: "#cbd5e1", margin: "0 auto 12px" }} />
-          <p style={{ color: "#64748b", fontSize: 14, fontWeight: 600 }}>Không có đơn hàng</p>
-          <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
+        <div className="px-6 py-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+            <Package size={32} className="text-gray-400" />
+          </div>
+          <p className="text-gray-900 font-semibold text-sm mb-1">Không có đơn hàng</p>
+          <p className="text-gray-500 text-xs">
             {tab === "escrowed" && "Chưa có đơn hàng nào chờ xác nhận"}
             {tab === "accepted" && "Chưa có đơn hàng nào chuẩn bị giao"}
             {tab === "delivered" && "Chưa có đơn hàng nào đã giao"}
@@ -289,7 +264,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
 
       {/* Orders list */}
       {!loading && filtered.length > 0 && (
-        <div className="ot-wrap" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="divide-y divide-gray-100">
           {filtered.map(order => {
             const config = STATUS_CONFIG[order.status];
             return (

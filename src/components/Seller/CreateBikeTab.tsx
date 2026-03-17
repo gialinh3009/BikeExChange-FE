@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
+import { Plus, X, Wallet, AlertCircle, Bike, CheckCircle2 } from "lucide-react";
 import { createBikeAPI, getCategoriesAPI, getBrandsAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
 import { uploadImageToCloudinary } from "../../services/firebaseService";
 
@@ -22,8 +22,9 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const [form, setForm] = useState({
         title: "", bikeType: "Road", brandId: undefined as number | undefined,
         model: "", frameSize: "M", condition: "Tốt", year: "", priceVnd: "", description: "",
-        categoryIds: [] as number[], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: ""
+        categoryId: undefined as number | undefined, preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: ""
     });
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const walletAvailable = wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
     const hasEnough = walletAvailable >= POSTING_FEE;
@@ -72,7 +73,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 frameSize: form.frameSize,
                 pricePoints: Number(form.priceVnd.replace(/[^\d]/g, "")),
                 year: form.year ? Number(form.year) : null,
-                categoryIds: form.categoryIds && form.categoryIds.length > 0 ? form.categoryIds : [],
+                categoryIds: form.categoryId ? [form.categoryId] : [],
                 media: uploadedUrls
             };
 
@@ -87,9 +88,9 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 }, token);
             }
 
-            setSuccess(`Đăng bài thành công! Đã trừ ${POSTING_FEE} VND.`);
+            setShowSuccessModal(true);
             setForm({ title: "", bikeType: "Road", brandId: undefined, model: "", frameSize: "M", condition: "Tốt",
-                year: "", priceVnd: "", description: "", categoryIds: [], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "" });
+                year: "", priceVnd: "", description: "", categoryId: undefined, preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "" });
             setImages([]);
             onBikeCreated(); onWalletRefresh();
         } catch (e: any) {
@@ -253,26 +254,13 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         </div>
                     </div>
 
-                    <div className="mt-5 rounded-xl border border-gray-200 p-4 bg-gray-50">
-                        <div className="flex items-center justify-between mb-3">
-                            <div><div className="text-sm font-semibold text-gray-900">Danh mục</div><div className="text-xs text-gray-500">Chọn danh mục phù hợp</div></div>
-                        </div>
-                        {categories.length > 0 && (
-                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                {categories.map(c => {
-                                    const checked = form.categoryIds.includes(c.id);
-                                    return (
-                                        <label key={c.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer ${checked ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                                            <input type="checkbox" checked={checked} onChange={(e) => {
-                                                const on = e.target.checked;
-                                                setForm(p => ({ ...p, categoryIds: on ? [...p.categoryIds, c.id] : p.categoryIds.filter(id => id !== c.id) }));
-                                            }} />
-                                            <span className="truncate">{c.name}</span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        )}
+                    <div className="mt-5">
+                        <label className="text-sm font-semibold text-gray-700 mb-2 block">Danh mục</label>
+                        <select value={form.categoryId ?? ""} onChange={(e) => setForm(p => ({ ...p, categoryId: e.target.value ? Number(e.target.value) : undefined }))}
+                            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
+                            <option value="">-- Chọn danh mục --</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
                     </div>
 
                     <div className="mt-5">
@@ -325,6 +313,33 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     </button>
                 </div>
             </div>
+
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+                        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 px-6 py-8 text-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
+                                <CheckCircle2 size={32} className="text-emerald-600" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-emerald-900 mb-2">Đăng bài thành công!</h2>
+                            <p className="text-emerald-700 text-sm mb-4">Bài đăng của bạn đã được tạo thành công</p>
+                            <div className="bg-white rounded-xl p-4 mb-4">
+                                <div className="text-xs text-gray-600 mb-1">Phí đã trừ</div>
+                                <div className="text-2xl font-bold text-emerald-600">{POSTING_FEE} VND</div>
+                            </div>
+                            <p className="text-xs text-gray-600 mb-6">Xe của bạn sẽ hiển thị trong danh sách bài đăng</p>
+                        </div>
+                        <div className="px-6 py-4 flex justify-center">
+                            <button
+                                onClick={() => setShowSuccessModal(false)}
+                                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-8 py-2.5 text-sm font-semibold text-white transition"
+                            >
+                                Hoàn tất
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
