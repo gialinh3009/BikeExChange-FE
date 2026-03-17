@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, Star } from "lucide-react";
 import { getOrderHistoryAPI } from "../../services/Buyer/orderActionService";
-import { createReviewAPI } from "../../services/reviewService";
+import { createReviewAPI, listReviewsBySellerAPI } from "../../services/reviewService";
 
 type OrderStatus =
   | "PENDING_PAYMENT" | "ESCROWED" | "ACCEPTED" | "DELIVERED"
@@ -15,13 +15,63 @@ interface OrderDetail {
   sellerName: string;
   bikeTitle: string;
   status: OrderStatus;
+  bikeId?: number;
+  amountPoints?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  acceptedAt?: string;
+  deliveredAt?: string;
+  seller?: {
+    id?: number;
+    userId?: number;
+    sellerId?: number;
+    name?: string;
+    fullName?: string;
+  };
+  bike?: {
+    id?: number;
+    title?: string;
+  };
 }
 
 interface OrderHistoryDetail {
   order: OrderDetail;
   canReview?: boolean;
   isReviewed?: boolean;
+  reviewed?: boolean;
+  review?: unknown;
 }
+
+interface SellerReviewItem {
+  reviewerId?: number;
+  reviewer?: { id?: number };
+  createdAt?: string;
+}
+
+const fmtDateTime = (iso?: string) => {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const fmtMoney = (p?: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
+
+const getCurrentUserId = (): number | null => {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    const id = Number(user?.id ?? user?.userId);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+};
 
 export default function OrderReviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +85,10 @@ export default function OrderReviewPage() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [sellerReviewed, setSellerReviewed] = useState(false);
+  const [sellerReviewedAt, setSellerReviewedAt] = useState<string | null>(null);
+  const [sellerReviewChecked, setSellerReviewChecked] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -55,21 +109,81 @@ export default function OrderReviewPage() {
     void load();
   }, [orderId]);
 
+  useEffect(() => {
+    const checkSellerReview = async () => {
+      if (!detail?.order) return;
+
+      const sellerId = Number(
+        detail.order.sellerId
+        ?? detail.order.seller?.id
+        ?? detail.order.seller?.userId
+        ?? detail.order.seller?.sellerId,
+      );
+      const currentUserId = getCurrentUserId();
+      if (!Number.isFinite(sellerId) || sellerId <= 0 || !currentUserId) return;
+
+      try {
+        const reviews = await listReviewsBySellerAPI(sellerId);
+        const match = (Array.isArray(reviews) ? reviews : []).find((rv: SellerReviewItem) => {
+          const reviewerId = Number(rv?.reviewerId ?? rv?.reviewer?.id);
+          return Number.isFinite(reviewerId) && reviewerId === currentUserId;
+        });
+
+        setSellerReviewed(Boolean(match));
+        setSellerReviewedAt(match?.createdAt ?? null);
+      } catch {
+        setSellerReviewed(false);
+        setSellerReviewedAt(null);
+      } finally {
+        setSellerReviewChecked(true);
+      }
+    };
+
+    void checkSellerReview();
+  }, [detail]);
+
   const submitReview = async () => {
-    if (!detail?.order?.sellerId) return;
-    if (rating < 1 || rating > 5) {
-      alert("Vui lòng chọn số sao từ 1 đến 5.");
+    if (!detail?.order) return;
+
+    const sellerId = Number(
+      detail.order.sellerId
+      ?? detail.order.seller?.id
+      ?? detail.order.seller?.userId
+      ?? detail.order.seller?.sellerId,
+    );
+
+    if (!Number.isFinite(sellerId) || sellerId <= 0) {
+      setFormError("Không xác định được người bán để gửi đánh giá.");
       return;
     }
 
+    if (rating < 1 || rating > 5) {
+      setFormError("Vui lòng chọn số sao từ 1 đến 5.");
+      return;
+    }
+
+    setFormError("");
     setSubmitting(true);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Vui lòng đăng nhập để đánh giá.");
 
+      const latest = await getOrderHistoryAPI(orderId);
+      const reviewedNow = Boolean(latest?.isReviewed ?? latest?.reviewed ?? latest?.review);
+      if (reviewedNow) {
+        setDetail(latest);
+        setFormError("Bạn đã đánh giá người bán này trước đó.");
+        return;
+      }
+
+      if (sellerReviewed) {
+        setFormError("Bạn đã đánh giá người bán này trước đó.");
+        return;
+      }
+
       await createReviewAPI(
         {
-          sellerId: detail.order.sellerId,
+          sellerId,
           rating,
           comment: comment.trim(),
         },
@@ -78,13 +192,13 @@ export default function OrderReviewPage() {
 
       setShowSuccess(true);
     } catch (e) {
-      alert(String(e instanceof Error ? e.message : e));
+      setFormError(String(e instanceof Error ? e.message : e));
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
+  if (loading || !sellerReviewChecked) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
         <p style={{ color: "#64748b", fontSize: 14 }}>Đang tải dữ liệu đánh giá...</p>
@@ -106,7 +220,41 @@ export default function OrderReviewPage() {
     );
   }
 
-  if (detail.isReviewed || !detail.canReview || detail.order.status !== "COMPLETED") {
+  const canReview = detail?.canReview !== false;
+
+  if (sellerReviewed) {
+    return (
+      <div style={{
+        minHeight: "100vh", background: "rgba(0,0,0,0.18)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'DM Sans',sans-serif"
+      }}>
+        <div style={{
+          background: "white", borderRadius: 16, padding: 32,
+          minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
+        }}>
+          <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
+            Bạn đã đánh giá rồi
+          </h3>
+          <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
+            Đánh giá đã được ghi nhận trước đó nên không thể gửi lại.
+          </p>
+          <button
+            style={{
+              padding: "10px 24px", background: "#2563eb", color: "white",
+              border: "none", borderRadius: 8, fontWeight: 600,
+              cursor: "pointer", fontSize: 15
+            }}
+            onClick={() => navigate(-1)}
+          >
+            Quay lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canReview || detail.order.status !== "COMPLETED") {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
         <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 14, padding: 24, width: "min(92vw, 520px)" }}>
@@ -178,9 +326,47 @@ export default function OrderReviewPage() {
 
       <div style={{ width: "min(92vw, 680px)", margin: "0 auto", padding: "28px 16px 64px" }}>
         <div style={{ background: "white", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: 20 }}>
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Đánh giá đơn hàng #{detail.order.id}</p>
-          <p style={{ margin: 0, color: "#0f172a", fontSize: 16, fontWeight: 700 }}>{detail.order.bikeTitle}</p>
-          <p style={{ margin: "4px 0 16px", color: "#64748b", fontSize: 13 }}>Người bán: {detail.order.sellerName}</p>
+          {(() => {
+            const sellerId = Number(
+              detail.order.sellerId
+              ?? detail.order.seller?.id
+              ?? detail.order.seller?.userId
+              ?? detail.order.seller?.sellerId,
+            );
+            const sellerName = detail.order.sellerName || detail.order.seller?.fullName || detail.order.seller?.name || `Seller #${sellerId}`;
+            const bikeId = Number(detail.order.bikeId ?? detail.order.bike?.id);
+            const bikeTitle = detail.order.bikeTitle || detail.order.bike?.title || "Không có tên xe";
+
+            return (
+              <>
+                <p style={{ margin: 0, color: "#94a3b8", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Đánh giá đơn hàng #{detail.order.id}</p>
+
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", fontSize: 13, fontWeight: 700, color: "#334155" }}>
+                    Thông tin xe
+                  </div>
+                  <div style={{ padding: "12px 14px", display: "grid", gap: 8 }}>
+                    <p style={{ margin: 0, color: "#0f172a", fontSize: 15, fontWeight: 700 }}>{bikeTitle}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Mã xe: {Number.isFinite(bikeId) && bikeId > 0 ? `#${bikeId}` : "—"}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Giá trị đơn: {fmtMoney(detail.order.amountPoints)}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Ngày tạo: {fmtDateTime(detail.order.createdAt)}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Ngày giao: {fmtDateTime(detail.order.deliveredAt)}</p>
+                  </div>
+                </div>
+
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", fontSize: 13, fontWeight: 700, color: "#334155" }}>
+                    Thông tin người bán
+                  </div>
+                  <div style={{ padding: "12px 14px", display: "grid", gap: 8 }}>
+                    <p style={{ margin: 0, color: "#0f172a", fontSize: 14, fontWeight: 700 }}>{sellerName}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Mã người bán: {Number.isFinite(sellerId) && sellerId > 0 ? `#${sellerId}` : "—"}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Trạng thái đơn: {detail.order.status}</p>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           <p style={{ margin: "0 0 8px", color: "#0f172a", fontSize: 14, fontWeight: 700 }}>Chọn số sao</p>
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -204,6 +390,10 @@ export default function OrderReviewPage() {
             placeholder="Chia sẻ trải nghiệm giao dịch của bạn..."
             style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", fontSize: 14, fontFamily: "inherit", resize: "vertical", marginBottom: 16 }}
           />
+
+          {formError && (
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#dc2626", fontWeight: 600 }}>{formError}</p>
+          )}
 
           <button
             onClick={() => void submitReview()}

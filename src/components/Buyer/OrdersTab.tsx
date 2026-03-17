@@ -173,6 +173,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
     const [showReturnModalForOrder, setShowReturnModalForOrder] = useState<number | null>(null);
     const [showDisputeModalForOrder, setShowDisputeModalForOrder] = useState<number | null>(null);
     const [confirmationModal, setConfirmationModal] = useState<{ open: boolean; order: OrderItem | null }>({ open: false, order: null });
+    const [showAlreadyReviewedModal, setShowAlreadyReviewedModal] = useState(false);
 
     void token;
 
@@ -362,11 +363,17 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                 );
 
             case "COMPLETED":
-                if (order.canReview && !order.isReviewed) {
+                if (order.canReview) {
                     return (
                         <button
                             style={btnStyle("#2563eb", "#eff6ff", "#bfdbfe")}
-                            onClick={() => navigate(`/orders/${order.id}/review`)}
+                            onClick={() => {
+                                if (order.isReviewed) {
+                                    setShowAlreadyReviewedModal(true);
+                                } else {
+                                    navigate(`/orders/${order.id}/review`);
+                                }
+                            }}
                             disabled={busy}
                         >
                             <MessageSquare size={13} /> Đánh giá đơn hàng
@@ -394,7 +401,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
             </h3>
             <p style={{ color: "#94a3b8", fontSize: 13 }}>
                 {mode === "review-needed"
-                    ? "Các đơn COMPLETED chưa đánh giá sẽ xuất hiện tại đây."
+                    ? "Các đơn chưa đánh giá sẽ xuất hiện tại đây."
                     : (filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!")}
             </p>
         </div>
@@ -406,10 +413,10 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
                     <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>
-                        {mode === "review-needed" ? "Đơn hàng cần đánh giá" : "Đơn hàng của tôi"}
+                        {mode === "review-needed" ? "Đánh giá" : "Đơn hàng của tôi"}
                     </h2>
                     <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
-                        {displayedOrders.length} {mode === "review-needed" ? "đơn cần review" : "đơn hàng"}
+                        {displayedOrders.length} {mode === "review-needed" ? "đơn chưa đánh giá" : "đơn hàng"}
                     </p>
                 </div>
                 <button onClick={() => fetchOrders()}
@@ -605,6 +612,37 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                 onClose={() => setConfirmationModal({ open: false, order: null })}
                 onSuccess={handleConfirmationSuccess}
             />
+
+            {showAlreadyReviewedModal && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+                    background: "rgba(0,0,0,0.18)", zIndex: 9999,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                    <div style={{
+                        background: "white", borderRadius: 16, padding: 32,
+                        minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
+                    }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
+                            Bạn đã đánh giá rồi
+                        </h3>
+                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
+                            Đánh giá đã được ghi nhận trước đó nên không thể gửi lại.
+                        </p>
+                        <button
+                            style={{
+                                padding: "10px 24px", background: "#2563eb", color: "white",
+                                border: "none", borderRadius: 8, fontWeight: 600,
+                                cursor: "pointer", fontSize: 15
+                            }}
+                            onClick={() => setShowAlreadyReviewedModal(false)}
+                        >
+                            Quay lại
+                        </button>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

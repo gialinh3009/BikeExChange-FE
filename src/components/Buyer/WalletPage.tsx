@@ -3,11 +3,12 @@
  *
  * API calls:
  *   GET /wallet                                → { availablePoints, frozenPoints }
- *   GET /orders/my-purchases?status=ESCROWED   → tính heldPoints thực tế từ orders
+ *   GET /orders/my-purchases?status=...         → tính heldPoints thực tế từ các trạng thái còn giam tiền
  *   GET /wallet/transactions                   → lịch sử giao dịch
  *   GET /vnpay/create-payment?amount=&returnUrl → VNPay payment URL
  *
- * "Đang giữ" = tổng amountPoints của tất cả đơn ESCROWED (chính xác hơn frozenPoints DB)
+ * "Đang giữ" = tổng amountPoints của đơn còn giam tiền.
+ * Chỉ nhả tiền khi đơn đã kết thúc (COMPLETED / REFUNDED / CANCELLED).
  */
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -72,6 +73,7 @@ interface EscrowedOrder {
     id: number;
     bikeTitle: string;
     amountPoints: number;
+    status?: string;
 }
 
 interface Transaction {
@@ -130,6 +132,16 @@ const getTxInfo = (tx: Transaction): { label: string; sub: string } => {
 const isIncome = (type: string) => ["DEPOSIT", "EARN", "EARN_ESCROW", "REFUND", "REFUND_BUYER", "DISPUTE_REFUND", "ESCROW_RELEASE"].includes(type);
 
 const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000];
+
+const HOLDING_STATUSES = ["ESCROWED", "ACCEPTED", "DELIVERED", "RETURN_REQUESTED", "DISPUTED"];
+
+const HOLDING_STATUS_LABEL: Record<string, string> = {
+    ESCROWED: "Chờ seller xác nhận",
+    ACCEPTED: "Seller đã xác nhận",
+    DELIVERED: "Đã giao hàng, chờ xác nhận",
+    RETURN_REQUESTED: "Đang yêu cầu hoàn hàng",
+    DISPUTED: "Đang tranh chấp",
+};
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 export default function WalletPage({ initialTab = "overview" }: { initialTab?: TabType }) {
@@ -193,27 +205,35 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         }
     };
 
-    /* ── Fetch wallet + ESCROWED orders song song ── */
+    /* ── Fetch wallet + các đơn đang bị giam tiền ── */
     const fetchWallet = useCallback(async () => {
         setLoading(true);
         try {
-            const [walletData, purchases] = await Promise.all([
+            const [walletData, purchasesByStatus] = await Promise.all([
                 getWalletAPI(),
-                getMyPurchasesAPI({ status: "ESCROWED" }),
+                Promise.all(HOLDING_STATUSES.map((status) => getMyPurchasesAPI({ status }))),
             ]);
 
             setWallet(walletData);
 
             // BuyerPurchaseHistoryResponse: item có thể là { order } hoặc object order trực tiếp.
+            const purchases = Array.isArray(purchasesByStatus)
+                ? purchasesByStatus.flatMap((group) => (Array.isArray(group) ? group : []))
+                : [];
+
             if (Array.isArray(purchases)) {
-                setEscrowedOrders(purchases.map((p: EscrowedOrder & { order?: EscrowedOrder }) => {
+                const dedup = new Map();
+                purchases.forEach((p) => {
                     const order = p.order ?? p;
-                    return {
+                    if (!order?.id || dedup.has(order.id)) return;
+                    dedup.set(order.id, {
                         id: order.id,
                         bikeTitle: order.bikeTitle,
                         amountPoints: order.amountPoints,
-                    };
-                }));
+                        status: order.status,
+                    });
+                });
+                setEscrowedOrders(Array.from(dedup.values()));
             } else {
                 setEscrowedOrders([]);
             }
@@ -257,7 +277,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
     };
 
     /* ── Computed ── */
-    // realHeld = tổng amountPoints đơn ESCROWED — chính xác, real-time từ orders API
+    // realHeld = tổng amountPoints đơn còn giam tiền — chính xác, real-time từ orders API
     const realHeld    = escrowedOrders.reduce((s, o) => s + o.amountPoints, 0);
     const displayAvail = wallet?.availablePoints ?? 0;
     const displayTotal = displayAvail + realHeld;
@@ -340,11 +360,6 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     <h2 style={{ fontSize: 28, fontWeight: 800, color: "#475569", margin: 0 }}>
                         {loading ? "..." : fmtPts(realHeld)}
                     </h2>
-                    <p style={{ fontSize: 11, color: "#94a3b8", margin: "6px 0 0" }}>
-                        {loading ? "..." : escrowedOrders.length > 0
-                            ? `${escrowedOrders.length} đơn chờ seller xác nhận`
-                            : "Không có đơn ký quỹ"}
-                    </p>
                 </div>
 
                 {/* Tổng ví */}
@@ -383,7 +398,9 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                                     <p style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                         {o.bikeTitle}
                                     </p>
-                                    <p style={{ fontSize: 11, color: "#94a3b8", margin: 0 }}>Đơn #{o.id} · Chờ seller xác nhận</p>
+                                    <p style={{ fontSize: 11, color: "#94a3b8", margin: 0 }}>
+                                        Đơn #{o.id} · {HOLDING_STATUS_LABEL[String(o.status || "")] || "Đang tạm giữ"}
+                                    </p>
                                 </div>
                             </div>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", flexShrink: 0, marginLeft: 12 }}>

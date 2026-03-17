@@ -56,7 +56,7 @@ export default function OpenDisputeModal({
         };
 
         if (!payload.reason || !payload.buyerAddress || !payload.buyerPhone || !payload.buyerEmail) {
-            setError("Vui long nhap day du ly do va thong tin lien he.");
+            setError("Vui lòng nhập đầy đủ lý do và thông tin liên hệ.");
             return;
         }
 
@@ -98,10 +98,10 @@ export default function OpenDisputeModal({
                 }}
             >
                 <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a" }}>
-                    Mo tranh chap
+                    Mở tranh chấp
                 </h3>
                 <p style={{ margin: "8px 0 14px", color: "#64748b", fontSize: 14 }}>
-                    Cung cap ly do va thong tin lien he de Admin xu ly nhanh hon.
+                    Cung cấp lý do và thông tin liên hệ để Admin xử lý nhanh hơn.
                 </p>
 
                 <div style={{ display: "grid", gap: 10 }}>
@@ -111,7 +111,7 @@ export default function OpenDisputeModal({
                             setReason(e.target.value);
                             if (error) setError("");
                         }}
-                        placeholder="Ly do mo tranh chap..."
+                        placeholder="Lý do mở tranh chấp..."
                         rows={4}
                         style={{
                             width: "100%",
@@ -132,7 +132,7 @@ export default function OpenDisputeModal({
                             setBuyerAddress(e.target.value);
                             if (error) setError("");
                         }}
-                        placeholder="Dia chi lien he"
+                        placeholder="Địa chỉ liên hệ"
                         style={{
                             width: "100%",
                             border: "1.5px solid #dbe3ef",
@@ -151,7 +151,7 @@ export default function OpenDisputeModal({
                                 setBuyerPhone(e.target.value);
                                 if (error) setError("");
                             }}
-                            placeholder="So dien thoai"
+                            placeholder="Số điện thoại"
                             style={{
                                 width: "100%",
                                 border: "1.5px solid #dbe3ef",
@@ -203,7 +203,7 @@ export default function OpenDisputeModal({
                             cursor: loading ? "not-allowed" : "pointer",
                         }}
                     >
-                        Quay lai
+                        Quay lại
                     </button>
                     <button
                         onClick={() => {
@@ -221,7 +221,7 @@ export default function OpenDisputeModal({
                             opacity: loading ? 0.75 : 1,
                         }}
                     >
-                        {loading ? "Dang gui..." : "Gui tranh chap"}
+                        {loading ? "Đang gửi..." : "Gửi tranh chấp"}
                     </button>
                 </div>
             </div>

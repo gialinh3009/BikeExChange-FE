@@ -128,6 +128,8 @@ export default function OrderDetailPage() {
     const [actionBusy, setAction]   = useState<string | null>(null);
     const [showReturnModal, setShowReturnModal] = useState(false);
     const [showDisputeModal, setShowDisputeModal] = useState(false);
+    const [pendingConfirm, setPendingConfirm] = useState<{ msg: string; action: () => Promise<void> } | null>(null);
+    const [showAlreadyReviewedModal, setShowAlreadyReviewedModal] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -146,15 +148,22 @@ export default function OrderDetailPage() {
 
     /* ── Actions ── */
     const doAction = async (actionKey: string, fn: () => Promise<unknown>, confirmMsg?: string) => {
-        if (confirmMsg && !confirm(confirmMsg)) return;
-        setAction(actionKey);
-        try {
-            await fn();
-            await fetchDetail();
-        } catch (e) {
-            alert(String(e instanceof Error ? e.message : e));
-        } finally {
-            setAction(null);
+        const execute = async () => {
+            setAction(actionKey);
+            try {
+                await fn();
+                await fetchDetail();
+            } catch (e) {
+                alert(String(e instanceof Error ? e.message : e));
+            } finally {
+                setAction(null);
+            }
+        };
+
+        if (confirmMsg) {
+            setPendingConfirm({ msg: confirmMsg, action: execute });
+        } else {
+            await execute();
         }
     };
 
@@ -211,7 +220,7 @@ export default function OrderDetailPage() {
     );
 
     const order    = detail.order;
-    const meta     = STATUS_META[order.status] ?? STATUS_META.ESCROWED;
+    const meta     = STATUS_META[order.status] ?? STATUS_META.UNKNOWN;
     const stepIdx  = getStepIndex(order.status);
     const isCancelledOrRefunded = order.status === "CANCELLED" || order.status === "REFUNDED";
 
@@ -415,9 +424,15 @@ export default function OrderDetailPage() {
                         </div>
                     );
 
-                    if (order.status === "COMPLETED" && !detail.isReviewed && detail.canReview) return (
+                    if (order.status === "COMPLETED" && detail.canReview) return (
                         <button className="action-btn"
-                                onClick={() => navigate(`/orders/${order.id}/review`)}
+                                onClick={() => {
+                                    if (detail.isReviewed) {
+                                        setShowAlreadyReviewedModal(true);
+                                    } else {
+                                        navigate(`/orders/${order.id}/review`);
+                                    }
+                                }}
                                 style={{ ...btnBase, background: "#eff6ff", color: "#2563eb", border: "1.5px solid #bfdbfe" }}>
                             <MessageSquare size={16} /> Đánh giá giao dịch
                         </button>
@@ -440,6 +455,82 @@ export default function OrderDetailPage() {
                 onClose={() => setShowDisputeModal(false)}
                 onConfirm={submitOpenDispute}
             />
+
+            {pendingConfirm && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+                    background: "rgba(0,0,0,0.18)", zIndex: 9999,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                    <div style={{
+                        background: "white", borderRadius: 16, padding: 32,
+                        minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
+                    }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
+                            Xác nhận
+                        </h3>
+                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
+                            {pendingConfirm.msg}
+                        </p>
+                        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                            <button
+                                style={{
+                                    padding: "10px 24px", background: "#2563eb", color: "white",
+                                    border: "none", borderRadius: 8, fontWeight: 600,
+                                    cursor: "pointer", fontSize: 15
+                                }}
+                                onClick={async () => {
+                                    const action = pendingConfirm.action;
+                                    setPendingConfirm(null);
+                                    await action();
+                                }}
+                            >
+                                Xác nhận
+                            </button>
+                            <button
+                                style={{
+                                    padding: "10px 24px", background: "#f1f5f9", color: "#2563eb",
+                                    border: "none", borderRadius: 8, fontWeight: 600,
+                                    cursor: "pointer", fontSize: 15
+                                }}
+                                onClick={() => setPendingConfirm(null)}
+                            >
+                                Hủy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showAlreadyReviewedModal && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+                    background: "rgba(0,0,0,0.18)", zIndex: 9999,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                    <div style={{
+                        background: "white", borderRadius: 16, padding: 32,
+                        minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
+                    }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
+                            Bạn đã đánh giá rồi
+                        </h3>
+                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
+                            Đánh giá đã được ghi nhận trước đó nên không thể gửi lại.
+                        </p>
+                        <button
+                            style={{
+                                padding: "10px 24px", background: "#2563eb", color: "white",
+                                border: "none", borderRadius: 8, fontWeight: 600,
+                                cursor: "pointer", fontSize: 15
+                            }}
+                            onClick={() => setShowAlreadyReviewedModal(false)}
+                        >
+                            Quay lại
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
