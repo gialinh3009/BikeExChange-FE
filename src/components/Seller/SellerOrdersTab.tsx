@@ -62,22 +62,27 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
       const res = await fetch(`${BASE_URL}/orders/my-sales`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to fetch orders");
+      const data = (await res.json()) as unknown;
+      if (!res.ok) throw new Error((data as Record<string, unknown>).message as string || "Failed to fetch orders");
+      
+      interface OrderWrapper {
+        order: SellerOrder;
+      }
       
       let allOrders: SellerOrder[] = [];
       if (Array.isArray(data)) {
-        if (data.length > 0 && data[0]?.order) {
-          allOrders = data.map((item: any) => item.order);
+        if (data.length > 0 && (data[0] as Record<string, unknown>)?.order) {
+          allOrders = (data as OrderWrapper[]).map((item) => item.order);
         } else {
-          allOrders = data;
+          allOrders = data as SellerOrder[];
         }
-      } else if (data?.data) {
-        if (Array.isArray(data.data)) {
-          if (data.data.length > 0 && data.data[0]?.order) {
-            allOrders = data.data.map((item: any) => item.order);
+      } else if ((data as Record<string, unknown>)?.data) {
+        const dataArray = ((data as Record<string, unknown>).data) as unknown[];
+        if (Array.isArray(dataArray)) {
+          if (dataArray.length > 0 && (dataArray[0] as Record<string, unknown>)?.order) {
+            allOrders = (dataArray as OrderWrapper[]).map((item) => item.order);
           } else {
-            allOrders = data.data;
+            allOrders = dataArray as SellerOrder[];
           }
         }
       }

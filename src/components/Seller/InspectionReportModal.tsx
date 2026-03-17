@@ -1,10 +1,20 @@
 import { X } from "lucide-react";
 
+interface InspectionDetail {
+    inspection?: {
+        status?: string;
+        inspectionDate?: string;
+    };
+    report?: {
+        content?: string;
+    };
+}
+
 interface InspectionReportModalProps {
     isOpen: boolean;
     isLoading: boolean;
     error: string | null;
-    detail: any;
+    detail: InspectionDetail | null;
     onClose: () => void;
 }
 
@@ -43,8 +53,8 @@ export default function InspectionReportModal({
                                 <div>
                                     <div className="font-semibold text-gray-900 mb-2">Thông tin kiểm định</div>
                                     <div className="text-sm text-gray-600 space-y-1">
-                                        <div>Trạng thái: {(detail.inspection as any)?.status || "—"}</div>
-                                        <div>Ngày kiểm định: {(detail.inspection as any)?.inspectionDate || "—"}</div>
+                                        <div>Trạng thái: {detail.inspection.status || "—"}</div>
+                                        <div>Ngày kiểm định: {detail.inspection.inspectionDate || "—"}</div>
                                     </div>
                                 </div>
                             )}
@@ -52,7 +62,7 @@ export default function InspectionReportModal({
                                 <div>
                                     <div className="font-semibold text-gray-900 mb-2">Báo cáo</div>
                                     <div className="text-sm text-gray-600 whitespace-pre-wrap">
-                                        {(detail.report as any)?.content || "—"}
+                                        {detail.report.content || "—"}
                                     </div>
                                 </div>
                             )}
