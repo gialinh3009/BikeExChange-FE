@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User, AlertTriangle } from "lucide-react";
+import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User, AlertTriangle, Star } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
@@ -104,6 +104,7 @@ export default function BuyerPage() {
     const navItems = [
         { id: "overview",  icon: User,       label: "Tổng quan" },
         { id: "orders",    icon: Package,     label: "Lịch sử mua hàng"  },
+        { id: "review",    icon: Star,        label: "Cần đánh giá" },
         { id: "disputes",  icon: AlertTriangle, label: "Tranh chấp" },
         { id: "wallet",    icon: Wallet,      label: "Ví & ưu đãi"   },
     ];
@@ -461,6 +462,13 @@ export default function BuyerPage() {
                     {activeTab === "orders" && (
                         <div className="fade-up">
                             <OrdersTab token={token} navigate={navigate} />
+                        </div>
+                    )}
+
+                    {/* ── REVIEW NEEDED ── */}
+                    {activeTab === "review" && (
+                        <div className="fade-up">
+                            <OrdersTab token={token} navigate={navigate} mode="review-needed" />
                         </div>
                     )}
 

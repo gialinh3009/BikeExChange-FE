@@ -31,6 +31,7 @@ import BikedetailPage from "../components/Buyer/BikedetailPage";
 import SellerProfileView from "../components/Buyer/SellerProfileView";
 import OrderDetailPage from "../components/Buyer/OrderDetailPage";
 import DisputeDetailPage from "../components/Buyer/DisputeDetailPage";
+import OrderReviewPage from "../components/Buyer/OrderReviewPage";
 import RolePlaceholder from "./RolePlaceHolder";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
@@ -99,7 +100,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/order-detail/:id" element={<OrderDetailPage />} />
-        <Route path="/orders/:id/review" element={<RolePlaceholder label="Đánh giá giao dịch" />} />
+        <Route path="/orders/:id/review" element={<OrderReviewPage />} />
         <Route path="/orders/:id/dispute" element={<DisputeDetailPage />} />
       </Route>
 

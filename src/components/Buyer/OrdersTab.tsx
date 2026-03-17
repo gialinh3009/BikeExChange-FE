@@ -14,7 +14,8 @@ import {
     RotateCcw,
     Clock,
     Truck,
-    AlertTriangle
+    AlertTriangle,
+    MessageSquare,
 } from "lucide-react";
 import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import {
@@ -53,6 +54,8 @@ interface OrderItem {
     daysUntilAutoRelease?: number;
     shippingCarrier?: string;
     trackingCode?: string;
+    canReview?: boolean;
+    isReviewed?: boolean;
 }
 
 interface ApiPurchase {
@@ -155,11 +158,12 @@ const STATUS_FILTERS = [
 interface Props {
     token: string;
     navigate: (path: string) => void;
+    mode?: "all" | "review-needed";
 }
 
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
-export default function OrdersTab({ token, navigate }: Props) {
+export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
 
     const [orders, setOrders] = useState<OrderItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -182,7 +186,11 @@ export default function OrdersTab({ token, navigate }: Props) {
 
             if (Array.isArray(purchases)) {
 
-                const list: OrderItem[] = (purchases as ApiPurchase[]).map((p) => p.order);
+                const list: OrderItem[] = (purchases as ApiPurchase[]).map((p) => ({
+                    ...p.order,
+                    canReview: p.canReview,
+                    isReviewed: p.isReviewed,
+                }));
 
                 setOrders(
                     list.sort(
@@ -353,19 +361,41 @@ export default function OrdersTab({ token, navigate }: Props) {
                     </button>
                 );
 
+            case "COMPLETED":
+                if (order.canReview && !order.isReviewed) {
+                    return (
+                        <button
+                            style={btnStyle("#2563eb", "#eff6ff", "#bfdbfe")}
+                            onClick={() => navigate(`/orders/${order.id}/review`)}
+                            disabled={busy}
+                        >
+                            <MessageSquare size={13} /> Đánh giá đơn hàng
+                        </button>
+                    );
+                }
+                return null;
+
             default:
                 return null;
         }
     };
 
-    if (!loading && orders.length === 0) return (
+    const displayedOrders = mode === "review-needed"
+        ? orders.filter((order) => order.status === "COMPLETED" && order.canReview && !order.isReviewed)
+        : orders;
+
+    if (!loading && displayedOrders.length === 0) return (
         <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
             <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                 <Package size={28} color="#cbd5e1" />
             </div>
-            <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Chưa có đơn hàng</h3>
+            <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>
+                {mode === "review-needed" ? "Chưa có đơn cần đánh giá" : "Chưa có đơn hàng"}
+            </h3>
             <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                {filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!"}
+                {mode === "review-needed"
+                    ? "Các đơn COMPLETED chưa đánh giá sẽ xuất hiện tại đây."
+                    : (filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!")}
             </p>
         </div>
     );
@@ -375,8 +405,12 @@ export default function OrdersTab({ token, navigate }: Props) {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                    <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>Đơn hàng của tôi</h2>
-                    <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>{orders.length} đơn hàng</p>
+                    <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>
+                        {mode === "review-needed" ? "Đơn hàng cần đánh giá" : "Đơn hàng của tôi"}
+                    </h2>
+                    <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
+                        {displayedOrders.length} {mode === "review-needed" ? "đơn cần review" : "đơn hàng"}
+                    </p>
                 </div>
                 <button onClick={() => fetchOrders()}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "white", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, color: "#64748b", cursor: "pointer" }}>
@@ -384,28 +418,30 @@ export default function OrdersTab({ token, navigate }: Props) {
                 </button>
             </div>
 
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-                {STATUS_FILTERS.map(f => (
-                    <button key={f.value} onClick={() => setFilter(f.value)}
-                            style={{
-                                flexShrink: 0,
-                                padding: "6px 14px",
-                                borderRadius: 20,
-                                border: "1.5px solid",
-                                borderColor: filter === f.value ? "#2563eb" : "#e8ecf4",
-                                background: filter === f.value ? "#eff6ff" : "white",
-                                color: filter === f.value ? "#2563eb" : "#64748b",
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: "pointer"
-                            }}>
-                        {f.label}
-                    </button>
-                ))}
-            </div>
+            {mode === "all" && (
+                <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                    {STATUS_FILTERS.map(f => (
+                        <button key={f.value} onClick={() => setFilter(f.value)}
+                                style={{
+                                    flexShrink: 0,
+                                    padding: "6px 14px",
+                                    borderRadius: 20,
+                                    border: "1.5px solid",
+                                    borderColor: filter === f.value ? "#2563eb" : "#e8ecf4",
+                                    background: filter === f.value ? "#eff6ff" : "white",
+                                    color: filter === f.value ? "#2563eb" : "#64748b",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: "pointer"
+                                }}>
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {orders.map(order => {
+                {displayedOrders.map(order => {
                     const meta = STATUS_META[order.status] ?? STATUS_META.ESCROWED;
                     return (
                         <div key={order.id}
