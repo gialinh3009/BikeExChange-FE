@@ -9,7 +9,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Package, CheckCircle, Truck, Clock, AlertCircle, RefreshCw, RotateCcw } from "lucide-react";
-import { BASE_URL } from "../../config/apiConfig";
 import { confirmReturnAPI, getSellerSalesHistoryAPI } from "../../services/orderService";
 import OrderApprovalModal from "./OrderApprovalModal";
 import OrderDeliveryForm from "./OrderDeliveryForm";
@@ -28,13 +27,6 @@ interface SellerOrder {
   shippingCarrier?: string;
   trackingCode?: string;
   daysUntilAutoRelease?: number;
-}
-
-interface OrdersResponse {
-  data?: SellerOrder[];
-  content?: SellerOrder[];
-  success?: boolean;
-  message?: string;
 }
 
 const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
@@ -58,7 +50,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: str
   DISPUTED: { label: "Đang tranh chấp", color: "#ef4444", bg: "#fef2f2", icon: <AlertCircle size={14} /> },
 };
 
-type TabKey = "escrowed" | "accepted" | "delivered";
+type TabKey = "escrowed" | "accepted" | "delivered" | "returnRequested";
 
 interface SellerOrdersTabProps {
   token: string;
@@ -159,7 +151,8 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
     const statusMap: Record<TabKey, OrderStatus[]> = {
       escrowed: ["ESCROWED"],
       accepted: ["ACCEPTED"],
-      delivered: ["DELIVERED", "RETURN_REQUESTED"],
+      delivered: ["DELIVERED"],
+      returnRequested: ["RETURN_REQUESTED"],
     };
     return orders.filter(o => statusMap[tab].includes(o.status));
   };
@@ -192,7 +185,8 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   const tabConfig = [
     { key: "escrowed" as TabKey, label: "Chờ xác nhận", count: orders.filter(o => o.status === "ESCROWED").length },
     { key: "accepted" as TabKey, label: "Chuẩn bị giao", count: orders.filter(o => o.status === "ACCEPTED").length },
-    { key: "delivered" as TabKey, label: "Đã giao", count: orders.filter(o => o.status === "DELIVERED" || o.status === "RETURN_REQUESTED").length },
+    { key: "delivered" as TabKey, label: "Đã giao", count: orders.filter(o => o.status === "DELIVERED").length },
+    { key: "returnRequested" as TabKey, label: "Hoàn hàng", count: orders.filter(o => o.status === "RETURN_REQUESTED").length },
   ];
 
   return (
@@ -288,6 +282,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
             {tab === "escrowed" && "Chưa có đơn hàng nào chờ xác nhận"}
             {tab === "accepted" && "Chưa có đơn hàng nào chuẩn bị giao"}
             {tab === "delivered" && "Chưa có đơn hàng nào đã giao"}
+            {tab === "returnRequested" && "Chưa có đơn hoàn hàng nào chờ xác nhận"}
           </p>
         </div>
       )}
