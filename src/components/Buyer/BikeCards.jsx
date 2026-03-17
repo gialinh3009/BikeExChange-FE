@@ -1,9 +1,28 @@
 /**
- * BikeCards.jsx
- * Các card hiển thị xe: VerifiedCard, RegularCard, Skeleton
+ * ====================================================================================
+ * BikeCards.jsx — Hiển thị các card xe đạp (Verified, Regular, Skeleton)
+ * ====================================================================================
+ * Mục đích:
+ *   - Render UI các card xe đạp với hình ảnh, giá, rating, điều kiện xe
+ *   - XeDaDuocKiemDinhCard: Card cho xe đã qua kiểm định (badge xanh)
+ *   - RegularCard: Card thông thường cho các xe khác
+ *   - Skeleton: Loading placeholder
+ *
+ * API: Không gọi API (chỉ nhận data qua props)
+ * 
+ * State Management: Props-based (nhận data từ parent component)
+ *   - bike: object chứa thông tin xe
+ *   - onNavigate: function điều hướng khi click card
+ *   - onHeartClick: function thêm/xóa yêu thích
+ *   - wishedIds: Set<number> chứa ID các xe đã yêu thích
+ * ====================================================================================
  */
 import { Star, Heart, MapPin, Eye, ShieldCheck, ImageIcon } from "lucide-react";
 
+/**
+ * ━ Hàm helper: Convert giá trị thành string an toàn
+ * ━ Nếu value là object với property name/label thì lấy hệ thống đó, else convert sang string
+ */
 function safeStr(v, fallback = "—") {
   if (v == null) return fallback;
   if (typeof v === "string") return v;
@@ -11,6 +30,11 @@ function safeStr(v, fallback = "—") {
   return String(v);
 }
 
+
+/**
+ * ━ Bảng lookup điều kiện xe & styling
+ * ━ Map các trạng thái điều kiện (LIKE_NEW, GOOD, FAIR, POOR, NEW) thành label & CSS class
+ */
 export const CONDITION_META = {
   LIKE_NEW: { label: "Như mới", cls: "bg-blue-100 text-blue-700" },
   GOOD:     { label: "Tốt",     cls: "bg-green-100 text-green-700" },
@@ -19,10 +43,20 @@ export const CONDITION_META = {
   NEW:      { label: "Mới",     cls: "bg-purple-100 text-purple-700" },
 };
 
+/**
+ * ━ Hàm format giá VND
+ * ━ Input: number (VND)
+ * ━ Output: "1.000.000 ₫"
+ */
 export function fmtVND(n) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n ?? 0);
 }
 
+
+/**
+ * ━ Hàm lấy tên loại xe từ nhiều nguồn dữ liệu khác nhau
+ * ━ Backend có thể return qua: category.name, categoryName, bikeType, hoặc type
+ */
 function getBikeCategoryLabel(bike) {
   return safeStr(
     bike?.category?.name
@@ -33,6 +67,10 @@ function getBikeCategoryLabel(bike) {
   );
 }
 
+/**
+ * ━ Hàm lấy rating người bán từ nhiều nguồn (chuẩn hóa dữ liệu)
+ * ━ Return: number (0-5)
+ */
 function getSellerRating(bike) {
   return Number(
     bike?.sellerRating
@@ -43,7 +81,22 @@ function getSellerRating(bike) {
   );
 }
 
-// ─── Xe đã được kiểm định Card ───────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CARD COMPONENT 1: XE ĐÃ KIỂM ĐỊNH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * Props:
+ *   bike: object xe (title, brand, pricePoints, condition, media...)
+ *   onNavigate: func(bikeId) — điều hướng đến /bikes/{id}
+ *   onHeartClick: func(bikeId) — toggle like/unlike
+ *   wishedIds: Set<number> — ID các xe đã like
+ *
+ * Output: Card component với:
+ *   - Badge "Đã kiểm định" (xanh lá)
+ *   - Badge điều kiện xe (blue/green/yellow)
+ *   - Nút yêu thích
+ *   - 5 sao rating (full star = 5.0)
+ */
 export function XeDaDuocKiemDinhCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   const img = bike.media?.find(m => m.type === "IMAGE" && !m.url?.includes("example.com"))?.url;
   const condKey = safeStr(bike.condition, "");
@@ -106,7 +159,24 @@ export function XeDaDuocKiemDinhCard({ bike, onNavigate, onHeartClick, wishedIds
   );
 }
 
-// ─── Regular Bike Card ────────────────────────────────────────────────────────
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CARD COMPONENT 2: CARD XE THÔNG THƯỜNG
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * Props:
+ *   bike: object xe
+ *   onNavigate: func(bikeId) — điều hướng khi click card
+ *   onHeartClick: func(bikeId) — toggle wishlist
+ *   wishedIds: Set<number> — ID xe đã yêu thích
+ *
+ * Features:
+ *   - Hiển thị category từ getBikeCategoryLabel
+ *   - Rating seller từ getSellerRating (làm tròn 0-5 sao)
+ *   - Nút "Xem chi tiết" (Eye icon)
+ *   - Badge "Đã kiểm định" nếu inspectionStatus = APPROVED
+ *   - Hover effect: card bay lên, shadow tăng
+ */
 export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   const img = bike.media?.find(m => m.type === "IMAGE" && !m.url?.includes("example.com"))?.url;
   const condKey2 = safeStr(bike.condition, "");
@@ -182,7 +252,15 @@ export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   );
 }
 
-// ─── Skeleton Card ────────────────────────────────────────────────────────────
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LOADING COMPONENT: SKELETON CARD
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * Component placeholder hiển thị khi đang load dữ liệu
+ * Hiệu ứng: animate-pulse (bounce effect trên CSS)
+ * Dùng để tạo loading skeleton grid
+ */
 export function Skeleton() {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">

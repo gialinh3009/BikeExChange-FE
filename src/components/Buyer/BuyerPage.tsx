@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
-import { getMyPurchasesAPI, getOrderAPI } from "../../services/Buyer/Orderservice";
+import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import OrdersTab from "./OrdersTab";
 import { getWalletAPI } from "../../services/Buyer/walletService";
 
@@ -296,15 +296,7 @@ export default function BuyerPage() {
                                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                             {(overview?.orders ?? []).map((order) => (
                                                 <div key={order.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "#f8fafc", cursor: "pointer", position: "relative" }}
-                                                    onClick={async () => {
-                                                        // Use buyer service to keep endpoint/auth handling centralized.
-                                                        try {
-                                                            const orderDetail = await getOrderAPI(order.id);
-                                                            navigate(`/order-detail/${order.id}`, { state: { order: orderDetail } });
-                                                        } catch {
-                                                            navigate(`/order-detail/${order.id}`);
-                                                        }
-                                                    }}
+                                                        onClick={() => navigate(`/order-detail/${order.id}`)}
                                                 >
                                                     <div style={{ width: 36, height: 36, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                                         <Bike size={16} color="#2563eb" />

@@ -16,7 +16,10 @@ import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
 import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
-import SellerPage from "../components/Seller/SellerPage.tsx";
+import GuestLayout from "../components/home/Layout";
+import VerifyEmail from "../components/home/VerifyEmail";
+import ResetPassword from "../components/home/ResetPassword";
+import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import GuestLayout from "../components/home/Layout";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
@@ -56,25 +59,59 @@ interface AppRoutesProps {
 }
 
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
+  const defaultHome = getRoleHome(user?.role);
+  const roleUpper = String(user?.role || "").toUpperCase();
+  const canBrowseMarketplace = roleUpper === "BUYER" || roleUpper === "SELLER";
+
+
+
+
   return (
     <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/bikes/:id" element={<BikedetailPage />} />
+      <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
-      {/* Root: redirect theo role */}
+
+
+
+      {/* Profile */}
+      <Route element={<PrivateRoute />}>
+        <Route path="/profile" element={<ProfilePage />} />
+      </Route>
+
+
+
+
+      {/* Order detail - new route + backward-compatible alias */}
+      <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
+        <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/order-detail/:id" element={<OrderDetailPage />} />
+        <Route path="/orders/:id/review" element={<RolePlaceholder label="Đánh giá giao dịch" />} />
+      </Route>
+
+
+
+
+      {/* Root */}
       <Route
         path="/"
         element={
-          user ? (
-            <Navigate to={ROLE_ROUTES[user.role] ?? "/login"} replace />
-          ) : (
-            <GuestLayout />
-          )
+          !user || canBrowseMarketplace
+            ? <GuestLayout />
+            : <Navigate to={defaultHome} replace />
         }
       />
 
-      {/* Admin — protected */}
+
+
+
+      {/* Admin */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>
         <Route path="/admin" element={<AdminLayout user={user} onLogout={onLogout} />}>
           <Route index element={<AdminDashboard />} />

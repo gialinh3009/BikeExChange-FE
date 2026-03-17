@@ -1,3 +1,16 @@
+/**
+ * ====================================================================================
+ * walletService.js — API calls liên quan đến ví điểm
+ * ====================================================================================
+ * Mục đích:
+ *   - Lấy thông tin ví (availablePoints, frozenPoints)
+ *   - Lấy lịch sử giao dịch
+ *   - Tạo link thanh toán VNPay
+ *   - Xác nhận deposit sau thanh toán
+ *   - Tạo yêu cầu rút tiền
+ * ====================================================================================
+ */
+
 import { BASE_URL } from "../../config/apiConfig";
 
 const getAuthHeaders = () => {
@@ -9,7 +22,11 @@ const getAuthHeaders = () => {
 };
 
 /**
- * GET /wallet → { availablePoints, frozenPoints, userId }
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * API: GET /wallet — Lấy thông tin ví
+ * Output: { availablePoints, frozenPoints, userId }
+ * Gọi từ: WalletPage, BuyerPage overview, UpgradeToSellerModal
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  */
 export async function getWalletAPI() {
     const res = await fetch(`${BASE_URL}/wallet`, {
