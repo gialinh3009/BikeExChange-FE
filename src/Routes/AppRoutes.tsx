@@ -22,14 +22,16 @@ import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
 import VerifyEmail from "../components/home/VerifyEmail";
-import ResetPassword from "../components/home/ResetPassword";
 import SellerPage from "../components/Seller/SellerPage";
+import SellerOrderDetailPage from "../components/Seller/SellerOrderDetailPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
 import ProfilePage from "../components/Buyer/Profilepage";
 import BikedetailPage from "../components/Buyer/BikedetailPage";
 import SellerProfileView from "../components/Buyer/SellerProfileView";
 import OrderDetailPage from "../components/Buyer/OrderDetailPage";
+import DisputeDetailPage from "../components/Buyer/DisputeDetailPage";
+import OrderReviewPage from "../components/Buyer/OrderReviewPage";
 import RolePlaceholder from "./RolePlaceHolder";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
@@ -78,8 +80,6 @@ interface AppRoutesProps {
 
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
   const defaultHome = getRoleHome(user?.role);
-  const roleUpper = String(user?.role || "").toUpperCase();
-  const canBrowseMarketplace = roleUpper === "BUYER" || roleUpper === "SELLER";
 
   return (
     <Routes>
@@ -87,7 +87,6 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify" element={<VerifyEmail />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
@@ -97,22 +96,16 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
-      {/* Order detail */}
+      {/* Order detail - new route + backward-compatible alias */}
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/orders/:id" element={<OrderDetailPage />} />
         <Route path="/order-detail/:id" element={<OrderDetailPage />} />
-        <Route path="/orders/:id/review" element={<RolePlaceholder label="Đánh giá giao dịch" />} />
+        <Route path="/orders/:id/review" element={<OrderReviewPage />} />
+        <Route path="/orders/:id/dispute" element={<DisputeDetailPage />} />
       </Route>
 
       {/* Root */}
-      <Route
-        path="/"
-        element={
-          !user || canBrowseMarketplace
-            ? <GuestLayout />
-            : <Navigate to={defaultHome} replace />
-        }
-      />
+      <Route path="/" element={user ? <Navigate to={defaultHome} replace /> : <GuestLayout />} />
 
       {/* Admin */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>
@@ -135,13 +128,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="orders" element={<ManagerOrder />} />
           <Route path="transactions" element={<ManagerTransactions />} />
           <Route path="withdrawals" element={<ManagementWithdrawal />} />
-          <Route path="inspection-status" element={<ManagerInspectionStatus />} />
+          <Route path="inspection-status" element={<ManagerInspectionStatus/>} />
         </Route>
       </Route>
 
       {/* Seller */}
       <Route element={<PrivateRoute roles={["SELLER"]} />}>
         <Route path="/seller" element={<SellerPage />} />
+        <Route path="/seller/orders/:id" element={<SellerOrderDetailPage />} />
       </Route>
 
       {/* Inspector */}
@@ -156,7 +150,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         </Route>
       </Route>
 
-      {/* Buyer — BUYER and SELLER can access */}
+      {/* Buyer */}
       <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/buyer" element={<BuyerPage />} />
       </Route>

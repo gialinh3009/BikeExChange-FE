@@ -1,30 +1,9 @@
 /**
- * ====================================================================================
- * FilterPanel.jsx — Bộ lọc & tìm kiếm xe đạp
- * ====================================================================================
- * Mục đích:
- *   - Render UI bộ lọc: tìm kiếm, loại xe, thương hiệu, giá, năm, sắp xếp
- *   - Thu thập input từ user, gọi onApply() để filter dữ liệu
- *
- * Props:
- *   filterForm: object { keyword, categoryId, brandId, priceMin, priceMax, minYear, inspectedOnly }
- *   setFilterForm: func(newForm) — update filterForm state
- *   categories: array — danh sách loại xe từ API
- *   brands: array — danh sách thương hiệu
- *   sortBy: string — "newest", "oldest", "price_asc", "price_desc"
- *   setSortBy: func(value) — update sortBy state
- *   onApply: func() — gọi API với filter params
- *   onClear: func() — reset filter về mặc định
- *
- * API: Không gọi API trực tiếp (parent component xử lý)
- * ====================================================================================
+ * FilterPanel.jsx
+ * Bộ lọc xe: tìm kiếm, loại xe, thương hiệu, giá, năm sản xuất, sắp xếp
  */
 import { SlidersHorizontal, ChevronDown, Search, ShieldCheck, X } from "lucide-react";
 
-/**
- * ━ Các tùy chọn sắp xếp
- * ━ Liên kết với backend query params: sort=newest|oldest|price_asc|price_desc
- */
 export const SORTS = [
   { label: "Mới nhất",         value: "newest"    },
   { label: "Cũ nhất",          value: "oldest"    },
@@ -32,17 +11,7 @@ export const SORTS = [
   { label: "Giá cao đến thấp", value: "price_desc"},
 ];
 
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// COMPONENT 1: FILTER CHIP — Hiển thị active filter
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-/**
- * Props:
- *   label: string — tên filter (vd: "Loại xe: MTB")
- *   onRemove: func() — gọi khi bấm X (clear filter này)
- *
- * Output: Badge xanh với nội dung + nút X để xóa
- */
+// ─── FilterChip — active filter badge with remove button ─────────────────────
 export function FilterChip({ label, onRemove }) {
   return (
     <span className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-xl text-xs font-medium">
@@ -54,29 +23,7 @@ export function FilterChip({ label, onRemove }) {
   );
 }
 
-
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// COMPONENT 2: FILTER PANEL — Main filter UI
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-/**
- * Props: (xem ở trên)
- *
- * Workflow:
- *   1. User nhập keyword → setFilterForm({ keyword: "..." })
- *   2. User chọn category → setFilterForm({ categoryId: "..." })
- *   3. User nhập giá min/max → setFilterForm({ priceMin/Max: "..." })
- *   4. User bấm "Áp dụng bộ lọc" → onApply() gọi API GET /bikes?keyword=...&categoryId=...
- *   5. User bấm "Xóa bộ lọc" → onClear() reset form
- *   6. User chọn sắp xếp → setSortBy() cập nhật
- *
- * Features:
- *   - Tìm kiếm keyword (Enter key hoặc click button)
- *   - Chip category (Tất cả / categories)
- *   - Badge "Xe đã kiểm định chất lượng" toggle
- *   - Dropdown: thương hiệu, giá min/max, năm min
- *   - Button: Xóa / Sắp xếp / Áp dụng
- */
+// ─── FilterPanel — main filter UI ────────────────────────────────────────────
 export default function FilterPanel({
   filterForm, setFilterForm,
   categories, brands,

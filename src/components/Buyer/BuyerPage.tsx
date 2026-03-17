@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User } from "lucide-react";
+import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, TrendingUp, LogOut, User, AlertTriangle, Star } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
+import { getWishlistAPI } from "../../services/Buyer/wishlistService";
+import { getMyPurchasesAPI, getOrderAPI } from "../../services/Buyer/Orderservice";
 import { getWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import OrdersTab from "./OrdersTab";
+import DisputesTab from "./DisputesTab";
 import { getWalletAPI } from "../../services/Buyer/walletService";
 import Header from "../home/Header";
 import WishList from "./WishList";
@@ -86,10 +89,8 @@ export default function BuyerPage() {
 
 
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (activeTab !== "overview") return;
-        setOverview(null); // eslint-disable-line react-hooks/exhaustive-deps
         let cancelled = false;
         Promise.allSettled([
             getWalletAPI() as Promise<WalletData>,
@@ -122,6 +123,8 @@ export default function BuyerPage() {
     const navItems = [
         { id: "overview",  icon: User,       label: "Tổng quan" },
         { id: "orders",    icon: Package,     label: "Lịch sử mua hàng"  },
+        { id: "review",    icon: Star,        label: "Cần đánh giá" },
+        { id: "disputes",  icon: AlertTriangle, label: "Tranh chấp" },
         { id: "wallet",    icon: Wallet,      label: "Ví & ưu đãi"   },
         { id: "wishlist",  icon: Heart,       label: "Yêu thích" },
     ];
@@ -309,7 +312,15 @@ export default function BuyerPage() {
                                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                             {(overview?.orders ?? []).map((order) => (
                                                 <div key={order.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "#f8fafc", cursor: "pointer", position: "relative" }}
-                                                        onClick={() => navigate(`/order-detail/${order.id}`)}
+                                                    onClick={async () => {
+                                                        // Use buyer service to keep endpoint/auth handling centralized.
+                                                        try {
+                                                            const orderDetail = await getOrderAPI(order.id);
+                                                            navigate(`/order-detail/${order.id}`, { state: { order: orderDetail } });
+                                                        } catch {
+                                                            navigate(`/order-detail/${order.id}`);
+                                                        }
+                                                    }}
                                                 >
                                                     <div style={{ width: 36, height: 36, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                                         <Bike size={16} color="#2563eb" />
@@ -492,6 +503,20 @@ export default function BuyerPage() {
                     {activeTab === "orders" && (
                         <div className="fade-up">
                             <OrdersTab token={token} navigate={navigate} />
+                        </div>
+                    )}
+
+                    {/* ── REVIEW NEEDED ── */}
+                    {activeTab === "review" && (
+                        <div className="fade-up">
+                            <OrdersTab token={token} navigate={navigate} mode="review-needed" />
+                        </div>
+                    )}
+
+                    {/* ── DISPUTES ── */}
+                    {activeTab === "disputes" && (
+                        <div className="fade-up">
+                            <DisputesTab />
                         </div>
                     )}
 

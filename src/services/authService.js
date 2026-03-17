@@ -1,44 +1,16 @@
 import { BASE_URL } from "../config/apiConfig";
 
 export async function loginAPI({ email, password }) {
-  let res;
-  try {
-    res = await fetch(`${BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    throw new Error("Không thể kết nối máy chủ. Kiểm tra kết nối mạng và thử lại.");
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Đăng nhập thất bại.");
   }
-
-  // Đọc body an toàn — Spring Security đôi khi trả text/html khi 401
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    // Body không phải JSON (Spring Security default HTML error page)
-    if (res.status === 401) throw new Error("bad credentials");
-    if (res.status === 403) throw new Error("User is disabled");
-    throw new Error(`Lỗi máy chủ (${res.status}). Vui lòng thử lại.`);
-  }
-
-  if (!res.ok || data.success === false) {
-    // Lấy message từ nhiều format: custom API, Spring Security, OAuth2
-    const msg =
-      data.message ||
-      data.error_description ||
-      data.error ||
-      "";
-    throw new Error(msg || (res.status === 401 ? "bad credentials" : "Đăng nhập thất bại."));
-  }
-
-  // Hỗ trợ cả hai format: { success, data: { accessToken } } và { accessToken } trực tiếp
-  const userData = data.data ?? data;
-  if (!userData?.accessToken) {
-    throw new Error("Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.");
-  }
-  return userData;
+  return data.data;
 }
 
 export async function registerAPI({ fullName, email, password, phone, address, role }) {

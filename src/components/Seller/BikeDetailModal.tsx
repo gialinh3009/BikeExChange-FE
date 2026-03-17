@@ -9,6 +9,11 @@ type BikeBrowseItem = {
     status?: string;
     inspectionStatus?: string;
     media?: { url: string; type: string; sortOrder: number }[];
+    description?: string;
+    bikeType?: string;
+    frameSize?: string;
+    model?: string;
+    year?: string;
 };
 
 interface BikeDetailModalProps {
@@ -17,86 +22,72 @@ interface BikeDetailModalProps {
 }
 
 export default function BikeDetailModal({ bike, onClose }: BikeDetailModalProps) {
-    const [detailIdx, setDetailIdx] = useState(0);
+    const [imageIndex, setImageIndex] = useState(0);
 
     if (!bike) return null;
 
-    const detailMedias = (bike?.media ?? []).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    const detailImages = detailMedias.filter((m) => (m.type ?? "").toUpperCase() === "IMAGE" && m.url);
-    const detailCurrent = detailImages[detailIdx]?.url;
+    const images = bike.media || [];
+    const currentImage = images[imageIndex];
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <div className="font-semibold text-gray-900">Chi tiết xe</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <h2 className="font-bold text-gray-900">Chi tiết xe</h2>
                     <button
-                        type="button"
                         onClick={onClose}
-                        className="h-9 w-9 rounded-xl flex items-center justify-center hover:bg-gray-50"
+                        className="p-1 hover:bg-gray-100 rounded-lg transition"
                     >
-                        <X size={18} />
+                        <X size={20} className="text-gray-500" />
                     </button>
                 </div>
-                <div className="p-5 space-y-4">
-                    {/* Carousel */}
-                    {detailImages.length > 0 && (
-                        <div className="rounded-2xl border border-gray-200 overflow-hidden bg-gray-50">
-                            <div className="relative">
-                                <img
-                                    src={detailCurrent}
-                                    alt="Ảnh xe"
-                                    className="h-64 w-full object-cover"
-                                />
-                                {detailImages.length > 1 && (
+
+                <div className="p-6 space-y-6">
+                    {/* Image Gallery */}
+                    {images.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="relative bg-gray-100 rounded-xl overflow-hidden aspect-video">
+                                {currentImage && (
+                                    <img
+                                        src={currentImage.url}
+                                        alt={bike.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                )}
+                                {images.length > 1 && (
                                     <>
                                         <button
-                                            type="button"
-                                            onClick={() =>
-                                                setDetailIdx((i) =>
-                                                    i <= 0 ? detailImages.length - 1 : i - 1
-                                                )
-                                            }
-                                            className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow"
-                                            title="Ảnh trước"
+                                            onClick={() => setImageIndex((i) => (i - 1 + images.length) % images.length)}
+                                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-lg transition"
                                         >
-                                            <ChevronLeft size={18} />
+                                            <ChevronLeft size={20} />
                                         </button>
                                         <button
-                                            type="button"
-                                            onClick={() =>
-                                                setDetailIdx((i) =>
-                                                    i >= detailImages.length - 1 ? 0 : i + 1
-                                                )
-                                            }
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow"
-                                            title="Ảnh tiếp"
+                                            onClick={() => setImageIndex((i) => (i + 1) % images.length)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-lg transition"
                                         >
-                                            <ChevronRight size={18} />
+                                            <ChevronRight size={20} />
                                         </button>
-                                        <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
-                                            {detailIdx + 1}/{detailImages.length}
+                                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs">
+                                            {imageIndex + 1} / {images.length}
                                         </div>
                                     </>
                                 )}
                             </div>
-
-                            {detailImages.length > 1 && (
-                                <div className="flex gap-2 overflow-x-auto p-3">
-                                    {detailImages.map((m, idx) => (
+                            {images.length > 1 && (
+                                <div className="flex gap-2 overflow-x-auto">
+                                    {images.map((img, idx) => (
                                         <button
-                                            key={`${m.url}-${idx}`}
-                                            type="button"
-                                            onClick={() => setDetailIdx(idx)}
-                                            className={`shrink-0 overflow-hidden rounded-xl border ${
-                                                idx === detailIdx ? "border-blue-500" : "border-gray-200"
+                                            key={idx}
+                                            onClick={() => setImageIndex(idx)}
+                                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition ${
+                                                idx === imageIndex ? "border-blue-500" : "border-gray-200"
                                             }`}
-                                            title={`Ảnh ${idx + 1}`}
                                         >
                                             <img
-                                                src={m.url}
-                                                alt={`Thumb ${idx + 1}`}
-                                                className="h-14 w-20 object-cover"
+                                                src={img.url}
+                                                alt={`${bike.title} ${idx + 1}`}
+                                                className="w-full h-full object-cover"
                                             />
                                         </button>
                                     ))}
@@ -105,14 +96,70 @@ export default function BikeDetailModal({ bike, onClose }: BikeDetailModalProps)
                         </div>
                     )}
 
-                    <div className="text-lg font-bold text-gray-900">{bike.title}</div>
-                    <div className="text-sm text-emerald-700 font-semibold">
-                        {bike.pricePoints?.toLocaleString("vi-VN")} VND
+                    {/* Info */}
+                    <div className="space-y-4">
+                        <div>
+                            <h3 className="text-2xl font-bold text-gray-900">{bike.title}</h3>
+                            <p className="text-lg font-semibold text-emerald-600 mt-1">
+                                {bike.pricePoints?.toLocaleString("vi-VN")} VND
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {bike.bikeType && (
+                                <div>
+                                    <div className="text-xs text-gray-500 font-medium">Loại xe</div>
+                                    <div className="text-sm font-semibold text-gray-900">{bike.bikeType}</div>
+                                </div>
+                            )}
+                            {bike.condition && (
+                                <div>
+                                    <div className="text-xs text-gray-500 font-medium">Tình trạng</div>
+                                    <div className="text-sm font-semibold text-gray-900">{bike.condition}</div>
+                                </div>
+                            )}
+                            {bike.frameSize && (
+                                <div>
+                                    <div className="text-xs text-gray-500 font-medium">Kích thước khung</div>
+                                    <div className="text-sm font-semibold text-gray-900">{bike.frameSize}</div>
+                                </div>
+                            )}
+                            {bike.model && (
+                                <div>
+                                    <div className="text-xs text-gray-500 font-medium">Model</div>
+                                    <div className="text-sm font-semibold text-gray-900">{bike.model}</div>
+                                </div>
+                            )}
+                            {bike.year && (
+                                <div>
+                                    <div className="text-xs text-gray-500 font-medium">Năm sản xuất</div>
+                                    <div className="text-sm font-semibold text-gray-900">{bike.year}</div>
+                                </div>
+                            )}
+                            {bike.status && (
+                                <div>
+                                    <div className="text-xs text-gray-500 font-medium">Trạng thái</div>
+                                    <div className="text-sm font-semibold text-gray-900">{bike.status}</div>
+                                </div>
+                            )}
+                        </div>
+
+                        {bike.description && (
+                            <div>
+                                <div className="text-xs text-gray-500 font-medium mb-2">Mô tả</div>
+                                <p className="text-sm text-gray-700 leading-relaxed">{bike.description}</p>
+                            </div>
+                        )}
                     </div>
-                    <div className="text-sm text-gray-600">{bike.condition ?? "—"}</div>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {(bike as unknown as { description?: string })?.description ?? ""}
-                    </div>
+                </div>
+
+                <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                        Đóng
+                    </button>
                 </div>
             </div>
         </div>

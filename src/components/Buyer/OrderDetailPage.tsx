@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import RequestReturnModal from "./RequestReturnModal";
+import OpenDisputeModal from "./OpenDisputeModal";
 import {
     getOrderHistoryAPI,
     cancelOrderAPI,
@@ -63,6 +64,13 @@ interface OrderHistoryDetail {
     timeline?: HistoryEvent[];
     canReview?: boolean;
     isReviewed?: boolean;
+}
+
+interface OpenDisputePayload {
+    reason: string;
+    buyerAddress: string;
+    buyerPhone: string;
+    buyerEmail: string;
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
@@ -118,7 +126,7 @@ export default function OrderDetailPage() {
     const [error, setError]         = useState("");
     const [actionBusy, setAction]   = useState<string | null>(null);
     const [showReturnModal, setShowReturnModal] = useState(false);
-    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [showDisputeModal, setShowDisputeModal] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -151,13 +159,7 @@ export default function OrderDetailPage() {
 
     const handleCancel = () => {
         if (!orderId) return;
-        setShowCancelConfirm(true);
-    };
-
-    const confirmCancel = () => {
-        if (!orderId) return;
-        setShowCancelConfirm(false);
-        void doAction("cancel", () => cancelOrderAPI(orderId));
+        void doAction("cancel", () => cancelOrderAPI(orderId), "Bạn chắc chắn muốn hủy đơn hàng này?");
     };
 
     const handleConfirmReceipt = () => {
@@ -180,12 +182,13 @@ export default function OrderDetailPage() {
     };
 
     const handleDispute = () => {
+        setShowDisputeModal(true);
+    };
+
+    const submitOpenDispute = async (payload: OpenDisputePayload) => {
         if (!orderId) return;
-        void doAction(
-            "return-dispute",
-            () => openReturnDisputeAPI(orderId),
-            "Mở tranh chấp với Admin? Hành động này sẽ đưa đơn hàng vào trạng thái xem xét.",
-        );
+        await doAction("return-dispute", () => openReturnDisputeAPI(orderId, payload));
+        setShowDisputeModal(false);
     };
 
     /* ── Loading / Error ── */
@@ -430,74 +433,12 @@ export default function OrderDetailPage() {
                 onConfirm={submitRequestReturn}
             />
 
-            {showCancelConfirm && (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(15, 23, 42, 0.28)",
-                        zIndex: 9999,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 16,
-                    }}
-                >
-                    <div
-                        style={{
-                            width: "100%",
-                            maxWidth: 420,
-                            background: "white",
-                            borderRadius: 18,
-                            padding: "28px 24px",
-                            boxShadow: "0 20px 60px rgba(15,23,42,.2)",
-                            textAlign: "center",
-                        }}
-                    >
-                        <h3 style={{ fontSize: 36 - 12, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>
-                            Xác nhận hủy đơn hàng
-                        </h3>
-                        <p style={{ fontSize: 15, color: "#475569", marginBottom: 24 }}>
-                            Bạn có chắc chắn muốn hủy đơn hàng này?
-                        </p>
-
-                        <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-                            <button
-                                onClick={confirmCancel}
-                                style={{
-                                    minWidth: 130,
-                                    padding: "10px 20px",
-                                    borderRadius: 10,
-                                    border: "none",
-                                    background: "#2563eb",
-                                    color: "white",
-                                    fontSize: 20 - 4,
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Xác nhận
-                            </button>
-                            <button
-                                onClick={() => setShowCancelConfirm(false)}
-                                style={{
-                                    minWidth: 130,
-                                    padding: "10px 20px",
-                                    borderRadius: 10,
-                                    border: "none",
-                                    background: "#e2e8f0",
-                                    color: "#2563eb",
-                                    fontSize: 20 - 4,
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Quay lại
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <OpenDisputeModal
+                open={showDisputeModal}
+                loading={actionBusy === "return-dispute"}
+                onClose={() => setShowDisputeModal(false)}
+                onConfirm={submitOpenDispute}
+            />
         </div>
     );
 }

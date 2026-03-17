@@ -1,26 +1,29 @@
 /**
- * OrderApprovalModal.tsx
+ * OrderConfirmationModal.tsx
  * 
- * Modal for seller to approve/accept an ESCROWED order
- * Calls: POST /orders/{id}/accept
+ * Modal for buyer to confirm receipt of delivered order
+ * Calls: POST /orders/{id}/confirm-receipt
  */
 
 import { useState } from "react";
 import { X, CheckCircle, AlertCircle } from "lucide-react";
 import { BASE_URL } from "../../config/apiConfig";
 
-interface SellerOrder {
+interface BuyerOrder {
   id: number;
   bikeTitle: string;
-  buyerName: string;
+  sellerName: string;
   amountPoints: number;
   status: string;
-  createdAt: string;
+  deliveredAt?: string;
+  shippingCarrier?: string;
+  trackingCode?: string;
+  daysUntilAutoRelease?: number;
 }
 
-interface OrderApprovalModalProps {
+interface OrderConfirmationModalProps {
   isOpen: boolean;
-  order: SellerOrder | null;
+  order: BuyerOrder | null;
   token: string;
   onClose: () => void;
   onSuccess: () => void;
@@ -36,22 +39,22 @@ const fmtDateTime = (iso?: string) => {
   });
 };
 
-export default function OrderApprovalModal({
+export default function OrderConfirmationModal({
   isOpen,
   order,
   token,
   onClose,
   onSuccess,
-}: OrderApprovalModalProps) {
+}: OrderConfirmationModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleApprove = async () => {
+  const handleConfirm = async () => {
     if (!order) return;
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BASE_URL}/orders/${order.id}/accept`, {
+      const res = await fetch(`${BASE_URL}/orders/${order.id}/confirm-receipt`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -59,7 +62,7 @@ export default function OrderApprovalModal({
         },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Xác nhận đơn thất bại");
+      if (!res.ok) throw new Error(data.message || "Xác nhận nhận hàng thất bại");
       onSuccess();
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -102,10 +105,10 @@ export default function OrderApprovalModal({
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", color: "#10b981" }}>
               <CheckCircle size={20} />
             </div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>Xác nhận nhận đơn</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>Xác nhận đã nhận hàng</h2>
           </div>
           <button
             onClick={onClose}
@@ -134,27 +137,47 @@ export default function OrderApprovalModal({
               <p style={{ fontWeight: 700, color: "#0f172a" }}>{order.bikeTitle}</p>
             </div>
             <div>
-              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Người mua</p>
-              <p style={{ fontWeight: 700, color: "#0f172a" }}>{order.buyerName}</p>
+              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Người bán</p>
+              <p style={{ fontWeight: 700, color: "#0f172a" }}>{order.sellerName}</p>
             </div>
             <div>
               <p style={{ color: "#94a3b8", marginBottom: 4 }}>Số tiền</p>
               <p style={{ fontWeight: 700, color: "#2563eb" }}>{fmtMoney(order.amountPoints)}</p>
             </div>
             <div>
-              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Ngày tạo</p>
-              <p style={{ fontWeight: 600, color: "#0f172a" }}>{fmtDateTime(order.createdAt)}</p>
+              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Ngày giao</p>
+              <p style={{ fontWeight: 600, color: "#0f172a" }}>{fmtDateTime(order.deliveredAt)}</p>
             </div>
           </div>
+
+          {/* Shipping info */}
+          {(order.shippingCarrier || order.trackingCode) && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+              <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Thông tin vận chuyển</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+                {order.shippingCarrier} - {order.trackingCode}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Info message */}
         <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 12, marginBottom: 20, display: "flex", gap: 10 }}>
           <AlertCircle size={16} style={{ color: "#10b981", flexShrink: 0, marginTop: 2 }} />
           <p style={{ fontSize: 12, color: "#047857", margin: 0, lineHeight: 1.5 }}>
-            Khi xác nhận, bạn cam kết sẽ giao hàng cho buyer. Tiền sẽ được giữ trong tài khoản cho đến khi buyer xác nhận nhận hàng.
+            Xác nhận rằng bạn đã nhận được hàng trong tình trạng tốt. Tiền sẽ được chuyển cho người bán sau khi bạn xác nhận.
           </p>
         </div>
+
+        {/* Auto-release info */}
+        {order.daysUntilAutoRelease && (
+          <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 10, padding: 12, marginBottom: 20, display: "flex", gap: 10 }}>
+            <AlertCircle size={16} style={{ color: "#d97706", flexShrink: 0, marginTop: 2 }} />
+            <p style={{ fontSize: 12, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
+              Nếu bạn không xác nhận, hệ thống sẽ tự động xác nhận sau {order.daysUntilAutoRelease} ngày.
+            </p>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -187,12 +210,12 @@ export default function OrderApprovalModal({
             Hủy
           </button>
           <button
-            onClick={() => void handleApprove()}
+            onClick={() => void handleConfirm()}
             disabled={loading}
             style={{
               flex: 1,
               padding: "12px 16px",
-              background: loading ? "#cbd5e1" : "#2563eb",
+              background: loading ? "#cbd5e1" : "#10b981",
               color: "white",
               border: "none",
               borderRadius: 10,
@@ -205,8 +228,8 @@ export default function OrderApprovalModal({
               justifyContent: "center",
               gap: 6,
             }}
-            onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "#1d4ed8")}
-            onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "#2563eb")}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "#059669")}
+            onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "#10b981")}
           >
             {loading ? (
               <>
@@ -216,7 +239,7 @@ export default function OrderApprovalModal({
             ) : (
               <>
                 <CheckCircle size={16} />
-                Xác nhận
+                Xác nhận đã nhận
               </>
             )}
           </button>

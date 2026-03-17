@@ -1,25 +1,7 @@
 /**
- * ====================================================================================
- * OrdersTab.tsx — Tab "Đơn hàng" bên trong BuyerPage
- * ====================================================================================
- * Mục đích:
- *   - Hiển thị danh sách đơn hàng được mua (purchased orders)
- *   - Filter theo trạng thái (ESCROWED, ACCEPTED, DELIVERED, COMPLETED, CANCELLED, RETURN_REQUESTED)
- *   - Action buttons: Hủy đơn, Xác nhận nhận hàng, Yêu cầu hoàn hàng, Mở tranh chấp
- *   - Pagination & sorting theo ngày tạo (mới nhất trước)
- *
- * API Calls:
- *   GET /orders/my-purchases?status=ESCROWED → lấy đơn hàng có status cụ thể
- *   GET /orders/my-purchases → lấy tất cả đơn hàng
- *   POST /orders/{id}/cancel → hủy đơn (trạng thái ESCROWED)
- *   POST /orders/{id}/confirm-receipt → xác nhận nhận hàng (trạng thái DELIVERED)
- *   POST /orders/{id}/request-return → yêu cầu hoàn hàng (trạng thái DELIVERED)
- *   POST /orders/{id}/return-dispute → mở tranh chấp (trạng thái RETURN_REQUESTED)
- *
- * Props:
- *   token: string — JWT token từ localStorage
- *   navigate: func — React Router useNavigate()
- * ====================================================================================
+ * OrdersTab.tsx
+ * Tab "Đơn hàng" bên trong BuyerPage.
+ * Gọi GET /orders/my-purchases → hiển thị danh sách + badge trạng thái + action buttons.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -32,7 +14,8 @@ import {
     RotateCcw,
     Clock,
     Truck,
-    AlertTriangle
+    AlertTriangle,
+    MessageSquare,
 } from "lucide-react";
 import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import {
@@ -42,21 +25,11 @@ import {
     openReturnDisputeAPI,
 } from "../../services/Buyer/orderActionService";
 import RequestReturnModal from "./RequestReturnModal";
+import OrderConfirmationModal from "./OrderConfirmationModal";
+import OpenDisputeModal from "./OpenDisputeModal";
 
+/* ─── Types ───────────────────────────────────────────────────────────────── */
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-/* TYPE DEFINITIONS */
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-/**
- * Các trạng thái đơn hàng theo flow:
- * PENDING_PAYMENT → ESCROWED → ACCEPTED → DELIVERED → COMPLETED
- * 
- * Hoặc:
- * ESCROWED → CANCELLED (buyer hủy)
- * DELIVERED → RETURN_REQUESTED → DISPUTED (nếu mở tranh chấp)
- * RETURN_REQUESTED / DISPUTED → REFUNDED (hoàn tiền)
- */
 type OrderStatus =
     | "ESCROWED"
     | "ACCEPTED"
@@ -68,9 +41,6 @@ type OrderStatus =
     | "DISPUTED"
     | "PENDING_PAYMENT";
 
-/**
- * Cấu trúc object Order từ API GET /orders/my-purchases
- */
 interface OrderItem {
     id: number;
     bikeId: number;
@@ -82,32 +52,30 @@ interface OrderItem {
     createdAt: string;
     deliveredAt?: string;
     daysUntilAutoRelease?: number;
+    shippingCarrier?: string;
+    trackingCode?: string;
+    canReview?: boolean;
+    isReviewed?: boolean;
 }
 
-/**
- * Wrapper response từ API (đôi khi response.data là OrderItem, đôi khi là { order: OrderItem, canReview, isReviewed })
- */
 interface ApiPurchase {
     order: OrderItem;
     canReview: boolean;
     isReviewed: boolean;
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-/* FORMAT & HELPER FUNCTIONS */
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+interface OpenDisputePayload {
+    reason: string;
+    buyerAddress: string;
+    buyerPhone: string;
+    buyerEmail: string;
+}
 
-/**
- * ━ Format số tiền sang VND
- * ━ Input: 1000000 → Output: "1.000.000 đ"
- */
+/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+
 const fmtMoney = (p: number) =>
     `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
-/**
- * ━ Format date ISO → "dd/mm/yyyy"
- * ━ Input: "2024-03-17T10:30:00Z" → Output: "17/03/2024"
- */
 const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString("vi-VN", {
         day: "2-digit",
@@ -115,10 +83,6 @@ const fmtDate = (iso: string) =>
         year: "numeric"
     });
 
-/**
- * ━ Metadata cho mỗi trạng thái đơn hàng
- * ━ Dùng để render badge color + icon + label mô tả
- */
 const STATUS_META: Record<
     OrderStatus,
     { label: string; color: string; bg: string; icon: React.ReactNode }
@@ -179,9 +143,6 @@ const STATUS_META: Record<
     }
 };
 
-/**
- * ━ Filter tabs: để user chọn lọc đơn theo trạng thái
- */
 const STATUS_FILTERS = [
     { label: "Tất cả", value: "" },
     { label: "Chờ xác nhận", value: "ESCROWED" },
@@ -192,71 +153,53 @@ const STATUS_FILTERS = [
     { label: "Hoàn hàng", value: "RETURN_REQUESTED" }
 ];
 
+/* ─── Props ───────────────────────────────────────────────────────────────── */
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-/* MAIN COMPONENT */
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-/**
- * Props (interface Props):
- *   token: string — JWT token (hiện tại không dùng vì service tự lấy từ localStorage)
- *   navigate: func(path: string) — để navigate sang OrderDetailPage hoặc trang khác
- */
 interface Props {
     token: string;
     navigate: (path: string) => void;
+    mode?: "all" | "review-needed";
 }
 
-export default function OrdersTab({ token, navigate }: Props) {
+/* ─── Component ───────────────────────────────────────────────────────────── */
 
-    // ━ State quản lý orders
+export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
+
     const [orders, setOrders] = useState<OrderItem[]>([]);
-    const [totalOrders, setTotalOrders] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("");  // status filter: "", "ESCROWED", "ACCEPTED", etc.
-    const [actionLoading, setAction] = useState<number | null>(null);  // orderId đang trong quá trình action
-    
-    // ━ State cho modal confirm
-    const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);  // orderId cần confirm hủy
-    const [showReturnModalForOrder, setShowReturnModalForOrder] = useState<number | null>(null);  // orderId cần return
+    const [filter, setFilter] = useState("");
+    const [actionLoading, setAction] = useState<number | null>(null);
+    const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
+    const [showReturnModalForOrder, setShowReturnModalForOrder] = useState<number | null>(null);
+    const [showDisputeModalForOrder, setShowDisputeModalForOrder] = useState<number | null>(null);
+    const [confirmationModal, setConfirmationModal] = useState<{ open: boolean; order: OrderItem | null }>({ open: false, order: null });
 
-    void token;  // ESLint: token được pass nhưng không dùng
+    void token;
 
-    /**
-     * ━ fetchOrders: Fetch đơn hàng từ API
-     * ━ - Gọi GET /orders/my-purchases?status={filter} để lấy đơn theo filter
-     * ━ - Gọi GET /orders/my-purchases để lấy tất cả (để hiển thị totalOrders)
-     * ━ - Parse wrapper response (some return .order, some return object directly)
-     * ━ - Sort by createdAt descending (mới nhất trước)
-     */
     const fetchOrders = useCallback(async () => {
 
         setLoading(true);
 
         try {
-            const [filteredRes, allRes] = await Promise.allSettled([
-                getMyPurchasesAPI({ status: filter || undefined }),
-                getMyPurchasesAPI(),
-            ]);
 
-            const filteredPurchases = filteredRes.status === "fulfilled" ? filteredRes.value : [];
-            const allPurchases = allRes.status === "fulfilled" ? allRes.value : [];
+            const purchases = await getMyPurchasesAPI({ status: filter || undefined });
 
-            const list: OrderItem[] = Array.isArray(filteredPurchases)
-                ? (filteredPurchases as Array<ApiPurchase | OrderItem>)
-                    .map((p) => ((p as ApiPurchase)?.order ?? (p as OrderItem)))
-                    .filter((o): o is OrderItem => Boolean(o?.id))
-                : [];
+            if (Array.isArray(purchases)) {
 
-            setOrders(
-                list.sort(
-                    (a, b) =>
-                        new Date(b.createdAt).getTime() -
-                        new Date(a.createdAt).getTime()
-                )
-            );
+                const list: OrderItem[] = (purchases as ApiPurchase[]).map((p) => ({
+                    ...p.order,
+                    canReview: p.canReview,
+                    isReviewed: p.isReviewed,
+                }));
 
-            setTotalOrders(Array.isArray(allPurchases) ? allPurchases.length : 0);
+                setOrders(
+                    list.sort(
+                        (a, b) =>
+                            new Date(b.createdAt).getTime() -
+                            new Date(a.createdAt).getTime()
+                    )
+                );
+            }
 
         } catch (e) {
             console.error("fetchOrders:", e);
@@ -266,18 +209,13 @@ export default function OrdersTab({ token, navigate }: Props) {
 
     }, [filter]);
 
-    // ━ Re-fetch khi filter thay đổi
     useEffect(() => {
         void fetchOrders();
     }, [fetchOrders]);
 
-    /**
-     * ━ doAction: Wrapper function để thực hiện các action (cancel, confirm-receipt, request-return, dispute)
-     * ━ - Gọi API function tương ứng
-     * ━ - Sau thành công, re-fetch orders  để cập nhật UI
-     * ━ - Bắt error và show alert
-     */
-    const doAction = async (orderId: number, actionKey: "cancel" | "confirm-receipt" | "request-return" | "return-dispute", reason?: string) => {
+    /* ── Actions ── */
+
+    const doAction = async (orderId: number, actionKey: "cancel" | "confirm-receipt" | "request-return", reason?: string) => {
 
         setAction(orderId);
 
@@ -286,10 +224,8 @@ export default function OrdersTab({ token, navigate }: Props) {
                 await cancelOrderAPI(orderId);
             } else if (actionKey === "confirm-receipt") {
                 await confirmReceiptAPI(orderId);
-            } else if (actionKey === "request-return") {
-                await requestReturnAPI(orderId, reason ?? "");
             } else {
-                await openReturnDisputeAPI(orderId);
+                await requestReturnAPI(orderId, reason ?? "");
             }
 
             await fetchOrders();
@@ -309,7 +245,15 @@ export default function OrdersTab({ token, navigate }: Props) {
     };
 
     const handleConfirmReceipt = (id: number) => {
-        void doAction(id, "confirm-receipt");
+        const order = orders.find(o => o.id === id);
+        if (order) {
+            setConfirmationModal({ open: true, order });
+        }
+    };
+
+    const handleConfirmationSuccess = () => {
+        setConfirmationModal({ open: false, order: null });
+        void fetchOrders();
     };
 
     const handleRequestReturn = (id: number) => {
@@ -320,6 +264,25 @@ export default function OrdersTab({ token, navigate }: Props) {
         if (!showReturnModalForOrder) return;
         await doAction(showReturnModalForOrder, "request-return", reason);
         setShowReturnModalForOrder(null);
+    };
+
+    const handleOpenDispute = (id: number) => {
+        setShowDisputeModalForOrder(id);
+    };
+
+    const submitOpenDispute = async (payload: OpenDisputePayload) => {
+        if (!showDisputeModalForOrder) return;
+        setAction(showDisputeModalForOrder);
+        try {
+            await openReturnDisputeAPI(showDisputeModalForOrder, payload);
+            await fetchOrders();
+            setShowDisputeModalForOrder(null);
+        } catch (e) {
+            console.error(e);
+            alert(String(e instanceof Error ? e.message : e));
+        } finally {
+            setAction(null);
+        }
     };
 
     const renderActions = (order: OrderItem) => {
@@ -391,25 +354,63 @@ export default function OrdersTab({ token, navigate }: Props) {
                 return (
                     <button
                         style={btnStyle("#ef4444", "#fef2f2", "#fecaca")}
-                        onClick={() => void doAction(order.id, "return-dispute")}
+                        onClick={() => handleOpenDispute(order.id)}
                         disabled={busy}
                     >
                         <AlertTriangle size={13} /> Mở tranh chấp
                     </button>
                 );
 
+            case "COMPLETED":
+                if (order.canReview && !order.isReviewed) {
+                    return (
+                        <button
+                            style={btnStyle("#2563eb", "#eff6ff", "#bfdbfe")}
+                            onClick={() => navigate(`/orders/${order.id}/review`)}
+                            disabled={busy}
+                        >
+                            <MessageSquare size={13} /> Đánh giá đơn hàng
+                        </button>
+                    );
+                }
+                return null;
+
             default:
                 return null;
         }
     };
+
+    const displayedOrders = mode === "review-needed"
+        ? orders.filter((order) => order.status === "COMPLETED" && order.canReview && !order.isReviewed)
+        : orders;
+
+    if (!loading && displayedOrders.length === 0) return (
+        <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <Package size={28} color="#cbd5e1" />
+            </div>
+            <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>
+                {mode === "review-needed" ? "Chưa có đơn cần đánh giá" : "Chưa có đơn hàng"}
+            </h3>
+            <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                {mode === "review-needed"
+                    ? "Các đơn COMPLETED chưa đánh giá sẽ xuất hiện tại đây."
+                    : (filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!")}
+            </p>
+        </div>
+    );
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                    <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>Đơn hàng của tôi</h2>
-                    <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>{totalOrders} đơn hàng</p>
+                    <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>
+                        {mode === "review-needed" ? "Đơn hàng cần đánh giá" : "Đơn hàng của tôi"}
+                    </h2>
+                    <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
+                        {displayedOrders.length} {mode === "review-needed" ? "đơn cần review" : "đơn hàng"}
+                    </p>
                 </div>
                 <button onClick={() => fetchOrders()}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "white", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, color: "#64748b", cursor: "pointer" }}>
@@ -417,39 +418,30 @@ export default function OrdersTab({ token, navigate }: Props) {
                 </button>
             </div>
 
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-                {STATUS_FILTERS.map(f => (
-                    <button key={f.value} onClick={() => setFilter(f.value)}
-                            style={{
-                                flexShrink: 0,
-                                padding: "6px 14px",
-                                borderRadius: 20,
-                                border: "1.5px solid",
-                                borderColor: filter === f.value ? "#2563eb" : "#e8ecf4",
-                                background: filter === f.value ? "#eff6ff" : "white",
-                                color: filter === f.value ? "#2563eb" : "#64748b",
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: "pointer"
-                            }}>
-                        {f.label}
-                    </button>
-                ))}
-            </div>
+            {mode === "all" && (
+                <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                    {STATUS_FILTERS.map(f => (
+                        <button key={f.value} onClick={() => setFilter(f.value)}
+                                style={{
+                                    flexShrink: 0,
+                                    padding: "6px 14px",
+                                    borderRadius: 20,
+                                    border: "1.5px solid",
+                                    borderColor: filter === f.value ? "#2563eb" : "#e8ecf4",
+                                    background: filter === f.value ? "#eff6ff" : "white",
+                                    color: filter === f.value ? "#2563eb" : "#64748b",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: "pointer"
+                                }}>
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {!loading && orders.length === 0 ? (
-                    <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
-                        <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                            <Package size={28} color="#cbd5e1" />
-                        </div>
-                        <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Chưa có đơn hàng</h3>
-                        <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                            {filter ? "Không có đơn nào ở trạng thái này." : "Bạn chưa có đơn hàng nào."}
-                        </p>
-                    </div>
-                ) : (
-                    orders.map(order => {
+                {displayedOrders.map(order => {
                     const meta = STATUS_META[order.status] ?? STATUS_META.ESCROWED;
                     return (
                         <div key={order.id}
@@ -589,8 +581,7 @@ export default function OrdersTab({ token, navigate }: Props) {
 
                         </div>
                     );
-                    })
-                )}
+                })}
             </div>
 
             <RequestReturnModal
@@ -598,6 +589,21 @@ export default function OrdersTab({ token, navigate }: Props) {
                 loading={actionLoading !== null}
                 onClose={() => setShowReturnModalForOrder(null)}
                 onConfirm={submitRequestReturn}
+            />
+
+            <OpenDisputeModal
+                open={showDisputeModalForOrder !== null}
+                loading={actionLoading !== null}
+                onClose={() => setShowDisputeModalForOrder(null)}
+                onConfirm={submitOpenDispute}
+            />
+
+            <OrderConfirmationModal
+                isOpen={confirmationModal.open}
+                order={confirmationModal.order}
+                token={token}
+                onClose={() => setConfirmationModal({ open: false, order: null })}
+                onSuccess={handleConfirmationSuccess}
             />
         </div>
     );

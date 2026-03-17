@@ -11,9 +11,8 @@ import {
   ShieldCheck,
   Handshake,
   BadgeCheck,
-  X,
 } from "lucide-react";
-import { loginAPI, forgotPasswordAPI } from "../../services/authService";
+import { loginAPI } from "../../services/authService";
 
 const BENEFITS = [
   { icon: BadgeCheck, text: "Đăng tin mua / bán xe đạp miễn phí" },
@@ -31,11 +30,6 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotMsg, setForgotMsg] = useState("");
-  const [forgotErr, setForgotErr] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,41 +45,16 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(userData));
       navigate("/", { replace: true });
     } catch (err) {
-      const msg = (err.message || "").toLowerCase();
-      if (msg.includes("disabled") || msg.includes("user is disabled") || msg.includes("account") || msg.includes("locked")) {
-        setError("Tài khoản chưa được xác thực hoặc đã bị khóa. Vui lòng kiểm tra email và nhấn vào link xác thực.");
-      } else if (msg.includes("bad credentials") || msg.includes("unauthorized") || msg.includes("invalid") || msg.includes("incorrect") || msg.includes("wrong")) {
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
+        setError("Tài khoản chưa được xác thực. Vui lòng kiểm tra email và nhấn vào link xác thực.");
+      } else if (msg.toLowerCase().includes("bad credentials") || msg.toLowerCase().includes("unauthorized")) {
         setError("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
-      } else if (msg.includes("kết nối") || msg.includes("network") || msg.includes("fetch")) {
-        setError("Không thể kết nối máy chủ. Vui lòng kiểm tra internet và thử lại.");
-      } else if (msg.includes("không hợp lệ") || msg.includes("hợp lệ")) {
-        setError("Phiên đăng nhập không hợp lệ. Vui lòng thử lại.");
       } else {
-        setError(err.message || "Đăng nhập thất bại. Vui lòng thử lại.");
+        setError(msg || "Đăng nhập thất bại. Vui lòng thử lại.");
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    const email = forgotEmail.trim();
-    setForgotErr("");
-    setForgotMsg("");
-
-    if (!email) {
-      setForgotErr("Vui lòng nhập email để nhận liên kết đặt lại mật khẩu.");
-      return;
-    }
-
-    setForgotLoading(true);
-    try {
-      const res = await forgotPasswordAPI(email);
-      setForgotMsg(res?.message || "Liên kết đặt lại mật khẩu đã được gửi tới email của bạn.");
-    } catch (err) {
-      setForgotErr(err.message || "Không thể gửi yêu cầu quên mật khẩu.");
-    } finally {
-      setForgotLoading(false);
     }
   };
 
@@ -189,16 +158,7 @@ export default function Login() {
                     <label className="block text-sm font-medium text-gray-700">
                       Mật khẩu <span className="text-red-500">*</span>
                     </label>
-                    <button
-                      type="button"
-                      className="text-xs text-blue-600 hover:underline"
-                      onClick={() => {
-                        setForgotEmail(form.email || "");
-                        setForgotErr("");
-                        setForgotMsg("");
-                        setShowForgotModal(true);
-                      }}
-                    >
+                    <button type="button" className="text-xs text-blue-600 hover:underline">
                       Quên mật khẩu?
                     </button>
                   </div>
@@ -243,71 +203,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-
-      {showForgotModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Quên mật khẩu</h3>
-              <button
-                type="button"
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                onClick={() => setShowForgotModal(false)}
-                disabled={forgotLoading}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="mb-3 text-sm text-gray-500">
-              Nhập email đã đăng ký. Hệ thống sẽ gửi liên kết đặt lại mật khẩu tới email của bạn.
-            </p>
-
-            <div className="relative">
-              <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="email"
-                placeholder="example@email.com"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                disabled={forgotLoading}
-                className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
-              />
-            </div>
-
-            {forgotErr && (
-              <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                {forgotErr}
-              </div>
-            )}
-
-            {forgotMsg && (
-              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                {forgotMsg}
-              </div>
-            )}
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowForgotModal(false)}
-                disabled={forgotLoading}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                disabled={forgotLoading}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {forgotLoading ? "Đang gửi..." : "Gửi liên kết"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
