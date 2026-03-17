@@ -120,8 +120,9 @@ export async function getBrandsAPI() {
 }
 
 // ===== INSPECTIONS APIs =====
-export async function listInspectionsAPI({ page = 0, size = 20 } = {}, token) {
+export async function listInspectionsAPI({ bike_id, page = 0, size = 20 } = {}, token) {
   const params = new URLSearchParams();
+  if (bike_id) params.append("bike_id", bike_id);
   params.append("page", page);
   params.append("size", size);
 
