@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, X, Wallet, AlertCircle, Upload } from "lucide-react";
-import { createBikeAPI, getCategoriesAPI, getBrandsAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
+import { createBikeAPI, getCategoriesAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
 import { uploadImageToCloudinary } from "../../services/firebaseService";
 
 type WalletLike = {
