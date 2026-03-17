@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, Bike, Trash2, ShoppingCart, Star, RefreshCw, PackageOpen } from "lucide-react";
+import { Heart, Bike, ShoppingCart, Star, RefreshCw, PackageOpen } from "lucide-react";
 import { getWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
+import { getUserProfileAPI } from "../../services/Buyer/Userservice";
 
 interface CategoryObj { id: number; name: string; description?: string; createdAt?: string; }
 
@@ -16,6 +17,11 @@ interface BikeData {
     category?: string | CategoryObj | null;
     bikeType?: string;
     location?: string;
+    sellerId?: number;
+    sellerRating?: number;
+    seller_rating?: number;
+    seller?: { rating?: number };
+    user?: { rating?: number };
     media?: { url: string; type: string }[];
 }
 
@@ -38,12 +44,17 @@ interface WishlistProps {
 export default function WishList({ formatPrice }: WishlistProps) {
     const navigate = useNavigate();
     const [items, setItems] = useState<WishlistItem[]>([]);
+    const [sellerRatings, setSellerRatings] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(true);
     const [removing, setRemoving] = useState<number | null>(null);
     const [error, setError] = useState("");
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { void fetchWishlist(); }, []);
+
+    const emitWishlistCount = (count: number) => {
+        window.dispatchEvent(new CustomEvent("wishlist-updated", { detail: { count } }));
+    };
 
     const fetchWishlist = async () => {
         setLoading(true);
@@ -54,10 +65,12 @@ export default function WishList({ formatPrice }: WishlistProps) {
                 ? data 
                 : (data as any)?.content ?? (data as any)?.data ?? (data as any)?.items ?? [];
             setItems(result);
+            emitWishlistCount(result.length);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Có lỗi xảy ra";
             setError(message);
             setItems([]);
+            emitWishlistCount(0);
         } finally {
             setLoading(false);
         }
@@ -67,17 +80,16 @@ export default function WishList({ formatPrice }: WishlistProps) {
         setRemoving(bikeId);
         try {
             await removeFromWishlistAPI(bikeId);
-            setItems(prev => prev.filter(item => (item.bike?.id ?? item.bikeId ?? item.id) !== bikeId));
+            setItems(prev => {
+                const next = prev.filter(item => (item.bike?.id ?? item.bikeId ?? item.id) !== bikeId);
+                emitWishlistCount(next.length);
+                return next;
+            });
         } catch {
             setError("Không thể xóa khỏi danh sách yêu thích");
         } finally {
             setRemoving(null);
         }
-    };
-
-    const handleRemoveAll = () => {
-        if (!window.confirm("Xóa tất cả xe khỏi danh sách yêu thích?")) return;
-        items.forEach(item => handleRemove(item.bike?.id ?? item.bikeId ?? item.id));
     };
 
     const fmtPrice = formatPrice ?? ((p: number) =>
@@ -101,9 +113,61 @@ export default function WishList({ formatPrice }: WishlistProps) {
             condition: safeStr(b?.condition ?? item.condition),
             brand:     safeStr(b?.brand     ?? item.brand),
             bikeType:  safeStr(b?.bikeType),
+            sellerId:  b?.sellerId,
+            sellerRating: b?.sellerRating,
+            seller_rating: b?.seller_rating,
+            seller: b?.seller,
+            user: b?.user,
             media:     b?.media,
         };
     };
+
+    const getBikeRating = (bike: BikeData): number => {
+        const direct = Number(
+            bike?.sellerRating
+            ?? bike?.seller_rating
+            ?? bike?.seller?.rating
+            ?? bike?.user?.rating
+            ?? NaN
+        );
+        if (Number.isFinite(direct)) return Math.max(0, Math.min(5, direct));
+        if (bike?.sellerId != null && sellerRatings[bike.sellerId] != null) {
+            return Math.max(0, Math.min(5, sellerRatings[bike.sellerId]));
+        }
+        return 0;
+    };
+
+    useEffect(() => {
+        const sellerIds = [...new Set(
+            items
+                .map((item) => item?.bike?.sellerId)
+                .filter((id): id is number => id != null)
+        )];
+
+        const missing = sellerIds.filter((id) => sellerRatings[id] == null);
+        if (missing.length === 0) return;
+
+        Promise.all(
+            missing.map(async (sellerId) => {
+                try {
+                    const profile = await getUserProfileAPI(sellerId);
+                    const rating = Number(
+                        profile?.rating
+                        ?? profile?.data?.rating
+                        ?? profile?.user?.rating
+                        ?? 0
+                    );
+                    return [sellerId, Number.isFinite(rating) ? rating : 0] as const;
+                } catch {
+                    return [sellerId, 0] as const;
+                }
+            })
+        ).then((entries) => {
+            const patch: Record<number, number> = {};
+            entries.forEach(([id, rating]) => { patch[id] = rating; });
+            setSellerRatings((prev) => ({ ...prev, ...patch }));
+        });
+    }, [items, sellerRatings]);
 
     return (
         <div>
@@ -169,36 +233,18 @@ export default function WishList({ formatPrice }: WishlistProps) {
 
             {!loading && items.length > 0 && (
                 <>
-                    <div style={{ background: "white", borderRadius: 14, border: "1px solid #eef0f6", padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", gap: 20 }}>
-                            <div>
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>Tổng xe</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: "#1a1a2e" }}>{items.length}</div>
-                            </div>
-                            <div style={{ width: 1, background: "#eef0f6" }} />
-                            <div>
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>Tổng giá trị</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: "#2563eb" }}>
-                                    {fmtPrice(items.reduce((sum, item) => sum + (item.bike?.price ?? item.price ?? 0), 0))}
-                                </div>
-                            </div>
-                        </div>
-                        <button onClick={handleRemoveAll} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", background: "#fff0f3", color: "#e11d48", border: "1px solid #fecdd3", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                            <Trash2 size={14} /> Xóa tất cả
-                        </button>
-                    </div>
-
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
                         {items.map((item, idx) => {
                             const bike = getBike(item);
                             const isRemoving = removing === bike.id;
+                            const sellerRating = getBikeRating(bike);
                             return (
                                 <div key={item.id ?? idx} className="wl-card fade-slide" style={{ borderRadius: 16, border: "1px solid #eef0f6", overflow: "hidden", background: "white", boxShadow: "0 2px 8px rgba(0,0,0,.04)", opacity: isRemoving ? 0.5 : 1, transition: "opacity .2s" }}>
                                     <div style={{ height: 160, background: "linear-gradient(135deg,#fdf2f8,#fce7f3)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                                         {bike.condition != null && typeof bike.condition !== "object" && (
                                             <span style={{ position: "absolute", top: 10, left: 10, background: "#1a1a2e", color: "white", borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 600 }}>{String(bike.condition)}</span>
                                         )}
-                                        <button className="remove-btn" onClick={() => handleRemove(bike.id)} disabled={isRemoving} style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", background: "#fff0f3", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(0,0,0,.1)", transition: "all .15s ease" }}>
+                                        <button className="remove-btn" onClick={() => handleRemove(bike.id)} disabled={isRemoving} style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", background: "#fff0f3", color: "#e11d48", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(0,0,0,.1)", transition: "all .15s ease", zIndex: 2 }}>
                                             {isRemoving ? <RefreshCw size={13} className="spin" /> : <Heart size={14} fill="#e11d48" color="#e11d48" />}
                                         </button>
                                         {bike.media?.[0]?.url
@@ -215,7 +261,7 @@ export default function WishList({ formatPrice }: WishlistProps) {
                                             <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmtPrice(bike.price ?? 0)}</span>
                                             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                                                 <Star size={12} color="#f59e0b" fill="#f59e0b" />
-                                                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>4.8</span>
+                                                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>{sellerRating.toFixed(1)}</span>
                                             </div>
                                         </div>
                                         <div style={{ display: "flex", gap: 8 }}>
@@ -226,9 +272,6 @@ export default function WishList({ formatPrice }: WishlistProps) {
                                                 onMouseLeave={e => (e.currentTarget.style.background = "#1a1a2e")}
                                             >
                                                 <ShoppingCart size={13} /> Mua ngay
-                                            </button>
-                                            <button onClick={() => handleRemove(bike.id)} className="remove-btn" style={{ width: 38, height: 38, border: "1px solid #eef0f6", borderRadius: 10, background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", transition: "all .15s ease" }}>
-                                                <Trash2 size={14} />
                                             </button>
                                         </div>
                                     </div>
