@@ -77,3 +77,18 @@ export async function deliverOrderAPI(orderId, deliveryData, token) {
   return data.data || data;
 }
 
+export async function confirmReturnAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/confirm-return`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Xác nhận nhận lại hàng thất bại.");
+  }
+  return data.data || data;
+}
+

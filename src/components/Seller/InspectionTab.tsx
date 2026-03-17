@@ -23,7 +23,7 @@ interface InspectionTabProps {
     canRequestInspection: (bike: BikeItem) => boolean;
 }
 
-function InspectionTab({
+export default function InspectionTab({
     bikes,
     bikesLoading,
     bikesError,
@@ -37,15 +37,12 @@ function InspectionTab({
 }: InspectionTabProps) {
     const filteredBikes = bikes.filter((bike) => {
         const status = (bike?.inspectionStatus ?? "").toUpperCase();
-        
         if (inspectionFilter === "approved") {
             return status === "APPROVED" || bike?.status === "VERIFIED";
         }
-        
         if (inspectionFilter === "pending") {
             return status === "REQUESTED" || status === "ASSIGNED" || status === "IN_PROGRESS" || status === "INSPECTED";
         }
-        
         return true;
     });
 
@@ -148,7 +145,6 @@ function InspectionTab({
                                 const isPending = status === "REQUESTED" || status === "ASSIGNED" || status === "IN_PROGRESS" || status === "INSPECTED";
                                 const isRejected = status === "REJECTED";
                                 const isNone = status === "" || status === "NONE";
-
                                 const firstImage = bike?.media?.find((m) => m.type === "IMAGE")?.url;
 
                                 return (
@@ -257,5 +253,3 @@ function InspectionTab({
         </div>
     );
 }
-
-export default InspectionTab;

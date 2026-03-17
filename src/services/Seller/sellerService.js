@@ -9,11 +9,7 @@ function authHeader(token) {
 
 // ===== BIKES APIs =====
 export async function listBikesAPI({ page = 0, size = 20 } = {}, token) {
-  const params = new URLSearchParams();
-  params.append("page", page);
-  params.append("size", size);
-
-  const res = await fetch(`${BASE_URL}/bikes?${params.toString()}`, {
+  const res = await fetch(`${BASE_URL}/bikes?page=${page}&size=${size}`, {
     headers: authHeader(token),
   });
 
@@ -47,7 +43,10 @@ export async function createBikeAPI(payload, token) {
 
   const res = await fetch(`${BASE_URL}/bikes`, {
     method: "POST",
-    headers: authHeader(token),
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(payload),
   });
 
@@ -120,13 +119,8 @@ export async function getBrandsAPI() {
 }
 
 // ===== INSPECTIONS APIs =====
-export async function listInspectionsAPI({ bike_id, page = 0, size = 20 } = {}, token) {
-  const params = new URLSearchParams();
-  if (bike_id) params.append("bike_id", bike_id);
-  params.append("page", page);
-  params.append("size", size);
-
-  const res = await fetch(`${BASE_URL}/inspections?${params.toString()}`, {
+export async function listInspectionsAPI({ page = 0, size = 20 } = {}, token) {
+  const res = await fetch(`${BASE_URL}/inspections?page=${page}&size=${size}`, {
     headers: authHeader(token),
   });
   const data = await res.json();

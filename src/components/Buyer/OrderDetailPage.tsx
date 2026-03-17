@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import RequestReturnModal from "./RequestReturnModal";
+import OpenDisputeModal from "./OpenDisputeModal";
 import {
     getOrderHistoryAPI,
     cancelOrderAPI,
@@ -63,6 +64,13 @@ interface OrderHistoryDetail {
     timeline?: HistoryEvent[];
     canReview?: boolean;
     isReviewed?: boolean;
+}
+
+interface OpenDisputePayload {
+    reason: string;
+    buyerAddress: string;
+    buyerPhone: string;
+    buyerEmail: string;
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
@@ -118,6 +126,7 @@ export default function OrderDetailPage() {
     const [error, setError]         = useState("");
     const [actionBusy, setAction]   = useState<string | null>(null);
     const [showReturnModal, setShowReturnModal] = useState(false);
+    const [showDisputeModal, setShowDisputeModal] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -173,12 +182,13 @@ export default function OrderDetailPage() {
     };
 
     const handleDispute = () => {
+        setShowDisputeModal(true);
+    };
+
+    const submitOpenDispute = async (payload: OpenDisputePayload) => {
         if (!orderId) return;
-        void doAction(
-            "return-dispute",
-            () => openReturnDisputeAPI(orderId),
-            "Mở tranh chấp với Admin? Hành động này sẽ đưa đơn hàng vào trạng thái xem xét.",
-        );
+        await doAction("return-dispute", () => openReturnDisputeAPI(orderId, payload));
+        setShowDisputeModal(false);
     };
 
     /* ── Loading / Error ── */
@@ -421,6 +431,13 @@ export default function OrderDetailPage() {
                 loading={actionBusy === "request-return"}
                 onClose={() => setShowReturnModal(false)}
                 onConfirm={submitRequestReturn}
+            />
+
+            <OpenDisputeModal
+                open={showDisputeModal}
+                loading={actionBusy === "return-dispute"}
+                onClose={() => setShowDisputeModal(false)}
+                onConfirm={submitOpenDispute}
             />
         </div>
     );

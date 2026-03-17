@@ -18,6 +18,7 @@ import { BASE_URL } from "../../config/apiConfig";
 import {
     acceptOrderAPI,
     deliverOrderAPI,
+    confirmReturnAPI,
 } from "../../services/orderService";
 
 type OrderStatus =
@@ -159,15 +160,7 @@ export default function SellerOrderDetailPage() {
         if (!orderId) return;
         void doAction(
             "confirm-return",
-            async () => {
-                const res = await fetch(`${BASE_URL}/orders/${orderId}/confirm-return`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Failed to confirm return");
-                return data;
-            },
+            () => confirmReturnAPI(orderId, token),
             "Xác nhận đã nhận lại hàng?"
         );
     };
