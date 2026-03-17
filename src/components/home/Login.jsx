@@ -14,13 +14,6 @@ import {
 } from "lucide-react";
 import { loginAPI } from "../../services/authService";
 
-const ROLE_REDIRECT = {
-  ADMIN: "/admin",
-  SELLER: "/seller",
-  INSPECTOR: "/inspector",
-  BUYER: "/buyer",
-};
-
 const BENEFITS = [
   { icon: BadgeCheck, text: "Đăng tin mua / bán xe đạp miễn phí" },
   { icon: ShieldCheck, text: "Kiểm định xe bởi chuyên gia uy tín" },
@@ -50,9 +43,7 @@ export default function Login() {
       const userData = await loginAPI(form);
       localStorage.setItem("token", userData.accessToken);
       localStorage.setItem("user", JSON.stringify(userData));
-      const roleKey = String(userData?.role || "").toUpperCase();
-      const redirect = ROLE_REDIRECT[roleKey] || "/";
-      navigate(redirect, { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       const msg = err.message || "";
       if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
