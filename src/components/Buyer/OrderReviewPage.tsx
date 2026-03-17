@@ -56,7 +56,7 @@ export default function OrderReviewPage() {
   }, [orderId]);
 
   const submitReview = async () => {
-    if (!detail?.order?.sellerId) return;
+    if (!detail?.order?.id) return;
     if (rating < 1 || rating > 5) {
       alert("Vui lòng chọn số sao từ 1 đến 5.");
       return;
