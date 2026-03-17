@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
+import { Plus, X, Wallet, AlertCircle, Upload } from "lucide-react";
 import { createBikeAPI, getCategoriesAPI, getBrandsAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
 import { uploadImageToCloudinary } from "../../services/firebaseService";
 
@@ -12,6 +12,18 @@ type WalletLike = {
     };
 };
 
+type Category = { id: number; name: string };
+
+type ApiDataWrapper<T> = { data?: T };
+
+type CreateBikeResponse = { id?: number; data?: { id?: number } };
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+const isCategory = (value: unknown): value is Category => {
+    if (!isObject(value)) return false;
+    return typeof value.id === "number" && typeof value.name === "string";
+};
+
 interface CreateBikeTabProps {
     token: string;
     wallet: WalletLike | null;
@@ -20,21 +32,18 @@ interface CreateBikeTabProps {
 }
 
 const POSTING_FEE = 5;
-const BIKE_TYPES = ["Road", "MTB", "Gravel", "Touring", "Hybrid", "Fixie"];
-const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "48cm", "50cm", "52cm", "54cm", "56cm", "58cm"];
-const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qua sử dụng"];
 
 export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRefresh }: CreateBikeTabProps) {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
-    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
-    const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
+    const [images] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [mediaPreview, setMediaPreview] = useState<string[]>([]);
     const [form, setForm] = useState({
         title: "", bikeType: "Road", brandId: undefined as number | undefined,
-        model: "", frameSize: "M", condition: "Tốt", year: "", priceVnd: "", description: "",
+        model: "", frameSize: "M", condition: "Tốt", year: "", pricePoints: "", description: "",
         categoryIds: [] as number[], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: ""
     });
 
@@ -44,24 +53,24 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     useEffect(() => {
         const loadData = async () => {
             try {
-                setCategoriesLoading(true);
-                const [catsData, brandsData] = await Promise.all([
-                    getCategoriesAPI(),
-                    getBrandsAPI(),
-                ]);
-                setCategories(Array.isArray(catsData) ? catsData : catsData?.data ?? []);
-                setBrands(Array.isArray(brandsData) ? brandsData : brandsData?.data ?? []);
-            } catch (e) {
+                const resCats = await getCategoriesAPI();
+                const rawCats = Array.isArray(resCats) ? resCats : (isObject(resCats) && "data" in resCats ? (resCats as ApiDataWrapper<unknown>).data : []);
+                const listCats = Array.isArray(rawCats) ? rawCats : [];
+                setCategories(listCats.filter(isCategory));
+
+                // Load brands but don't use them for now
+            } catch (e: unknown) {
                 console.error("Error loading categories/brands:", e);
-            } finally {
-                setCategoriesLoading(false);
             }
         };
         void loadData();
     }, []);
 
-    const availableMoney = wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
-    const canAfford = availableMoney >= CREATION_FEE;
+    useEffect(() => {
+        if (!success) return;
+        const timeout = window.setTimeout(() => setSuccess(null), 5000);
+        return () => window.clearTimeout(timeout);
+    }, [success]);
 
     const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -104,25 +113,48 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 model: form.model,
                 condition: form.condition,
                 pricePoints: parseInt(form.pricePoints),
+                categoryIds: form.categoryIds && form.categoryIds.length > 0 ? form.categoryIds : [],
+                media: uploadedUrls
             };
 
-            await createBikeAPI(payload, token);
+            const res = (await createBikeAPI(payload, token)) as CreateBikeResponse;
+            const bikeId = res?.id ?? (isObject(res) ? (res as ApiDataWrapper<{ id?: number }>).data?.id : undefined);
+            if (!bikeId) throw new Error("Tạo xe thất bại.");
+
+            if (form.preferredDate || form.address) {
+                await requestInspectionAPI({
+                    bikeId, preferredDate: form.preferredDate || null, preferredTimeSlot: form.preferredTimeSlot || null,
+                    address: form.address || null, contactPhone: form.contactPhone || null, notes: form.notes || null
+                }, token);
+            }
 
             setSuccess("Đã đăng tin bán xe thành công! Hệ thống sẽ trừ 5000 VND từ ví của bạn.");
             setForm({
                 title: "",
-                description: "",
-                categoryId: "",
-                brandId: "",
+                bikeType: "Road",
+                brandId: undefined,
+                model: "",
+                frameSize: "M",
                 condition: "LIKE_NEW",
+                year: "",
                 pricePoints: "",
+                description: "",
+                categoryIds: [],
+                preferredDate: "",
+                preferredTimeSlot: "",
+                address: "",
+                contactPhone: "",
+                notes: "",
             });
             setMediaPreview([]);
 
             onBikeCreated();
             onWalletRefresh();
-        } catch (e) {
-            setError((e as Error).message || "Không thể tạo xe.");
+        } catch (e: unknown) {
+            console.error("Create bike error:", e);
+            const errObj = isObject(e) ? e : {};
+            const message = typeof errObj.message === "string" ? errObj.message : "Không thể tạo xe.";
+            setError(message);
         } finally {
             setLoading(false);
             setUploading(false);
@@ -160,6 +192,31 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     </div>
                 </div>
 
+                {error && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex gap-2"><AlertCircle size={18} />{error}</div>}
+
+                {/* Success modal centered on screen */}
+                {success && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
+                        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                            <div className="flex items-start justify-between">
+                                <div className="text-lg font-bold text-emerald-700">Đăng tin thành công</div>
+                                <button onClick={() => setSuccess(null)} className="text-gray-400 hover:text-gray-600">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="mt-4 text-sm text-gray-700">
+                                {success}
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button onClick={() => setSuccess(null)}
+                                    className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800">
+                                    Đóng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div>
                     <label className="text-sm font-medium text-gray-700">Mô tả chi tiết</label>
                     <textarea
@@ -168,6 +225,33 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         placeholder="Mô tả tình trạng, tính năng, lý do bán..."
                         className="mt-1 w-full min-h-24 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
                     />
+                </div>
+
+                <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                        <div><div className="text-sm font-semibold text-gray-900">Danh mục</div><div className="text-xs text-gray-500">Chọn danh mục phù hợp</div></div>
+                    </div>
+                    {categories.length > 0 && (
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {categories.map(c => {
+                                const checked = form.categoryIds[0] === c.id;
+                                return (
+                                    <label key={c.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer ${checked ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
+                                        <input
+                                            type="radio"
+                                            name="category"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                                const on = e.target.checked;
+                                                setForm(p => ({ ...p, categoryIds: on ? [c.id] : [] }));
+                                            }}
+                                        />
+                                        <span className="truncate">{c.name}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 <div>
