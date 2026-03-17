@@ -3,10 +3,8 @@ import { Bike, Heart, Wallet, Package, Settings, ChevronLeft, ChevronRight, Tren
 import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
-import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 import { getMyPurchasesAPI, getOrderAPI } from "../../services/Buyer/Orderservice";
 import { getWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
-import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import OrdersTab from "./OrdersTab";
 import DisputesTab from "./DisputesTab";
 import { getWalletAPI } from "../../services/Buyer/walletService";
@@ -45,11 +43,8 @@ export default function BuyerPage() {
     const location      = useLocation();
     const navigate      = useNavigate();
     const locationState = location.state as { tab?: string; walletTab?: string } | null;
-    const initialTab = locationState?.tab === "wallet"
-        ? "wallet"
-        : locationState?.tab === "wishlist"
-            ? "wishlist"
-            : "overview";
+    const isValidTab = (tab?: string) => ["overview", "orders", "review", "disputes", "wallet", "wishlist", "settings"].includes(String(tab || ""));
+    const initialTab = isValidTab(locationState?.tab) ? String(locationState?.tab) : "overview";
 
     const [activeTab,        setActiveTab]        = useState(initialTab);
     const [wishCount,        setWishCount]        = useState(0);
@@ -111,12 +106,8 @@ export default function BuyerPage() {
     }, [activeTab]);
 
     useEffect(() => {
-        if (locationState?.tab === "wishlist") {
-            setActiveTab("wishlist");
-            return;
-        }
-        if (locationState?.tab === "wallet") {
-            setActiveTab("wallet");
+        if (isValidTab(locationState?.tab)) {
+            setActiveTab(String(locationState?.tab));
         }
     }, [locationState?.tab]);
 
