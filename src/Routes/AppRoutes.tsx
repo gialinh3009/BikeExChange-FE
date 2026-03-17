@@ -22,6 +22,7 @@ import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
 import VerifyEmail from "../components/home/VerifyEmail";
+import ResetPassword from "../components/home/ResetPassword";
 import SellerPage from "../components/Seller/SellerPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
@@ -107,6 +108,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
