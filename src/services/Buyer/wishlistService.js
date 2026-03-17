@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================
+ * wishlistService.js — API calls liên quan đến danh sách yêu thích
+ * ====================================================================================
+ * Mục đích:
+ *   - GET /buyer/wishlist — Lấy danh sách xe yêu thích
+ *   - POST /buyer/wishlist/{bikeId} — Thêm xe vào yêu thích
+ *   - DELETE /buyer/wishlist/{bikeId} — Xóa xe khỏi yêu thích
+ * ====================================================================================
+ */
+
 import { BASE_URL } from "../../config/apiConfig";
 
 const authHeaders = () => {
@@ -8,7 +19,11 @@ const authHeaders = () => {
     };
 };
 
-// ── GET /buyer/wishlist ────────────────────────────────────────────────────
+/**
+ * ━ GET /buyer/wishlist — Lấy toàn bộ danh sách yêu thích
+ * ━ Output: Array<{ id, bike: { id, title, pricePoints, ... } }>
+ * ━ Gọi từ: WishList.tsx, BikedetailPage.tsx (sync wishlist status)
+ */
 export async function getWishlistAPI() {
     const res = await fetch(`${BASE_URL}/buyer/wishlist`, {
         method: "GET",

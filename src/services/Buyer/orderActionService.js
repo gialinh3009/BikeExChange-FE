@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================
+ * orderActionService.js — API calls cho các action trên đơn hàng
+ * ====================================================================================\n * Mục đích:
+ *   - POST /orders/{id}/history — Lấy chi tiết + timeline
+ *   - POST /orders/{id}/cancel — Hủy đơn (BUYER action)
+ *   - POST /orders/{id}/confirm-receipt — Xác nhận nhận hàng (BUYER action)
+ *   - POST /orders/{id}/request-return — Yêu cầu hoàn hàng (BUYER action)
+ *   - POST /orders/{id}/return-dispute — Mở tranh chấp (BUYER action)
+ * ====================================================================================
+ */
+
 import { BASE_URL } from "../../config/apiConfig";
 
 const authHeaders = () => {
@@ -9,6 +21,9 @@ const authHeaders = () => {
     };
 };
 
+/**
+ * ━ Map action name → status (chuẩn hóa response từ BE)
+ */
 const ACTION_TO_STATUS = {
     created: "ESCROWED",
     accepted: "ACCEPTED",
@@ -21,6 +36,10 @@ const ACTION_TO_STATUS = {
     refunded: "REFUNDED",
 };
 
+/**
+ * ━ Helper: Chuẩn hóa history timeline events từ BE
+ * ━ BE có thể return qua fields khác nhau → normalize về định dạng chung
+ */
 function normalizeHistoryEvents(rawEvents = []) {
     if (!Array.isArray(rawEvents)) return [];
 
@@ -37,6 +56,13 @@ function normalizeHistoryEvents(rawEvents = []) {
         .filter((evt) => !!evt.timestamp);
 }
 
+/**
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * API: GET /orders/{id}/history
+ * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ * Mục đích: Lấy chi tiết đơn hàng + timeline events
+ * Gọi từ: OrderDetailPage.tsx
+ */
 export async function getOrderHistoryAPI(orderId) {
     const res = await fetch(`${BASE_URL}/orders/${orderId}/history`, {
         method: "GET",
