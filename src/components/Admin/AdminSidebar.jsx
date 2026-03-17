@@ -2,27 +2,28 @@ import React, { useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  FileText,
-  Users,
-  Package,
-  UserCircle,
-  CreditCard,
-  BarChart2,
   ShoppingCart,
   ClipboardCheck,
   UserCog,
   Tag,
   Cpu,
   AlertTriangle,
+  Wallet,
+  ShoppingBag,
+  ArrowLeftRight,
+  RefreshCw,
+  Bike,
   LogOut,
   ChevronLeft,
   ChevronRight,
   X,
 } from "lucide-react";
 
+
 function clsx(...arr) {
   return arr.filter(Boolean).join(" ");
 }
+
 
 const IconWrap = ({ icon: Icon, active }) => (
   <span
@@ -35,6 +36,7 @@ const IconWrap = ({ icon: Icon, active }) => (
   </span>
 );
 
+
 export default function AdminSidebar({
   isOpen = false,
   onClose,
@@ -45,25 +47,88 @@ export default function AdminSidebar({
   const location = useLocation();
   const [openGroup, setOpenGroup] = useState(null);
 
-  const nav = useMemo(
+
+  const navActive = useMemo(
     () => [
-      { to: "/admin", label: "Tổng quan", key: "dashboard", icon: LayoutDashboard },
-      { to: "/admin/posts", label: "Quản Lý Bài Viết", key: "posts", icon: FileText },
-      { to: "/admin/staff", label: "Quản Lý Nhân Viên", key: "staff", icon: Users },
-      { to: "/admin/inventory", label: "Quản Lý Tồn Kho", key: "inventory", icon: Package },
-      { to: "/admin/customers", label: "Quản Lý Khách Hàng", key: "customers", icon: UserCircle },
-      { to: "/admin/buyers", label: "Quản Lý Người Mua", key: "buyers", icon: ShoppingCart },
-      { to: "/admin/inspectors", label: "Quản Lý Kiểm Định Viên", key: "inspectors", icon: ClipboardCheck },
-      { to: "/admin/payments", label: "Quản Lý Thanh Toán", key: "payments", icon: CreditCard },
-      { to: "/admin/reports", label: "Quản Lý Báo Cáo", key: "reports", icon: BarChart2 },
-      { to: "/admin/users", label: "Quản Lý Người Dùng", key: "users", icon: UserCog },
-      { to: "/admin/categories", label: "Quản Lý Danh Mục", key: "categories", icon: Tag },
-      { to: "/admin/brands", label: "Quản Lý Thương Hiệu", key: "brands", icon: Tag },
-      { to: "/admin/components", label: "Quản Lý Linh Kiện", key: "components", icon: Cpu },
-      { to: "/admin/disputes", label: "Quản Lý Khiếu Nại", key: "disputes", icon: AlertTriangle },
+      {
+        to: "/admin",
+        label: "Tổng quan",
+        key: "dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        to: "/admin/users",
+        label: "Quản Lý Người Dùng",
+        key: "users",
+        icon: UserCog,
+      },
+      {
+        to: "/admin/bikes",
+        label: "Quản Lý Xe Đạp",
+        key: "bikes",
+        icon: Bike,
+      },
+      {
+        to: "/admin/orders",
+        label: "Quản Lý Đơn Hàng",
+        key: "orders",
+        icon: ShoppingBag,
+      },
+      {
+        to: "/admin/transactions",
+        label: "Quản Lý Giao Dịch",
+        key: "transactions",
+        icon: ArrowLeftRight,
+      },
+      {
+        to: "/admin/withdrawals",
+        label: "Quản Lý Rút Điểm",
+        key: "withdrawals",
+        icon: Wallet,
+      },
+      {
+        to: "/admin/disputes",
+        label: "Quản Lý Khiếu Nại",
+        key: "disputes",
+        icon: AlertTriangle,
+      },
+      {
+        to: "/admin/inspectors",
+        label: "Quản Lý Kiểm Định Viên",
+        key: "inspectors",
+        icon: ClipboardCheck,
+      },
+      {
+        to: "/admin/inspection-status",
+        label: "Trạng Thái Kiểm Định",
+        key: "inspection-status",
+        icon: RefreshCw,
+      },
+      {
+        to: "/admin/brands",
+        label: "Quản Lý Thương Hiệu",
+        key: "brands",
+        icon: Tag,
+      },
+      {
+        to: "/admin/categories",
+        label: "Quản Lý Danh Mục",
+        key: "categories",
+        icon: Tag,
+      },
+      {
+        to: "/admin/components",
+        label: "Quản Lý Linh Kiện",
+        key: "components",
+        icon: Cpu,
+      },
     ],
     [],
   );
+
+
+  const nav = useMemo(() => [...navActive], [navActive]);
+
 
   React.useEffect(() => {
     const matchedGroup = nav.find(
@@ -74,6 +139,7 @@ export default function AdminSidebar({
     if (matchedGroup) setOpenGroup(matchedGroup.key);
   }, [location.pathname, nav]);
 
+
   const SidebarContent = (
     <aside
       className={clsx(
@@ -81,10 +147,12 @@ export default function AdminSidebar({
         collapsed ? "w-[88px]" : "w-[280px]",
       )}
     >
+      {/* Header */}
       <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold shrink-0">
           BX
         </div>
+
 
         {!collapsed && (
           <div className="min-w-0">
@@ -95,26 +163,40 @@ export default function AdminSidebar({
           </div>
         )}
 
+
         <button
           onClick={onToggleCollapsed}
-          className="ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
+          className={clsx(
+            "ml-auto hidden md:inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50",
+            "h-9 w-9 shrink-0",
+          )}
+          title={collapsed ? "Mở rộng" : "Thu gọn"}
           type="button"
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {collapsed ? (
+            <ChevronRight size={16} className="text-gray-600" />
+          ) : (
+            <ChevronLeft size={16} className="text-gray-600" />
+          )}
         </button>
+
 
         <button
           onClick={onClose}
           className="ml-auto md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
           type="button"
+          aria-label="Close sidebar"
         >
-          <X size={16} />
+          <X size={16} className="text-gray-600" />
         </button>
       </div>
 
+
+      {/* Nav */}
       <nav className="px-3 py-3 flex-1 overflow-y-auto">
+        {/* Active features */}
         <div className="space-y-1">
-          {nav.map((item) => (
+          {navActive.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -127,6 +209,7 @@ export default function AdminSidebar({
                     : "text-gray-800 hover:bg-blue-50",
                 )
               }
+              title={item.label}
             >
               {({ isActive }) => (
                 <>
@@ -139,13 +222,18 @@ export default function AdminSidebar({
             </NavLink>
           ))}
         </div>
+
+
       </nav>
 
+
+      {/* Footer actions */}
       <div className="p-3 border-t border-gray-200">
         <button
           type="button"
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-gray-200 hover:bg-blue-50 text-gray-800"
+          title="Đăng xuất"
         >
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
             <LogOut size={18} className="text-blue-700" />
@@ -156,19 +244,27 @@ export default function AdminSidebar({
     </aside>
   );
 
+
   return (
     <>
+      {/* Desktop */}
       <div className="hidden md:block h-screen sticky top-0">
         {SidebarContent}
       </div>
 
+
+      {/* Mobile Drawer */}
       <div className={clsx("md:hidden", isOpen ? "block" : "hidden")}>
         <div
           className="fixed inset-0 bg-black/40 z-40"
           onClick={onClose}
+          aria-hidden="true"
         />
         <div className="fixed inset-y-0 left-0 z-50">{SidebarContent}</div>
       </div>
     </>
   );
 }
+
+
+

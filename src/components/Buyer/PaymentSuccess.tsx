@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { depositWalletAPI } from "../../services/Buyer/walletService";
 
 type Status = "loading" | "success" | "failed";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 const fmtVND = (n: number) =>
     new Intl.NumberFormat("vi-VN").format(n) + " ₫";
@@ -64,23 +63,14 @@ export default function PaymentSuccess() {
 
     const confirmDeposit = async (amt: number, referenceId: string, storageKey: string) => {
         try {
-            const token = localStorage.getItem("token");
-            const res = await fetch(`${BASE_URL}/wallet/deposit`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ amount: amt, referenceId }),
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.message || "Lỗi xác nhận deposit");
+            await depositWalletAPI(amt, referenceId);
             sessionStorage.setItem(storageKey, "success");
             setStatus("success");
         } catch (err) {
             console.warn("Deposit confirm:", err);
-            sessionStorage.setItem(storageKey, "success");
-            setStatus("success");
+            sessionStorage.setItem(storageKey, "failed");
+            setStatus("failed");
+            setMessage("Không thể xác nhận giao dịch nạp tiền. Vui lòng kiểm tra lại lịch sử giao dịch ví.");
         }
     };
 

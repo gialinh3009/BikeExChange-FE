@@ -1,69 +1,50 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-function authHeader(token) {
+function authHeaders() {
+  const token = localStorage.getItem("token");
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
-/**
- * Lấy danh sách brands (Admin)
- */
-export async function getBrandsAPI(token) {
-  const res = await fetch(`${BASE_URL}/admin/brands`, {
-    headers: authHeader(token),
+export async function getBrandsAPI() {
+  const res = await fetch(`${BASE_URL}/brands`, {
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy danh sách brands thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Không thể tải danh sách thương hiệu.");
+  return data;
 }
 
-/**
- * Tạo brand mới
- */
-export async function createBrandAPI(payload, token) {
-  const res = await fetch(`${BASE_URL}/admin/brands`, {
+export async function createBrandAPI({ name, description }) {
+  const res = await fetch(`${BASE_URL}/brands`, {
     method: "POST",
-    headers: authHeader(token),
-    body: JSON.stringify(payload),
+    headers: authHeaders(),
+    body: JSON.stringify({ name, description }),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Tạo brand thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Tạo thương hiệu thất bại.");
+  return data;
 }
 
-/**
- * Cập nhật brand
- */
-export async function updateBrandAPI(id, payload, token) {
-  const res = await fetch(`${BASE_URL}/admin/brands/${id}`, {
+export async function updateBrandAPI(brandId, { name, description }) {
+  const res = await fetch(`${BASE_URL}/brands/${brandId}`, {
     method: "PUT",
-    headers: authHeader(token),
-    body: JSON.stringify(payload),
+    headers: authHeaders(),
+    body: JSON.stringify({ name, description }),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Cập nhật brand thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Cập nhật thương hiệu thất bại.");
+  return data;
 }
 
-/**
- * Xóa brand
- */
-export async function deleteBrandAPI(id, token) {
-  const res = await fetch(`${BASE_URL}/admin/brands/${id}`, {
+export async function deleteBrandAPI(brandId) {
+  const res = await fetch(`${BASE_URL}/brands/${brandId}`, {
     method: "DELETE",
-    headers: authHeader(token),
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Xóa brand thất bại.");
-  }
+  if (!res.ok || !data.success) throw new Error(data.message || "Xóa thương hiệu thất bại.");
   return data;
 }

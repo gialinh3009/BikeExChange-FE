@@ -3,22 +3,78 @@
  * Trang hiển thị xe: carousel xe kiểm định + danh sách tất cả xe + bộ lọc
  * State management + API calls — UI được tách ra BikeCards / FilterPanel / WishlistModals
  */
-import { useState, useEffect } from "react";
-import { ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { XeDaDuocKiemDinhCard as VerifiedCard, RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";
-import FilterPanel, { FilterChip, SORTS }      from "../Buyer/FilterPanel.jsx";
+import { RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";
+import FilterPanel, { FilterChip }      from "../Buyer/FilterPanel.jsx";
 import { WishlistAuthModal, WishlistConfirmModal } from "../Buyer/WishlistModals.jsx";
 
 import { getBuyerListAPI }  from "../../services/Buyer/BuyerList";
 import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
 import { getBrandsAPI }     from "../../services/home/brandService";
+import { getUserProfileAPI } from "../../services/Buyer/Userservice";
 import { addToWishlistAPI, removeFromWishlistAPI, getWishlistAPI } from "../../services/Buyer/wishlistService";
 
-const EMPTY_FILTER = { keyword: "", categoryId: "", brandId: "", priceMin: "", priceMax: "", minYear: "" };
+const EMPTY_FILTER = {
+  keyword: "",
+  categoryId: "",
+  brandId: "",
+  priceMin: "",
+  priceMax: "",
+  minYear: "",
+  inspectedOnly: false,
+};
 const PAGE_SIZE     = 8;
-const VERIFIED_PER_PAGE = 5; // eslint-disable-line no-unused-vars
+
+function getSellerRating(bike) {
+  return Number(
+    bike?.sellerRating
+    ?? bike?.seller_rating
+    ?? bike?.seller?.rating
+    ?? bike?.user?.rating
+    ?? 0
+  );
+}
+
+function isInspectedBike(bike) {
+  return bike?.inspectionStatus === "APPROVED"
+    || bike?.inspection_status === "APPROVED"
+    || bike?.verified === true;
+}
+
+function getBikePriority(bike) {
+  if (bike?.status !== "ACTIVE") return 0;
+  if (isInspectedBike(bike)) return 2;
+  if (bike?.status === "ACTIVE") return 1;
+  return 0;
+}
+
+function compareBikes(a, b, sortBy) {
+  if (sortBy === "price_asc") {
+    const diff = (a.pricePoints ?? 0) - (b.pricePoints ?? 0);
+    return diff !== 0 ? diff : (b.id ?? 0) - (a.id ?? 0);
+  }
+  if (sortBy === "price_desc") {
+    const diff = (b.pricePoints ?? 0) - (a.pricePoints ?? 0);
+    return diff !== 0 ? diff : (b.id ?? 0) - (a.id ?? 0);
+  }
+  if (sortBy === "oldest") {
+    return (a.id ?? 0) - (b.id ?? 0);
+  }
+
+  // newest / mặc định:
+  //   1. Xe verified (APPROVED) luôn lên trước xe active thường
+  //   2. Trong cùng nhóm (cùng verified hoặc cùng active): rating cao hơn lên trước
+  //   3. Cùng rating: id mới hơn (lớn hơn) lên trước
+  const priorityDiff = getBikePriority(b) - getBikePriority(a);
+  if (priorityDiff !== 0) return priorityDiff;
+
+  const ratingDiff = getSellerRating(b) - getSellerRating(a);
+  if (ratingDiff !== 0) return ratingDiff;
+
+  return (b.id ?? 0) - (a.id ?? 0);
+}
 
 export default function ListProduct() {
   const navigate = useNavigate();
@@ -29,23 +85,20 @@ export default function ListProduct() {
   const [brands,     setBrands]     = useState([]);
 
   // ── Sort ───────────────────────────────────────────────────────────────────
-  const [sortBy, setSortByState] = useState("newest");
-  const setSortBy = (v) => { setSortByState(v); setPage(0); };
+  const [sortBy, setSortBy]             = useState("newest");
+  const [activeSortBy, setActiveSortBy] = useState("newest");
 
   // ── Filter (draft vs applied) ──────────────────────────────────────────────
   const [filterForm,   setFilterForm]   = useState(EMPTY_FILTER);
   const [activeFilter, setActiveFilter] = useState(EMPTY_FILTER);
-
-  // ── Verified bikes (carousel) ──────────────────────────────────────────────
-  const [verifiedBikes,   setVerifiedBikes]   = useState([]);
-  const [verifiedLoading, setVerifiedLoading] = useState(true);
-  const [verifiedPage,    setVerifiedPage]    = useState(0);
 
   // ── All bikes (grid) ───────────────────────────────────────────────────────
   const [allBikes,   setAllBikes]   = useState([]);
   const [allLoading, setAllLoading] = useState(true);
   const [page,       setPage]       = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [sellerRatings, setSellerRatings] = useState({});
+  const fetchSeqRef = useRef(0);
 
   // ── Wishlist ───────────────────────────────────────────────────────────────
   const [wishedIds,   setWishedIds]   = useState(new Set());
@@ -79,56 +132,103 @@ export default function ListProduct() {
       keyword:    searchParams.get("q")          || "",
       categoryId: searchParams.get("categoryId") || "",
       brandId:    searchParams.get("brandId")    || "",
-      priceMin: "", priceMax: "", minYear: "",
+      priceMin: "", priceMax: "", minYear: "", inspectedOnly: false,
     };
     setFilterForm(f);
     setActiveFilter(f);
+    setSortBy("newest");
+    setActiveSortBy("newest");
     setPage(0);
   }, [searchParams]);
 
   useEffect(() => { setPage(0); }, [activeFilter]);
 
-  // ── Fetch verified bikes ───────────────────────────────────────────────────
-  useEffect(() => {
-    setVerifiedLoading(true);
-    getBuyerListAPI({
-      category_id: activeFilter.categoryId || undefined,
-      brand_id:    activeFilter.brandId    || undefined,
-      page: 0, size: 100,
-    })
-      .then(({ content }) => {
-        setVerifiedBikes(content.filter(b =>
-          b.inspectionStatus === "APPROVED" || b.inspection_status === "APPROVED" || b.verified === true
-        ));
-      })
-      .catch(() => setVerifiedBikes([]))
-      .finally(() => setVerifiedLoading(false));
-  }, [activeFilter.categoryId, activeFilter.brandId]);
-
   // ── Fetch all bikes ────────────────────────────────────────────────────────
   useEffect(() => {
+    const fetchSeq = ++fetchSeqRef.current;
     setAllLoading(true);
+    // Khi sort theo giá: fetch toàn bộ data (page=0, size lớn) để sort global
+    // Khi sort khác: dùng server-side pagination bình thường
+    const isPriceSort = activeSortBy === "price_asc" || activeSortBy === "price_desc";
+    const isInspectedOnly = activeFilter.inspectedOnly === true;
+    // Fetch toàn bộ khi filter category để bikeType guard + pagination chính xác
+    const isCategoryFilter = !!activeFilter.categoryId;
+    const useClientPagination = isPriceSort || isInspectedOnly || isCategoryFilter;
+
     getBuyerListAPI({
-      category_id:    activeFilter.categoryId                  || undefined,
-      brand_id:       activeFilter.brandId                     || undefined,
-      keyword:        activeFilter.keyword                     || undefined,
+      category_id:    activeFilter.categoryId || undefined,
+      brand_id:       activeFilter.brandId    || undefined,
+      keyword:        activeFilter.keyword    || undefined,
+      status:         "ACTIVE",
       price_min:      activeFilter.priceMin ? Number(activeFilter.priceMin) : undefined,
       price_max:      activeFilter.priceMax ? Number(activeFilter.priceMax) : undefined,
       min_year:       activeFilter.minYear  ? Number(activeFilter.minYear)  : undefined,
-      sort_by_rating: false,
-      page, size: PAGE_SIZE,
+      sort_by_rating: true,
+      page:           useClientPagination ? 0    : page,
+      size:           useClientPagination ? 500  : PAGE_SIZE,
     })
       .then(({ content, totalPages: tp }) => {
-        let list = content;
-        if (sortBy === "price_asc")  list = [...list].sort((a, b) => a.pricePoints - b.pricePoints);
-        if (sortBy === "price_desc") list = [...list].sort((a, b) => b.pricePoints - a.pricePoints);
-        if (sortBy === "oldest")     list = [...list].sort((a, b) => a.id - b.id);
-        setAllBikes(list);
-        setTotalPages(tp);
+        // Ignore stale responses to prevent older requests overriding latest filter.
+        if (fetchSeq !== fetchSeqRef.current) return;
+
+        // Backend already filters by category_id / brand_id — just status-guard client side.
+        const activeOnly = content.filter((bike) => bike?.status === "ACTIVE");
+
+        const inspectedFiltered = isInspectedOnly
+          ? activeOnly.filter(isInspectedBike)
+          : activeOnly;
+        const sorted = [...inspectedFiltered].sort((a, b) => compareBikes(a, b, activeSortBy));
+
+        if (useClientPagination) {
+          // Client-side pagination trên toàn bộ data đã sort theo giá
+          const clientPages = Math.ceil(sorted.length / PAGE_SIZE);
+          const start = page * PAGE_SIZE;
+          setAllBikes(sorted.slice(start, start + PAGE_SIZE));
+          setTotalPages(Math.max(clientPages, 1));
+        } else {
+          setAllBikes(sorted);
+          setTotalPages(tp);
+        }
       })
-      .catch(() => setAllBikes([]))
-      .finally(() => setAllLoading(false));
-  }, [activeFilter, sortBy, page]);
+      .catch(() => {
+        if (fetchSeq === fetchSeqRef.current) setAllBikes([]);
+      })
+      .finally(() => {
+        if (fetchSeq === fetchSeqRef.current) setAllLoading(false);
+      });
+  }, [activeFilter, activeSortBy, page]);
+
+  // ── Resolve seller rating by sellerId (list API có thể không trả rating) ──
+  useEffect(() => {
+    const sellerIds = [...new Set(
+      allBikes
+        .map((bike) => bike?.sellerId)
+        .filter((id) => id != null)
+    )];
+
+    const missingIds = sellerIds.filter((id) => sellerRatings[id] == null);
+    if (missingIds.length === 0) return;
+
+    Promise.all(
+      missingIds.map(async (sellerId) => {
+        try {
+          const profile = await getUserProfileAPI(sellerId);
+          const rating = Number(
+            profile?.rating
+            ?? profile?.data?.rating
+            ?? profile?.user?.rating
+            ?? 0
+          );
+          return [sellerId, Number.isFinite(rating) ? rating : 0];
+        } catch {
+          return [sellerId, 0];
+        }
+      })
+    ).then((entries) => {
+      const patch = Object.fromEntries(entries);
+      setSellerRatings((prev) => ({ ...prev, ...patch }));
+    });
+  }, [allBikes, sellerRatings]);
 
   // ── Wishlist handlers ──────────────────────────────────────────────────────
   const handleHeartClick = (bikeId) => {
@@ -143,6 +243,15 @@ export default function ListProduct() {
     } else {
       setWishModal({ bikeId, type: "confirm" });
     }
+  };
+
+  const handleBikeNavigate = (bikeId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setWishModal({ bikeId, type: "detail-auth" });
+      return;
+    }
+    navigate(`/bikes/${bikeId}`);
   };
 
   const handleRemoveWish = async (bikeId) => {
@@ -174,6 +283,7 @@ export default function ListProduct() {
   // ── Filter handlers ────────────────────────────────────────────────────────
   const handleApply = () => {
     setActiveFilter({ ...filterForm });
+    setActiveSortBy(sortBy);
     setPage(0);
     setTimeout(() => {
       document.getElementById("all-bikes")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -183,115 +293,53 @@ export default function ListProduct() {
   const handleClear = () => {
     setFilterForm(EMPTY_FILTER);
     setActiveFilter(EMPTY_FILTER);
+    setSortBy("newest");
+    setActiveSortBy("newest");
     setSearchParams({});
     setPage(0);
   };
 
   // helper: remove a single active filter key
   const removeFilter = (key) => {
-    setFilterForm(f => ({ ...f, [key]: "" }));
-    setActiveFilter(f => ({ ...f, [key]: "" }));
+    const resetValue = key === "inspectedOnly" ? false : "";
+    setFilterForm(f => ({ ...f, [key]: resetValue }));
+    setActiveFilter(f => ({ ...f, [key]: resetValue }));
   };
 
-  const hasFilter     = Object.values(activeFilter).some(v => v !== "");
-  const verTotalPages = Math.max(1, Math.ceil(verifiedBikes.length / VERIFIED_PER_PAGE));
-  const verMaxPage    = verTotalPages - 1;
+  const hasFilter = Boolean(
+    activeFilter.keyword
+    || activeFilter.categoryId
+  );
+
+  // ── Lọc bikeType client-side theo tên category ────────────────────────────
+  // bikeType ("HYBRID", "GRAVEL"...) khớp trực tiếp với tên category.
+  // Guard này loại bỏ xe bị gắn sai category bởi seller.
+  const displayedBikes = useMemo(() => {
+    if (!activeFilter.categoryId || categories.length === 0) return allBikes;
+    const selectedCat = categories.find(c => String(c.id) === activeFilter.categoryId);
+    if (!selectedCat) return allBikes;
+    // Chuẩn hóa: uppercase + bỏ ký tự đặc biệt (City/Urban → CITYURBAN)
+    const catNorm = selectedCat.name.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    return allBikes.filter(bike => {
+      const typeNorm = (bike.bikeType || bike.type || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      return typeNorm === catNorm || typeNorm.includes(catNorm) || catNorm.includes(typeNorm);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allBikes, activeFilter.categoryId, categories]);
+
+  const hasFilterFull = Boolean(
+    activeFilter.keyword
+    || activeFilter.brandId
+    || activeFilter.priceMin
+    || activeFilter.priceMax
+    || activeFilter.minYear
+    || activeFilter.inspectedOnly
+  );
 
   return (
     <div id="products">
 
-      {/* ══ SECTION 1: Xe đã được kiểm định ══ */}
-      <section className="py-10 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="border-2 border-emerald-500 rounded-2xl overflow-hidden shadow-sm">
-
-            {/* Header strip */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-1.5 rounded-lg">
-                  <ShieldCheck size={20} className="text-white" />
-                </div>
-                <div>
-                  <h2 className="text-white font-extrabold text-base leading-tight">
-                    🏆 Xe đã được kiểm định đánh giá tốt
-                  </h2>
-                  <p className="text-emerald-100 text-xs mt-0.5">
-                    Chỉ những xe đạt chất lượng kiểm định mới xuất hiện tại đây
-                  </p>
-                </div>
-              </div>
-              <span className="text-white/70 text-sm font-medium hidden sm:block">
-                {verifiedPage + 1}/{verTotalPages}
-              </span>
-            </div>
-
-            {/* Carousel body */}
-            <div className="bg-white relative">
-              {verifiedLoading ? (
-                <div className="grid grid-cols-5 gap-0 divide-x divide-gray-100">
-                  {[...Array(5)].map((_, i) => <Skeleton key={i} />)}
-                </div>
-              ) : verifiedBikes.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 text-sm">
-                  Chưa có xe nào được kiểm định.
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-hidden">
-                    <div
-                      className="flex transition-transform duration-500 ease-in-out"
-                      style={{
-                        width: `${verTotalPages * 100}%`,
-                        transform: `translateX(-${verifiedPage * (100 / verTotalPages)}%)`,
-                      }}
-                    >
-                      {verifiedBikes.map(bike => (
-                        <div key={bike.id}
-                          style={{ width: `${100 / verifiedBikes.length}%` }}
-                          className="border-r border-gray-100 last:border-r-0"
-                        >
-                          <VerifiedCard
-                            bike={bike}
-                            onNavigate={() => navigate(`/bikes/${bike.id}`)}
-                            onHeartClick={handleHeartClick}
-                            wishedIds={wishedIds}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {verifiedPage > 0 && (
-                    <button onClick={() => setVerifiedPage(p => p - 1)}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-emerald-400 transition-all">
-                      <ChevronLeft size={18} className="text-gray-600" />
-                    </button>
-                  )}
-                  {verifiedPage < verMaxPage && (
-                    <button onClick={() => setVerifiedPage(p => p + 1)}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 w-10 h-10 bg-white border border-gray-200 rounded-full shadow-lg flex items-center justify-center hover:border-emerald-400 transition-all">
-                      <ChevronRight size={18} className="text-gray-600" />
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Dot indicators */}
-            {verTotalPages > 1 && (
-              <div className="bg-white border-t border-gray-100 py-2.5 flex justify-center gap-1.5">
-                {[...Array(verTotalPages)].map((_, i) => (
-                  <button key={i} onClick={() => setVerifiedPage(i)}
-                    className={`rounded-full transition-all ${i === verifiedPage ? "w-5 h-2 bg-emerald-500" : "w-2 h-2 bg-gray-200 hover:bg-gray-300"}`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ SECTION 2: Tất cả xe đạp ══ */}
+      {/* ══ Tất cả xe đạp ══ */}
       <section id="all-bikes" className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -314,7 +362,7 @@ export default function ListProduct() {
             </div>
             {!allLoading && (
               <p className="text-sm text-gray-400 shrink-0">
-                Hiển thị <span className="font-semibold text-gray-600">{allBikes.length}</span> xe / trang {page + 1}
+                Hiển thị <span className="font-semibold text-gray-600">{displayedBikes.length}</span> xe / trang {page + 1}
               </p>
             )}
           </div>
@@ -328,7 +376,7 @@ export default function ListProduct() {
           />
 
           {/* Active filter chips */}
-          {hasFilter && (
+          {(hasFilter || hasFilterFull) && (
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               <span className="text-xs text-gray-400">Đang lọc:</span>
               {activeFilter.keyword    && <FilterChip label={`"${activeFilter.keyword}"`} onRemove={() => removeFilter("keyword")} />}
@@ -337,6 +385,7 @@ export default function ListProduct() {
               {activeFilter.priceMin   && <FilterChip label={`Từ ${Number(activeFilter.priceMin).toLocaleString("vi-VN")} ₫`} onRemove={() => removeFilter("priceMin")} />}
               {activeFilter.priceMax   && <FilterChip label={`Đến ${Number(activeFilter.priceMax).toLocaleString("vi-VN")} ₫`} onRemove={() => removeFilter("priceMax")} />}
               {activeFilter.minYear    && <FilterChip label={`Từ năm ${activeFilter.minYear}`} onRemove={() => removeFilter("minYear")} />}
+              {activeFilter.inspectedOnly && <FilterChip label="Xe da kiem dinh" onRemove={() => removeFilter("inspectedOnly")} />}
             </div>
           )}
 
@@ -345,17 +394,26 @@ export default function ListProduct() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {[...Array(8)].map((_, i) => <Skeleton key={i} />)}
             </div>
-          ) : allBikes.length === 0 ? (
+          ) : displayedBikes.length === 0 ? (
             <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border border-gray-100">
               Không có xe phù hợp. Thử điều chỉnh bộ lọc nhé!
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {allBikes.map(bike => (
+              {displayedBikes.map(bike => (
                 <RegularCard
                   key={bike.id}
-                  bike={bike}
-                  onNavigate={() => navigate(`/bikes/${bike.id}`)}
+                  bike={{
+                    ...bike,
+                    sellerRating:
+                      sellerRatings[bike?.sellerId]
+                      ?? bike?.sellerRating
+                      ?? bike?.seller_rating
+                      ?? bike?.seller?.rating
+                      ?? bike?.user?.rating
+                      ?? 0,
+                  }}
+                  onNavigate={() => handleBikeNavigate(bike.id)}
                   onHeartClick={handleHeartClick}
                   wishedIds={wishedIds}
                 />
@@ -388,6 +446,15 @@ export default function ListProduct() {
       {/* Wishlist modals */}
       {wishModal?.type === "auth" && (
         <WishlistAuthModal
+          onClose={() => setWishModal(null)}
+          onLogin={() => { setWishModal(null); navigate("/login"); }}
+          onRegister={() => { setWishModal(null); navigate("/register"); }}
+        />
+      )}
+      {wishModal?.type === "detail-auth" && (
+        <WishlistAuthModal
+          title="BikeExchange"
+          message="Vui lòng đăng nhập hoặc đăng ký để tiếp tục xem chi tiết xe."
           onClose={() => setWishModal(null)}
           onLogin={() => { setWishModal(null); navigate("/login"); }}
           onRegister={() => { setWishModal(null); navigate("/register"); }}

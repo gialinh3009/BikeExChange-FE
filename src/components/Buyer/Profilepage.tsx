@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { getUserProfileAPI, updateUserProfileAPI } from "../../services/Buyer/Userservice";
 
+
 interface UserProfile {
     id: number;
     email: string;
@@ -24,14 +25,17 @@ interface UserProfile {
     shopDescription: string | null;
 }
 
+
 interface EditForm {
     fullName: string;
     phone: string;
     address: string;
 }
 
+
 const fmtDate = (s: string) =>
     new Date(s).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+
 
 export default function ProfilePage() {
     const navigate  = useNavigate();
@@ -43,28 +47,32 @@ export default function ProfilePage() {
     const [confirmSave, setConfirmSave] = useState(false);
     const [form,    setForm]      = useState<EditForm>({ fullName: "", phone: "", address: "" });
     // Địa chỉ cascade
-    const [provinces,   setProvinces]   = useState([]);
-    const [districts,   setDistricts]   = useState([]);
-    const [wards,       setWards]       = useState([]);
+    const [provinces,   setProvinces]   = useState<{ code: number; name: string }[]>([]);
+    const [districts,   setDistricts]   = useState<{ code: number; name: string }[]>([]);
+    const [wards,       setWards]       = useState<{ code: number; name: string }[]>([]);
     const [province,    setProvince]    = useState("");
     const [district,    setDistrict]    = useState("");
     const [ward,        setWard]        = useState("");
     const [detail,      setDetail]      = useState("");
     const [addrLoading, setAddrLoading] = useState(false);
 
+
     const user   = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const userId = user?.id ?? user?.userId;
+
 
     useEffect(() => {
         void fetchProfile();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
+
     // fetch provinces
     useEffect(() => {
         fetch("https://provinces.open-api.vn/api/?depth=1")
             .then((r) => r.json()).then(setProvinces).catch(() => {});
     }, []);
+
 
     // fetch districts
     useEffect(() => {
@@ -76,6 +84,7 @@ export default function ProfilePage() {
             .catch(() => {}).finally(() => setAddrLoading(false));
     }, [province]);
 
+
     // fetch wards
     useEffect(() => {
         if (!district) { setWards([]); setWard(""); return; }
@@ -85,6 +94,7 @@ export default function ProfilePage() {
             .then((d) => { setWards(d.wards || []); setWard(""); })
             .catch(() => {}).finally(() => setAddrLoading(false));
     }, [district]);
+
 
     const fetchProfile = async () => {
         setLoading(true);
@@ -99,7 +109,7 @@ export default function ProfilePage() {
             // Parse address nếu có
             if (data.address) {
                 // address dạng: "123 Lê Lợi, Phường 1, Quận 1, TP.HCM"
-                const parts = data.address.split(",").map(s => s.trim());
+                const parts = data.address.split(",").map((s: string) => s.trim());
                 setDetail(parts[0] || "");
                 setWard(""); setDistrict(""); setProvince("");
                 // Tìm tên tỉnh/thành, quận/huyện, phường/xã
@@ -123,9 +133,11 @@ export default function ProfilePage() {
         }
     };
 
+
     const handleSave = () => {
         setConfirmSave(true);
     };
+
 
     const confirmSaveChanges = async () => {
         if (!userId || !profile) return;
@@ -158,14 +170,17 @@ export default function ProfilePage() {
         }
     };
 
+
     const cancelConfirm = () => {
         setConfirmSave(false);
     };
+
 
     const showToast = (type: "success" | "error", msg: string) => {
         setToast({ type, msg });
         setTimeout(() => setToast(null), 3500);
     };
+
 
     const cancelEdit = () => {
         if (profile) {
@@ -174,6 +189,7 @@ export default function ProfilePage() {
         setEditing(false);
     };
 
+
     const roleLabel: Record<string, { label: string; color: string; bg: string }> = {
         BUYER:    { label: "Người mua",    color: "#2563eb", bg: "#eff6ff" },
         SELLER:   { label: "Người bán",    color: "#16a34a", bg: "#f0fdf4" },
@@ -181,6 +197,7 @@ export default function ProfilePage() {
         INSPECTOR:{ label: "Kiểm định viên",color:"#d97706", bg: "#fffbeb" },
     };
     const roleMeta = roleLabel[profile?.role ?? ""] ?? { label: profile?.role, color: "#64748b", bg: "#f4f6fb" };
+
 
     return (
         <div style={{ minHeight: "100vh", background: "#f4f6fb", fontFamily: "'DM Sans','Nunito',sans-serif" }}>
@@ -197,6 +214,7 @@ export default function ProfilePage() {
                 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
                 .pulse{animation:pulse 1.4s infinite}
             `}</style>
+
 
             {/* Toast */}
             {toast && (
@@ -216,6 +234,7 @@ export default function ProfilePage() {
                     {toast.msg}
                 </div>
             )}
+
 
             {/* Confirm Save Modal */}
             {confirmSave && (
@@ -254,6 +273,7 @@ export default function ProfilePage() {
                 </div>
             )}
 
+
             {/* Header */}
             <header style={{
                 background: "white", borderBottom: "1px solid #e8ecf4",
@@ -276,7 +296,9 @@ export default function ProfilePage() {
                 </div>
             </header>
 
+
             <main style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px" }}>
+
 
                 {/* Loading skeleton */}
                 {loading && (
@@ -296,8 +318,10 @@ export default function ProfilePage() {
                     </div>
                 )}
 
+
                 {!loading && profile && (
                     <div className="fade-in">
+
 
                         {/* Avatar + stats card */}
                         <div style={{
@@ -363,6 +387,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
+
                         {/* Info card */}
                         <div style={{ background: "white", borderRadius: 16, border: "1.5px solid #e8ecf4", overflow: "hidden", marginBottom: 16 }}>
                             {/* Card header */}
@@ -409,13 +434,16 @@ export default function ProfilePage() {
                                 )}
                             </div>
 
+
                             {/* Fields */}
                             <div style={{ padding: "22px", display: "flex", flexDirection: "column", gap: 18 }}>
+
 
                                 {/* Email — readonly */}
                                 <Field icon={<Mail size={14} color="#94a3b8"/>} label="Email">
                                     <input className="field-input" value={profile.email} disabled/>
                                 </Field>
+
 
                                 {/* Họ tên */}
                                 <Field icon={<User size={14} color={editing ? "#3b82f6" : "#94a3b8"}/>} label="Họ và tên">
@@ -428,6 +456,7 @@ export default function ProfilePage() {
                                     />
                                 </Field>
 
+
                                 {/* Số điện thoại */}
                                 <Field icon={<Phone size={14} color={editing ? "#3b82f6" : "#94a3b8"}/>} label="Số điện thoại">
                                     <input
@@ -438,6 +467,7 @@ export default function ProfilePage() {
                                         onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                                     />
                                 </Field>
+
 
                                 {/* Địa chỉ cascade giống Register.jsx */}
                                 <Field icon={<MapPin size={14} color={editing ? "#3b82f6" : "#94a3b8"}/>} label="Địa chỉ">
@@ -491,6 +521,7 @@ export default function ProfilePage() {
                                     </div>
                                 </Field>
 
+
                                 {editing && (
                                     <div style={{
                                         padding: "10px 14px", background: "#fffbeb",
@@ -504,6 +535,7 @@ export default function ProfilePage() {
                                 )}
                             </div>
                         </div>
+
 
                         {/* Account info card */}
                         <div style={{ background: "white", borderRadius: 16, border: "1.5px solid #e8ecf4", padding: "22px" }}>
@@ -534,12 +566,14 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
+
                     </div>
                 )}
             </main>
         </div>
     );
 }
+
 
 // ── Helper component ──────────────────────────────────────────────────────────
 function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
@@ -554,3 +588,4 @@ function Field({ icon, label, children }: { icon: React.ReactNode; label: string
         </div>
     );
 }
+

@@ -12,9 +12,10 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     Wallet, ArrowDownLeft, ArrowUpRight, Clock, CheckCircle,
-    XCircle, Plus, History, RefreshCw, AlertTriangle, Package,
+    XCircle, Plus, History, RefreshCw, Package,
 } from "lucide-react";
-import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL } from "../../services/Buyer/walletService";
+import { getWalletAPI, getTransactionsAPI, createVNPayPaymentURL,withdrawWalletAPI } from "../../services/Buyer/walletService";
+import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 // Danh sách ngân hàng Việt Nam
 const BANKS = [
     { code: "VCB", name: "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)" },
@@ -60,8 +61,6 @@ const BANKS = [
     { code: "WOO", name: "Ngân hàng TNHH MTV Woori Việt Nam (Woori Bank)" }
 ];
 
-const BASE = import.meta.env.VITE_API_BASE_URL as string;
-
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface WalletData {
     userId: number;
@@ -88,8 +87,8 @@ interface Transaction {
 type TabType = "overview" | "deposit" | "history";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-const fmtVnd  = (p: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(p);
-const fmtPts  = fmtVnd; // balances stored as VND — display in VND
+const fmtVnd  = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
+const fmtPts  = fmtVnd;
 const fmtDate = (d: string) => {
     const dt = new Date(d);
     return dt.toLocaleDateString("vi-VN") + " " + dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -97,26 +96,26 @@ const fmtDate = (d: string) => {
 
 const TX_LABEL: Record<string, { label: string; sub?: string }> = {
     // Nạp / rút
-    DEPOSIT:         { label: "Nạp tiền",              sub: "Nạp điểm vào ví" },
-    WITHDRAW:        { label: "Rút tiền",               sub: "Rút điểm về ngân hàng" },
+    DEPOSIT:         { label: "Nạp tiền",              sub: "Nạp tiền vào ví" },
+    WITHDRAW:        { label: "Rút tiền",               sub: "Rút tiền về ngân hàng" },
     WITHDRAW_REQUEST:{ label: "Yêu cầu rút tiền",       sub: "Chờ admin xét duyệt" },
 
     // Mua xe
-    ESCROW_HOLD:     { label: "Tạm giữ điểm",          sub: "Khóa điểm khi đặt mua xe" },
-    ESCROW_RELEASE:  { label: "Hoàn điểm tạm giữ",     sub: "Đơn hủy — điểm trả về ví" },
-    ESCROW:          { label: "Tạm giữ điểm",          sub: "Khóa điểm khi đặt mua xe" },
+    ESCROW_HOLD:     { label: "Tạm giữ tiền",          sub: "Khóa tiền khi đặt mua xe" },
+    ESCROW_RELEASE:  { label: "Hoàn tiền tạm giữ",     sub: "Đơn hủy — tiền trả về ví" },
+    ESCROW:          { label: "Tạm giữ tiền",          sub: "Khóa tiền khi đặt mua xe" },
 
     // Bán xe
-    EARN:            { label: "Nhận điểm bán xe",      sub: "Giao dịch hoàn tất" },
-    EARN_ESCROW:     { label: "Nhận điểm bán xe",      sub: "Giao dịch hoàn tất" },
+    EARN:            { label: "Nhận tiền bán xe",      sub: "Giao dịch hoàn tất" },
+    EARN_ESCROW:     { label: "Nhận tiền bán xe",      sub: "Giao dịch hoàn tất" },
 
     // Hoàn / tranh chấp
-    REFUND:          { label: "Hoàn điểm",             sub: "Điểm được hoàn về ví" },
-    REFUND_BUYER:    { label: "Hoàn điểm mua",         sub: "Yêu cầu hoàn hàng được duyệt" },
-    DISPUTE_REFUND:  { label: "Hoàn điểm tranh chấp",  sub: "Admin đã giải quyết tranh chấp" },
+    REFUND:          { label: "Hoàn tiền",             sub: "Tiền được hoàn về ví" },
+    REFUND_BUYER:    { label: "Hoàn tiền mua",         sub: "Yêu cầu hoàn hàng được duyệt" },
+    DISPUTE_REFUND:  { label: "Hoàn tiền tranh chấp",  sub: "Admin đã giải quyết tranh chấp" },
 
     // Khác
-    SPEND:           { label: "Chi điểm",              sub: undefined },
+    SPEND:           { label: "Chi tiền",              sub: undefined },
     ADMIN_ADJUST:    { label: "Điều chỉnh bởi Admin",  sub: undefined },
 };
 
@@ -151,19 +150,31 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
     const [withdrawLoading, setWithdrawLoading] = useState(false);
     const [withdrawErr, setWithdrawErr]       = useState("");
     const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+    const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
     // Không cần banks state nữa
     // Load banks
     // Đã khai báo BANKS trực tiếp, không cần fetch
     // Withdraw handler
-    const handleWithdraw = async () => {
+    const validateWithdrawForm = (): boolean => {
         setWithdrawErr("");
-        if (!withdrawAmt || Number(withdrawAmt) < 10000) { setWithdrawErr("Số tiền tối thiểu là 10.000đ"); return; }
-        if (!withdrawBank) { setWithdrawErr("Vui lòng chọn ngân hàng"); return; }
-        if (!withdrawAccount) { setWithdrawErr("Vui lòng nhập số tài khoản"); return; }
-        if (!withdrawName) { setWithdrawErr("Vui lòng nhập tên chủ tài khoản"); return; }
+        if (!withdrawAmt || Number(withdrawAmt) < 10000) { setWithdrawErr("Số tiền tối thiểu là 10.000đ"); return false; }
+        if (!withdrawBank) { setWithdrawErr("Vui lòng chọn ngân hàng"); return false; }
+        if (!withdrawAccount) { setWithdrawErr("Vui lòng nhập số tài khoản"); return false; }
+        if (!withdrawName) { setWithdrawErr("Vui lòng nhập tên chủ tài khoản"); return false; }
+        return true;
+    };
+
+    const openWithdrawConfirm = () => {
+        setWithdrawSuccess(false);
+        if (!validateWithdrawForm()) return;
+        setShowWithdrawConfirm(true);
+    };
+
+    const handleWithdraw = async () => {
+        if (!validateWithdrawForm()) return;
         setWithdrawLoading(true);
         try {
-            const res = await withdrawWalletAPI({
+            await withdrawWalletAPI({
                 amount: Number(withdrawAmt),
                 bankName: withdrawBank,
                 bankAccount: withdrawAccount,
@@ -174,6 +185,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
             setWithdrawBank("");
             setWithdrawAccount("");
             setWithdrawName("");
+            setShowWithdrawConfirm(false);
         } catch (e) {
             setWithdrawErr(e instanceof Error ? e.message : "Có lỗi xảy ra");
         } finally {
@@ -181,30 +193,27 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         }
     };
 
-    const token = localStorage.getItem("token") ?? "";
-    const authHeader = `Bearer ${token}`;
-
     /* ── Fetch wallet + ESCROWED orders song song ── */
     const fetchWallet = useCallback(async () => {
         setLoading(true);
         try {
-            const [walletData, ordersRes] = await Promise.all([
+            const [walletData, purchases] = await Promise.all([
                 getWalletAPI(),
-                fetch(`${BASE}/orders/my-purchases?status=ESCROWED`, {
-                    headers: { Authorization: authHeader, "Content-Type": "application/json" },
-                }).then(r => r.json()).catch(() => ({ success: false, data: [] })),
+                getMyPurchasesAPI({ status: "ESCROWED" }),
             ]);
 
             setWallet(walletData);
 
-            // BuyerPurchaseHistoryResponse: mỗi item { order: { id, bikeTitle, amountPoints, ... } }
-            if (ordersRes.success && Array.isArray(ordersRes.data)) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setEscrowedOrders(ordersRes.data.map((p: any) => ({
-                    id:           p.order.id,
-                    bikeTitle:    p.order.bikeTitle,
-                    amountPoints: p.order.amountPoints,
-                })));
+            // BuyerPurchaseHistoryResponse: item có thể là { order } hoặc object order trực tiếp.
+            if (Array.isArray(purchases)) {
+                setEscrowedOrders(purchases.map((p: EscrowedOrder & { order?: EscrowedOrder }) => {
+                    const order = p.order ?? p;
+                    return {
+                        id: order.id,
+                        bikeTitle: order.bikeTitle,
+                        amountPoints: order.amountPoints,
+                    };
+                }));
             } else {
                 setEscrowedOrders([]);
             }
@@ -213,7 +222,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
         } finally {
             setLoading(false);
         }
-    }, [token]);
+    }, []);
 
     useEffect(() => { void fetchWallet(); }, [fetchWallet]);
 
@@ -250,8 +259,6 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
     /* ── Computed ── */
     // realHeld = tổng amountPoints đơn ESCROWED — chính xác, real-time từ orders API
     const realHeld    = escrowedOrders.reduce((s, o) => s + o.amountPoints, 0);
-    const dbFrozen    = wallet?.frozenPoints ?? 0;
-    const outOfSync   = !loading && realHeld !== dbFrozen;
     const displayAvail = wallet?.availablePoints ?? 0;
     const displayTotal = displayAvail + realHeld;
 
@@ -271,9 +278,29 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                 .fade-in { animation: fadeIn .25s ease; }
                 @keyframes spin { to{transform:rotate(360deg)} }
                 .spin { animation: spin .8s linear infinite; }
-                .tab-btn { border:none;background:transparent;padding:12px 16px;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;font-family:inherit; }
-                .tab-btn.active { color:#2563eb;border-bottom-color:#2563eb; }
-                .tab-btn:hover:not(.active) { color:#475569; }
+                .tab-btn {
+                    border: 1.5px solid transparent;
+                    background: transparent;
+                    padding: 10px 14px;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #64748b;
+                    cursor: pointer;
+                    border-radius: 10px;
+                    transition: all .2s;
+                    font-family: inherit;
+                    white-space: nowrap;
+                }
+                .tab-btn.active {
+                    color: #1d4ed8;
+                    background: #ffffff;
+                    border-color: #dbeafe;
+                    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.07);
+                }
+                .tab-btn:hover:not(.active) {
+                    color: #334155;
+                    background: #eef2ff;
+                }
                 .chip { cursor:pointer;border:1.5px solid #e8ecf4;border-radius:9px;padding:10px 14px;text-align:center;font-size:13px;font-weight:600;color:#374151;background:white;transition:all .15s;font-family:inherit; }
                 .chip:hover,.chip.on { border-color:#2563eb;color:#2563eb;background:#eff6ff; }
                 .wl-input { border:1.5px solid #e8ecf4;border-radius:10px;padding:11px 14px;font-size:14px;outline:none;width:100%;box-sizing:border-box;transition:border .15s;font-family:inherit;color:#1e293b; }
@@ -318,13 +345,6 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                             ? `${escrowedOrders.length} đơn chờ seller xác nhận`
                             : "Không có đơn ký quỹ"}
                     </p>
-                    {/* Cảnh báo nếu DB frozenPoints lệch với thực tế */}
-                    {outOfSync && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>
-                            <AlertTriangle size={10} />
-                            DB: {fmtPts(dbFrozen)} (đang sync)
-                        </div>
-                    )}
                 </div>
 
                 {/* Tổng ví */}
@@ -373,49 +393,65 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                     ))}
                 </div>
             )}
-
             {/* ── Tab Navigation ── */}
             <div style={{ background: "white", borderRadius: 16, border: "1.5px solid #e8ecf4", overflow: "hidden" }}>
-                <div style={{ display: "flex", borderBottom: "1px solid #f1f5f9", padding: "0 16px" }}>
-                    {[
-                        { id: "overview", label: "Tổng quan", icon: "📋" },
-                        { id: "deposit",  label: "Nạp tiền",  icon: "⬇️" },
-                        { id: "withdraw", label: "Rút tiền",  icon: "🏦" },
-                        { id: "history",  label: "Lịch sử",   icon: "📜" },
-                    ].map(t => (
-                        <button key={t.id}
-                                className={`tab-btn${tab === t.id ? " active" : ""}`}
-                                onClick={() => setTab(t.id as any)}>
-                            {t.icon} {t.label}
+                <div style={{ padding: "14px 16px", borderBottom: "1px solid #f1f5f9" }}>
+                    <div style={{ background: "#f8fafc", border: "1.5px solid #e8ecf4", borderRadius: 12, padding: 6, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6, maxWidth: 620 }}>
+                    {([
+                        { id: "overview", label: "Tổng quan" },
+                        { id: "deposit",  label: "Nạp tiền" },
+                        { id: "withdraw", label: "Rút tiền" },
+                        { id: "history",  label: "Lịch sử" },
+                    ] as { id: TabType | "withdraw"; label: string }[]).map((t) => (
+                        <button
+                            key={t.id}
+                            className={`tab-btn${tab === t.id ? " active" : ""}`}
+                            onClick={() => setTab(t.id)}
+                        >
+                            {t.label}
                         </button>
                     ))}
+                    </div>
                 </div>
 
                 <div style={{ padding: 24 }}>
+
                     {/* Withdraw */}
                     {tab === "withdraw" && (
-                        <div className="fade-in" style={{ maxWidth: 480 }}>
+                        <div className="fade-in" style={{ maxWidth: 620 }}>
                             <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 16px" }}>Rút tiền về ngân hàng</h3>
                             {withdrawSuccess && (
                                 <div style={{ marginBottom: 14, padding: "10px 13px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, color: "#16a34a", fontSize: 13 }}>
                                     ✅ Yêu cầu rút đã được tạo. Admin sẽ xét duyệt trong 1-3 ngày.
                                 </div>
                             )}
-                            <div style={{ marginBottom: 12 }}>
+                            <div style={{ position: "relative", marginBottom: 12 }}>
                                 <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Số tiền muốn rút</label>
                                 <input className="wl-input" type="number" placeholder="Nhập số tiền"
                                        value={withdrawAmt}
                                        onChange={e => { setWithdrawAmt(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }}
                                        style={{ paddingRight: 50 }} />
-                                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>VNĐ</span>
+                                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>đ</span>
                             </div>
                             <div style={{ marginBottom: 12 }}>
                                 <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6, display: "block" }}>Ngân hàng</label>
-                                <select className="wl-input" value={withdrawBank} onChange={e => { setWithdrawBank(e.target.value); setWithdrawErr(""); setWithdrawSuccess(false); }}>
+                                <select
+                                    className="wl-input"
+                                    value={withdrawBank}
+                                    onChange={e => {
+                                        setWithdrawBank(e.target.value);
+                                        setWithdrawErr("");
+                                        setWithdrawSuccess(false);
+                                    }}
+                                >
                                     <option value="">Chọn ngân hàng</option>
-                                    {BANKS.map(b => (
-                                        <option key={b.code} value={b.name}>{b.name}</option>
+
+                                    {BANKS.map((b, i) => (
+                                        <option key={`${b.code}-${i}`} value={b.name}>
+                                            {b.name}
+                                        </option>
                                     ))}
+
                                 </select>
                             </div>
                             <div style={{ marginBottom: 12 }}>
@@ -435,12 +471,12 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                                     ⚠️ {withdrawErr}
                                 </div>
                             )}
-                            <button onClick={() => { void handleWithdraw(); }}
-                                    disabled={withdrawLoading || !withdrawAmt || Number(withdrawAmt) < 10000 || !withdrawBank || !withdrawAccount || !withdrawName}
+                                <button onClick={openWithdrawConfirm}
+                                    disabled={withdrawLoading}
                                     style={{ width: "100%", padding: "13px 0", background: withdrawLoading ? "#e2e8f0" : "#0f172a", color: withdrawLoading ? "#94a3b8" : "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: withdrawLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}>
                                 {withdrawLoading
                                     ? <><RefreshCw size={15} className="spin" /> Đang xử lý...</>
-                                    : <>🏦 Rút tiền</>}
+                                    : <>Rút tiền</>}
                             </button>
                         </div>
                     )}
@@ -463,7 +499,8 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                                 <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: "0 0 12px" }}>
                                     Yêu cầu rút tiền. Admin xét duyệt trong 1-3 ngày.
                                 </p>
-                                <button style={{ padding: "8px 14px", background: "#0f172a", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                                <button onClick={() => setTab("withdraw")}
+                                        style={{ padding: "8px 14px", background: "#0f172a", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
                                     Rút tiền →
                                 </button>
                             </div>
@@ -472,7 +509,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
 
                     {/* Deposit */}
                     {tab === "deposit" && (
-                        <div className="fade-in" style={{ maxWidth: 480 }}>
+                        <div className="fade-in" style={{ maxWidth: 620 }}>
                             <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 16px" }}>Nạp tiền qua VNPay</h3>
 
                             <p style={{ fontSize: 12, fontWeight: 700, color: "#374151", margin: "0 0 10px" }}>CHỌN NHANH</p>
@@ -491,7 +528,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                                        value={depositAmt}
                                        onChange={e => { setDepositAmt(e.target.value); setDepositErr(""); }}
                                        style={{ paddingRight: 50 }} />
-                                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>VNĐ</span>
+                                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8", fontWeight: 600 }}>đ</span>
                             </div>
                             {Number(depositAmt) >= 10_000 && (
                                 <p style={{ fontSize: 12, color: "#16a34a", margin: "0 0 16px", fontWeight: 500 }}>
@@ -559,6 +596,80 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
 
                 </div>
             </div>
+
+            {showWithdrawConfirm && (
+                <div
+                    onClick={() => { if (!withdrawLoading) setShowWithdrawConfirm(false); }}
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "rgba(15, 23, 42, 0.35)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 16,
+                        zIndex: 999,
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            width: "min(560px, 100%)",
+                            background: "#ffffff",
+                            borderRadius: 22,
+                            padding: "28px 24px",
+                            boxShadow: "0 24px 60px rgba(2, 6, 23, 0.25)",
+                            textAlign: "center",
+                        }}
+                    >
+                        <h3 style={{ margin: 0, fontSize: 42, lineHeight: 1.15, fontWeight: 800, color: "#0f172a" }}>Xác nhận rút tiền</h3>
+                        <p style={{ margin: "18px 0 0", fontSize: 18, color: "#64748b", lineHeight: 1.5 }}>
+                            Bạn có chắc chắn muốn rút {fmtPts(Number(withdrawAmt || 0))} về {withdrawBank}?
+                        </p>
+
+                        <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 30 }}>
+                            <button
+                                onClick={() => { void handleWithdraw(); }}
+                                disabled={withdrawLoading}
+                                style={{
+                                    minWidth: 180,
+                                    padding: "14px 18px",
+                                    borderRadius: 14,
+                                    border: "none",
+                                    background: "#2563eb",
+                                    color: "#ffffff",
+                                    fontSize: 20,
+                                    fontWeight: 700,
+                                    cursor: withdrawLoading ? "not-allowed" : "pointer",
+                                    opacity: withdrawLoading ? 0.75 : 1,
+                                    fontFamily: "inherit",
+                                }}
+                            >
+                                {withdrawLoading ? "Đang xử lý..." : "Xác nhận"}
+                            </button>
+
+                            <button
+                                onClick={() => setShowWithdrawConfirm(false)}
+                                disabled={withdrawLoading}
+                                style={{
+                                    minWidth: 180,
+                                    padding: "14px 18px",
+                                    borderRadius: 14,
+                                    border: "none",
+                                    background: "#f1f5f9",
+                                    color: "#2563eb",
+                                    fontSize: 20,
+                                    fontWeight: 700,
+                                    cursor: withdrawLoading ? "not-allowed" : "pointer",
+                                    fontFamily: "inherit",
+                                }}
+                            >
+                                Quay lại
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

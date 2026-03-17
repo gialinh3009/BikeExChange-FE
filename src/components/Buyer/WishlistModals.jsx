@@ -5,7 +5,13 @@
 import { Heart, X, Bike } from "lucide-react";
 
 // ─── Modal: chưa đăng nhập ────────────────────────────────────────────────────
-export function WishlistAuthModal({ onClose, onLogin, onRegister }) {
+export function WishlistAuthModal({
+  onClose,
+  onLogin,
+  onRegister,
+  title = "BikeExchange",
+  message = "Vui lòng đăng nhập tài khoản để thêm xe vào danh sách yêu thích.",
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -21,9 +27,9 @@ export function WishlistAuthModal({ onClose, onLogin, onRegister }) {
         <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg">
           <Bike size={30} className="text-white" />
         </div>
-        <h2 className="text-xl font-extrabold text-blue-600 tracking-tight">BikeExchange</h2>
+        <h2 className="text-xl font-extrabold text-blue-600 tracking-tight">{title}</h2>
         <p className="text-sm text-gray-600 text-center leading-relaxed">
-          Vui lòng đăng nhập tài khoản để thêm xe vào danh sách yêu thích.
+          {message}
         </p>
         <div className="flex gap-3 w-full mt-1">
           <button

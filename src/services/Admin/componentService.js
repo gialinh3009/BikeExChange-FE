@@ -1,69 +1,50 @@
 import { BASE_URL } from "../../config/apiConfig";
 
-function authHeader(token) {
+function authHeaders() {
+  const token = localStorage.getItem("token");
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
-/**
- * Lấy danh sách components
- */
-export async function getComponentsAPI(token) {
+export async function getComponentsAPI() {
   const res = await fetch(`${BASE_URL}/admin/components`, {
-    headers: authHeader(token),
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy danh sách components thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Không thể tải danh sách linh kiện.");
+  return data;
 }
 
-/**
- * Tạo component mới
- */
-export async function createComponentAPI(payload, token) {
+export async function createComponentAPI({ name, description }) {
   const res = await fetch(`${BASE_URL}/admin/components`, {
     method: "POST",
-    headers: authHeader(token),
-    body: JSON.stringify(payload),
+    headers: authHeaders(),
+    body: JSON.stringify({ name, description }),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Tạo component thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Tạo linh kiện thất bại.");
+  return data;
 }
 
-/**
- * Cập nhật component
- */
-export async function updateComponentAPI(id, payload, token) {
-  const res = await fetch(`${BASE_URL}/admin/components/${id}`, {
+export async function updateComponentAPI(componentId, { name, description }) {
+  const res = await fetch(`${BASE_URL}/admin/components/${componentId}`, {
     method: "PUT",
-    headers: authHeader(token),
-    body: JSON.stringify(payload),
+    headers: authHeaders(),
+    body: JSON.stringify({ name, description }),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Cập nhật component thất bại.");
-  }
-  return data.data ?? data;
+  if (!res.ok || !data.success) throw new Error(data.message || "Cập nhật linh kiện thất bại.");
+  return data;
 }
 
-/**
- * Xóa component
- */
-export async function deleteComponentAPI(id, token) {
-  const res = await fetch(`${BASE_URL}/admin/components/${id}`, {
+export async function deleteComponentAPI(componentId) {
+  const res = await fetch(`${BASE_URL}/admin/components/${componentId}`, {
     method: "DELETE",
-    headers: authHeader(token),
+    headers: authHeaders(),
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Xóa component thất bại.");
-  }
+  if (!res.ok || !data.success) throw new Error(data.message || "Xóa linh kiện thất bại.");
   return data;
 }

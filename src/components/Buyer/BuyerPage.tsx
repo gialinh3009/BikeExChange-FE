@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import WalletPage from "./WalletPage";
 import UpgradeToSellerModal from "./UpgradeToSellerModal";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
-import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
+import { getMyPurchasesAPI, getOrderAPI } from "../../services/Buyer/Orderservice";
 import OrdersTab from "./OrdersTab";
 import { getWalletAPI } from "../../services/Buyer/walletService";
 
@@ -297,20 +297,9 @@ export default function BuyerPage() {
                                             {(overview?.orders ?? []).map((order) => (
                                                 <div key={order.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "#f8fafc", cursor: "pointer", position: "relative" }}
                                                     onClick={async () => {
-                                                        // Always call API to get order detail
+                                                        // Use buyer service to keep endpoint/auth handling centralized.
                                                         try {
-                                                            const token = localStorage.getItem("token") ?? "";
-                                                            const res = await fetch(`/api/orders/${order.id}`, {
-                                                                method: "GET",
-                                                                headers: { Authorization: `Bearer ${token}` }
-                                                            });
-                                                            if (res.status === 401) {
-                                                                // Token expired or not logged in
-                                                                navigate("/login");
-                                                                return;
-                                                            }
-                                                            const orderDetail = await res.json();
-                                                            // Navigate to OrderDetailPage with order detail
+                                                            const orderDetail = await getOrderAPI(order.id);
                                                             navigate(`/order-detail/${order.id}`, { state: { order: orderDetail } });
                                                         } catch {
                                                             navigate(`/order-detail/${order.id}`);

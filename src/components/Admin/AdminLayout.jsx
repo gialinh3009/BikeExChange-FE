@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Menu, Search } from "lucide-react";
 import AdminSidebar from "./AdminSidebar";
@@ -23,13 +23,11 @@ export default function AdminLayout({ user, onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const title = useMemo(() => "Admin", []);
-
   const handleLogout = async () => {
     try {
       if (onLogout) await onLogout();
     } finally {
-      // fallback: xóa token localStorage nếu bạn đang dùng
+      // fallback: xoa token localStorage neu ban dang dung
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       navigate("/login");
@@ -63,24 +61,15 @@ export default function AdminLayout({ user, onLogout }) {
                 <Menu size={18} className="text-gray-600" />
               </button>
 
-              <div className="min-w-0">
-                <div className="font-semibold text-gray-900 leading-tight">
-                  {title}
-                </div>
-                <div className="text-xs text-gray-500">
-                  Quản trị hệ thống BikeExchange
-                </div>
-              </div>
-
               <div className="ml-auto flex items-center gap-2">
                 <div className="hidden sm:flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
                   <Search size={15} className="text-gray-400 shrink-0" />
                   <input
                     className="w-44 md:w-64 outline-none text-sm placeholder:text-gray-400"
-                    placeholder="Tìm nhanh…"
+                    placeholder="Tim nhanh..."
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        // bạn nối search tại đây (optional)
+                        // ban noi search tai day (optional)
                         // console.log("Search:", e.currentTarget.value);
                       }
                     }}
@@ -92,7 +81,7 @@ export default function AdminLayout({ user, onLogout }) {
                   onClick={() => navigate("/")}
                   className="hidden sm:inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 hover:bg-blue-50 px-4 text-sm font-medium"
                 >
-                  Về trang chủ
+                  Ve trang chu
                 </button>
 
                 <button
