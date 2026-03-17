@@ -69,7 +69,7 @@ export default function OrderReviewPage() {
 
       await createReviewAPI(
         {
-          sellerId: detail.order.sellerId,
+          orderId,
           rating,
           comment: comment.trim(),
         },
