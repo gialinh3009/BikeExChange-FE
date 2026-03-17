@@ -25,6 +25,7 @@ import {
 } from "../../services/Buyer/orderActionService";
 import RequestReturnModal from "./RequestReturnModal";
 import OrderConfirmationModal from "./OrderConfirmationModal";
+import OpenDisputeModal from "./OpenDisputeModal";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 
@@ -58,6 +59,13 @@ interface ApiPurchase {
     order: OrderItem;
     canReview: boolean;
     isReviewed: boolean;
+}
+
+interface OpenDisputePayload {
+    reason: string;
+    buyerAddress: string;
+    buyerPhone: string;
+    buyerEmail: string;
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
@@ -159,6 +167,7 @@ export default function OrdersTab({ token, navigate }: Props) {
     const [actionLoading, setAction] = useState<number | null>(null);
     const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
     const [showReturnModalForOrder, setShowReturnModalForOrder] = useState<number | null>(null);
+    const [showDisputeModalForOrder, setShowDisputeModalForOrder] = useState<number | null>(null);
     const [confirmationModal, setConfirmationModal] = useState<{ open: boolean; order: OrderItem | null }>({ open: false, order: null });
 
     void token;
@@ -198,7 +207,7 @@ export default function OrdersTab({ token, navigate }: Props) {
 
     /* ── Actions ── */
 
-    const doAction = async (orderId: number, actionKey: "cancel" | "confirm-receipt" | "request-return" | "return-dispute", reason?: string) => {
+    const doAction = async (orderId: number, actionKey: "cancel" | "confirm-receipt" | "request-return", reason?: string) => {
 
         setAction(orderId);
 
@@ -207,10 +216,8 @@ export default function OrdersTab({ token, navigate }: Props) {
                 await cancelOrderAPI(orderId);
             } else if (actionKey === "confirm-receipt") {
                 await confirmReceiptAPI(orderId);
-            } else if (actionKey === "request-return") {
-                await requestReturnAPI(orderId, reason ?? "");
             } else {
-                await openReturnDisputeAPI(orderId);
+                await requestReturnAPI(orderId, reason ?? "");
             }
 
             await fetchOrders();
@@ -249,6 +256,25 @@ export default function OrdersTab({ token, navigate }: Props) {
         if (!showReturnModalForOrder) return;
         await doAction(showReturnModalForOrder, "request-return", reason);
         setShowReturnModalForOrder(null);
+    };
+
+    const handleOpenDispute = (id: number) => {
+        setShowDisputeModalForOrder(id);
+    };
+
+    const submitOpenDispute = async (payload: OpenDisputePayload) => {
+        if (!showDisputeModalForOrder) return;
+        setAction(showDisputeModalForOrder);
+        try {
+            await openReturnDisputeAPI(showDisputeModalForOrder, payload);
+            await fetchOrders();
+            setShowDisputeModalForOrder(null);
+        } catch (e) {
+            console.error(e);
+            alert(String(e instanceof Error ? e.message : e));
+        } finally {
+            setAction(null);
+        }
     };
 
     const renderActions = (order: OrderItem) => {
@@ -320,7 +346,7 @@ export default function OrdersTab({ token, navigate }: Props) {
                 return (
                     <button
                         style={btnStyle("#ef4444", "#fef2f2", "#fecaca")}
-                        onClick={() => void doAction(order.id, "return-dispute")}
+                        onClick={() => handleOpenDispute(order.id)}
                         disabled={busy}
                     >
                         <AlertTriangle size={13} /> Mở tranh chấp
@@ -527,6 +553,13 @@ export default function OrdersTab({ token, navigate }: Props) {
                 loading={actionLoading !== null}
                 onClose={() => setShowReturnModalForOrder(null)}
                 onConfirm={submitRequestReturn}
+            />
+
+            <OpenDisputeModal
+                open={showDisputeModalForOrder !== null}
+                loading={actionLoading !== null}
+                onClose={() => setShowDisputeModalForOrder(null)}
+                onConfirm={submitOpenDispute}
             />
 
             <OrderConfirmationModal

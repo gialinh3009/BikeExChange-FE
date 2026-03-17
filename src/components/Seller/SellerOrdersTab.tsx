@@ -8,9 +8,9 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, CheckCircle, Truck, Clock, AlertCircle, RefreshCw } from "lucide-react";
+import { Package, CheckCircle, Truck, Clock, AlertCircle, RefreshCw, RotateCcw } from "lucide-react";
 import { BASE_URL } from "../../config/apiConfig";
-import { getSellerSalesHistoryAPI } from "../../services/orderService";
+import { confirmReturnAPI, getSellerSalesHistoryAPI } from "../../services/orderService";
 import OrderApprovalModal from "./OrderApprovalModal";
 import OrderDeliveryForm from "./OrderDeliveryForm";
 
@@ -69,6 +69,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [actionOrderId, setActionOrderId] = useState<number | null>(null);
 
   // Modals
   const [approvalModal, setApprovalModal] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
@@ -158,9 +159,22 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
     const statusMap: Record<TabKey, OrderStatus[]> = {
       escrowed: ["ESCROWED"],
       accepted: ["ACCEPTED"],
-      delivered: ["DELIVERED"],
+      delivered: ["DELIVERED", "RETURN_REQUESTED"],
     };
     return orders.filter(o => statusMap[tab].includes(o.status));
+  };
+
+  const handleConfirmReturn = async (orderId: number) => {
+    if (!confirm("Xác nhận đã nhận lại hàng từ buyer?")) return;
+    setActionOrderId(orderId);
+    try {
+      await confirmReturnAPI(orderId, token);
+      await fetchOrders();
+    } catch (e) {
+      alert(String(e instanceof Error ? e.message : e));
+    } finally {
+      setActionOrderId(null);
+    }
   };
 
   const handleApprovalSuccess = () => {
@@ -178,7 +192,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   const tabConfig = [
     { key: "escrowed" as TabKey, label: "Chờ xác nhận", count: orders.filter(o => o.status === "ESCROWED").length },
     { key: "accepted" as TabKey, label: "Chuẩn bị giao", count: orders.filter(o => o.status === "ACCEPTED").length },
-    { key: "delivered" as TabKey, label: "Đã giao", count: orders.filter(o => o.status === "DELIVERED").length },
+    { key: "delivered" as TabKey, label: "Đã giao", count: orders.filter(o => o.status === "DELIVERED" || o.status === "RETURN_REQUESTED").length },
   ];
 
   return (
@@ -388,6 +402,30 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
                       <div style={{ padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, textAlign: "center" }}>
                         <p style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Chờ buyer confirm</p>
                       </div>
+                    )}
+
+                    {order.status === "RETURN_REQUESTED" && (
+                      <button
+                        onClick={() => void handleConfirmReturn(order.id)}
+                        disabled={actionOrderId === order.id}
+                        style={{
+                          padding: "10px 14px",
+                          background: actionOrderId === order.id ? "#94a3b8" : "#10b981",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: actionOrderId === order.id ? "not-allowed" : "pointer",
+                          transition: "opacity .2s",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <RotateCcw size={13} /> {actionOrderId === order.id ? "Đang xử lý..." : "Xác nhận nhận hàng trả"}
+                      </button>
                     )}
 
                     <button

@@ -84,6 +84,6 @@ export async function requestReturnAPI(orderId, reason) {
     return postOrderAction(orderId, "request-return", { reason });
 }
 
-export async function openReturnDisputeAPI(orderId) {
-    return postOrderAction(orderId, "return-dispute");
+export async function openReturnDisputeAPI(orderId, payload) {
+    return postOrderAction(orderId, "return-dispute", payload);
 }
