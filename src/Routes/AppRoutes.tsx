@@ -95,6 +95,8 @@ interface AppRoutesProps {
 
 export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
   const defaultHome = getRoleHome(user?.role);
+  const roleUpper = String(user?.role || "").toUpperCase();
+  const canBrowseMarketplace = roleUpper === "BUYER" || roleUpper === "SELLER";
 
 
 
@@ -131,7 +133,14 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
 
 
       {/* Root */}
-      <Route path="/" element={user ? <Navigate to={defaultHome} replace /> : <GuestLayout />} />
+      <Route
+        path="/"
+        element={
+          !user || canBrowseMarketplace
+            ? <GuestLayout />
+            : <Navigate to={defaultHome} replace />
+        }
+      />
 
 
 

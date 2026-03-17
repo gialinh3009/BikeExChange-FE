@@ -54,13 +54,17 @@ export default function Login() {
       const redirect = ROLE_REDIRECT[roleKey] || "/";
       navigate(redirect, { replace: true });
     } catch (err) {
-      const msg = err.message || "";
-      if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
-        setError("Tài khoản chưa được xác thực. Vui lòng kiểm tra email và nhấn vào link xác thực.");
-      } else if (msg.toLowerCase().includes("bad credentials") || msg.toLowerCase().includes("unauthorized")) {
+      const msg = (err.message || "").toLowerCase();
+      if (msg.includes("disabled") || msg.includes("user is disabled") || msg.includes("account") || msg.includes("locked")) {
+        setError("Tài khoản chưa được xác thực hoặc đã bị khóa. Vui lòng kiểm tra email và nhấn vào link xác thực.");
+      } else if (msg.includes("bad credentials") || msg.includes("unauthorized") || msg.includes("invalid") || msg.includes("incorrect") || msg.includes("wrong")) {
         setError("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      } else if (msg.includes("kết nối") || msg.includes("network") || msg.includes("fetch")) {
+        setError("Không thể kết nối máy chủ. Vui lòng kiểm tra internet và thử lại.");
+      } else if (msg.includes("không hợp lệ") || msg.includes("hợp lệ")) {
+        setError("Phiên đăng nhập không hợp lệ. Vui lòng thử lại.");
       } else {
-        setError(msg || "Đăng nhập thất bại. Vui lòng thử lại.");
+        setError(err.message || "Đăng nhập thất bại. Vui lòng thử lại.");
       }
     } finally {
       setLoading(false);

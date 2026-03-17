@@ -26,9 +26,9 @@ export async function createOrderAPI(payload) {
     return data.data;
 }
 
-// ── POST /orders/{id}/approve ──────────────────────────────────────────────
+// ── POST /orders/{id}/accept ───────────────────────────────────────────────
 export async function approveOrderAPI(orderId) {
-    const res = await fetch(`${BASE_URL}/orders/${orderId}/approve`, {
+    const res = await fetch(`${BASE_URL}/orders/${orderId}/accept`, {
         method: "POST",
         headers: authHeaders(),
     });
@@ -94,9 +94,9 @@ export async function getOrdersAPI(params = {}) {
     return data.data || data;
 }
 
-// ── GET /orders/:id ────────────────────────────────────────────────────────
+// ── GET /orders/{id}/history ───────────────────────────────────────────────
 export async function getOrderAPI(orderId) {
-    const res = await fetch(`${BASE_URL}/orders/${orderId}`, {
+    const res = await fetch(`${BASE_URL}/orders/${orderId}/history`, {
         method: "GET",
         headers: authHeaders(),
     });
@@ -107,5 +107,6 @@ export async function getOrderAPI(orderId) {
         throw new Error(data.message || "Không thể tải chi tiết đơn hàng.");
     }
 
-    return data.data;
+    const payload = data.data ?? {};
+    return payload.order ?? payload;
 }

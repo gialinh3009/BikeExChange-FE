@@ -151,6 +151,7 @@ interface Props {
 export default function OrdersTab({ token, navigate }: Props) {
 
     const [orders, setOrders] = useState<OrderItem[]>([]);
+    const [totalOrders, setTotalOrders] = useState(0);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("");
     const [actionLoading, setAction] = useState<number | null>(null);
@@ -164,21 +165,29 @@ export default function OrdersTab({ token, navigate }: Props) {
         setLoading(true);
 
         try {
+            const [filteredRes, allRes] = await Promise.allSettled([
+                getMyPurchasesAPI({ status: filter || undefined }),
+                getMyPurchasesAPI(),
+            ]);
 
-            const purchases = await getMyPurchasesAPI({ status: filter || undefined });
+            const filteredPurchases = filteredRes.status === "fulfilled" ? filteredRes.value : [];
+            const allPurchases = allRes.status === "fulfilled" ? allRes.value : [];
 
-            if (Array.isArray(purchases)) {
+            const list: OrderItem[] = Array.isArray(filteredPurchases)
+                ? (filteredPurchases as Array<ApiPurchase | OrderItem>)
+                    .map((p) => ((p as ApiPurchase)?.order ?? (p as OrderItem)))
+                    .filter((o): o is OrderItem => Boolean(o?.id))
+                : [];
 
-                const list: OrderItem[] = (purchases as ApiPurchase[]).map((p) => p.order);
+            setOrders(
+                list.sort(
+                    (a, b) =>
+                        new Date(b.createdAt).getTime() -
+                        new Date(a.createdAt).getTime()
+                )
+            );
 
-                setOrders(
-                    list.sort(
-                        (a, b) =>
-                            new Date(b.createdAt).getTime() -
-                            new Date(a.createdAt).getTime()
-                    )
-                );
-            }
+            setTotalOrders(Array.isArray(allPurchases) ? allPurchases.length : 0);
 
         } catch (e) {
             console.error("fetchOrders:", e);
@@ -320,25 +329,13 @@ export default function OrdersTab({ token, navigate }: Props) {
         }
     };
 
-    if (!loading && orders.length === 0) return (
-        <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                <Package size={28} color="#cbd5e1" />
-            </div>
-            <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Chưa có đơn hàng</h3>
-            <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                {filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!"}
-            </p>
-        </div>
-    );
-
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
                     <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>Đơn hàng của tôi</h2>
-                    <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>{orders.length} đơn hàng</p>
+                    <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>{totalOrders} đơn hàng</p>
                 </div>
                 <button onClick={() => fetchOrders()}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "white", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, color: "#64748b", cursor: "pointer" }}>
@@ -367,7 +364,18 @@ export default function OrdersTab({ token, navigate }: Props) {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {orders.map(order => {
+                {!loading && orders.length === 0 ? (
+                    <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                            <Package size={28} color="#cbd5e1" />
+                        </div>
+                        <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Chưa có đơn hàng</h3>
+                        <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                            {filter ? "Không có đơn nào ở trạng thái này." : "Bạn chưa có đơn hàng nào."}
+                        </p>
+                    </div>
+                ) : (
+                    orders.map(order => {
                     const meta = STATUS_META[order.status] ?? STATUS_META.ESCROWED;
                     return (
                         <div key={order.id}
@@ -507,7 +515,8 @@ export default function OrdersTab({ token, navigate }: Props) {
 
                         </div>
                     );
-                })}
+                    })
+                )}
             </div>
 
             <RequestReturnModal
