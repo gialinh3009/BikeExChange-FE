@@ -10,7 +10,7 @@ import {
     FileText, User, DollarSign, Calendar, RefreshCw,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getDisputeDetailAPI } from "../../services/disputeService";
+import { getDisputeDetailAPI, getDisputeByOrderIdAPI } from "../../services/disputeService";
 
 type OrderStatus = "DISPUTED" | "COMPLETED" | "REFUNDED" | "CANCELLED";
 
@@ -32,13 +32,27 @@ interface OrderDetail {
 }
 
 interface DisputeInfo {
+    id: number;
     orderId: number;
-    status: string; // DISPUTED, RESOLVED, etc
+    orderStatus: string;
+    amountPoints: number;
+    bikeTitle: string;
+    sellerName: string;
+    sellerPhone?: string;
+    sellerShopName?: string;
+    reporterName: string;
+    reporterEmail?: string;
+    reporterPhone?: string;
+    reporterAddress?: string;
     reason?: string;
+    status: string; // OPEN, INVESTIGATING, RESOLVED_REFUND, RESOLVED_RELEASE, REJECTED
+    disputeType?: string;
+    buyerContactAddress?: string;
+    buyerContactPhone?: string;
+    buyerContactEmail?: string;
+    resolutionNote?: string;
     createdAt?: string;
     resolvedAt?: string;
-    resolution?: string; // REFUND, KEPT, etc
-    adminNote?: string;
 }
 
 interface HistoryEvent {
@@ -86,8 +100,23 @@ export default function DisputeDetailPage() {
         try {
             const token = localStorage.getItem("token");
             if (!token) throw new Error("Vui lòng đăng nhập");
-            const data = await getDisputeDetailAPI(Number(id), token);
-            setDetail(data);
+            const [historyData, disputeData] = await Promise.all([
+                getDisputeDetailAPI(Number(id), token),
+                getDisputeByOrderIdAPI(Number(id), token),
+            ]);
+            // Ensure DISPUTED event exists in timeline for dispute orders
+            const timeline = Array.isArray(historyData.timeline) ? [...historyData.timeline] : [];
+            const hasDisputed = timeline.some((e: HistoryEvent) => e.status === "DISPUTED");
+            if (!hasDisputed && disputeData?.createdAt) {
+                timeline.push({
+                    status: "DISPUTED",
+                    timestamp: disputeData.createdAt,
+                    actor: disputeData.reporterName || "Người mua",
+                    note: disputeData.reason || "Đã mở tranh chấp với Admin",
+                });
+                timeline.sort((a: HistoryEvent, b: HistoryEvent) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            }
+            setDetail({ ...historyData, timeline, dispute: disputeData });
         } catch (e) {
             setError(String(e instanceof Error ? e.message : e));
         } finally {
@@ -160,23 +189,45 @@ export default function DisputeDetailPage() {
             <div className="page-wrap" style={{ maxWidth: 760, margin: "0 auto", padding: "28px 20px 64px" }}>
 
                 {/* ── Dispute Status Hero ── */}
-                <div style={{ background: "linear-gradient(135deg, #fef2f2 0%, #ffe5e5 100%)", borderRadius: 18, border: "1.5px solid #fecaca", padding: "28px 24px", marginBottom: 20, boxShadow: "0 2px 12px rgba(239,68,68,.1)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-                        <div style={{ width: 56, height: 56, borderRadius: 16, background: "white", display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444", flexShrink: 0 }}>
-                            <AlertTriangle size={28} />
+                {(() => {
+                    const isPending = !dispute || dispute.status === "OPEN" || dispute.status === "INVESTIGATING";
+                    const isResolved = dispute?.status === "RESOLVED_REFUND" || dispute?.status === "RESOLVED_RELEASE";
+                    const isRejected = dispute?.status === "REJECTED";
+
+                    const heroLabel = isPending ? "Đang xử lý tranh chấp"
+                        : isResolved ? (dispute?.status === "RESOLVED_REFUND" ? "Đã hoàn tiền cho Buyer" : "Giữ lại cho Seller")
+                        : isRejected ? "Tranh chấp bị từ chối" : "Tranh chấp";
+                    const heroDesc = isPending ? "Admin đang xem xét và xử lý vụ tranh chấp này"
+                        : isResolved ? "Admin đã xử lý xong tranh chấp"
+                        : isRejected ? "Admin đã từ chối yêu cầu tranh chấp" : "";
+                    const heroColor = isPending ? "#f59e0b" : isResolved ? "#10b981" : isRejected ? "#ef4444" : "#64748b";
+                    const heroBg = isPending ? "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)"
+                        : isResolved ? "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)"
+                        : "linear-gradient(135deg, #fef2f2 0%, #ffe5e5 100%)";
+                    const heroBorder = isPending ? "#fde68a" : isResolved ? "#bbf7d0" : "#fecaca";
+                    const heroIcon = isPending ? <Clock size={28} /> : isResolved ? <CheckCircle size={28} /> : <AlertTriangle size={28} />;
+
+                    return (
+                        <div style={{ background: heroBg, borderRadius: 18, border: `1.5px solid ${heroBorder}`, padding: "28px 24px", marginBottom: 20, boxShadow: `0 2px 12px rgba(0,0,0,.06)` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+                                <div style={{ width: 56, height: 56, borderRadius: 16, background: "white", display: "flex", alignItems: "center", justifyContent: "center", color: heroColor, flexShrink: 0 }}>
+                                    {heroIcon}
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Trạng thái tranh chấp</p>
+                                    <p style={{ fontSize: 18, fontWeight: 800, color: heroColor, marginBottom: 4 }}>{heroLabel}</p>
+                                    <p style={{ fontSize: 12, color: "#64748b" }}>{heroDesc}</p>
+                                </div>
+                            </div>
+                            {dispute?.createdAt && (
+                                <p style={{ fontSize: 12, color: "#64748b", marginTop: 12, borderTop: `1px solid ${heroBorder}`, paddingTop: 12 }}>
+                                    ⏱ Khiếu nại từ: <strong>{fmtDateTime(dispute.createdAt)}</strong>
+                                    {dispute.resolvedAt && <> · Xử lý lúc: <strong>{fmtDateTime(dispute.resolvedAt)}</strong></>}
+                                </p>
+                            )}
                         </div>
-                        <div>
-                            <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Trạng thái tranh chấp</p>
-                            <p style={{ fontSize: 18, fontWeight: 800, color: "#ef4444", marginBottom: 4 }}>Đang tranh chấp</p>
-                            <p style={{ fontSize: 12, color: "#64748b" }}>Admin đang xử lý vụ tranh chấp này</p>
-                        </div>
-                    </div>
-                    {dispute?.createdAt && (
-                        <p style={{ fontSize: 12, color: "#64748b", marginTop: 12, borderTop: "1px solid #fed7d7", paddingTop: 12 }}>
-                            ⏱ Khiếu nại từ: <strong>{fmtDateTime(dispute.createdAt)}</strong>
-                        </p>
-                    )}
-                </div>
+                    );
+                })()}
 
                 {/* ── Order Info ── */}
                 <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #e8ecf4", overflow: "hidden", marginBottom: 20, boxShadow: "0 2px 12px rgba(0,0,0,.05)" }}>
@@ -226,81 +277,128 @@ export default function DisputeDetailPage() {
                             </div>
                         )}
 
-                        {dispute.resolvedAt && (
-                            <>
-                                <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc", background: "#f0fdf4" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                        <CheckCircle size={16} color="#10b981" />
-                                        <div>
-                                            <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, marginBottom: 3 }}>Quyết định xử lý</p>
-                                            <p style={{ fontSize: 13, fontWeight: 600, color: "#10b981" }}>
-                                                {dispute.resolution === "REFUND" ? "✓ Hoàn tiền cho Buyer" : dispute.resolution === "KEPT" ? "Giữ lại cho Seller" : dispute.resolution}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {dispute.adminNote && (
-                                    <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc" }}>
-                                        <div style={{ marginBottom: 8 }}>
-                                            <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Ghi chú từ Admin</p>
-                                            <p style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5 }}>{dispute.adminNote}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc" }}>
-                                    <p style={{ fontSize: 12, color: "#64748b" }}>
-                                        ✓ Xử lý lúc: <strong>{fmtDateTime(dispute.resolvedAt)}</strong>
-                                    </p>
-                                </div>
-                            </>
-                        )}
-
-                        {!dispute.resolvedAt && (
-                            <div className="info-row" style={{ padding: "14px 20px", background: "#fffbeb" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                    <Clock size={16} color="#f59e0b" />
-                                    <p style={{ fontSize: 13, color: "#92400e", fontWeight: 500 }}>
-                                        Admin đang xem xét vụ tranh chấp này. Vui lòng đợi quyết định.
-                                    </p>
+                        {/* Buyer contact info */}
+                        {(dispute.buyerContactPhone || dispute.buyerContactEmail || dispute.buyerContactAddress) && (
+                            <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc" }}>
+                                <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 8 }}>Thông tin liên hệ Buyer</p>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    {dispute.buyerContactPhone && <p style={{ fontSize: 13, color: "#0f172a" }}>📞 {dispute.buyerContactPhone}</p>}
+                                    {dispute.buyerContactEmail && <p style={{ fontSize: 13, color: "#0f172a" }}>✉️ {dispute.buyerContactEmail}</p>}
+                                    {dispute.buyerContactAddress && <p style={{ fontSize: 13, color: "#0f172a" }}>📍 {dispute.buyerContactAddress}</p>}
                                 </div>
                             </div>
                         )}
+
+                        {/* Resolution result */}
+                        {(() => {
+                            const isResolved = dispute.status === "RESOLVED_REFUND" || dispute.status === "RESOLVED_RELEASE";
+                            const isRejected = dispute.status === "REJECTED";
+                            if (!isResolved && !isRejected) {
+                                return (
+                                    <div className="info-row" style={{ padding: "14px 20px", background: "#fffbeb" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                            <Clock size={16} color="#f59e0b" />
+                                            <p style={{ fontSize: 13, color: "#92400e", fontWeight: 500 }}>
+                                                Admin đang xem xét vụ tranh chấp này. Vui lòng đợi quyết định.
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            const resColor = isResolved ? "#10b981" : "#ef4444";
+                            const resBg = isResolved ? "#f0fdf4" : "#fef2f2";
+                            const resLabel = dispute.status === "RESOLVED_REFUND" ? "Hoàn tiền cho Buyer"
+                                : dispute.status === "RESOLVED_RELEASE" ? "Giữ lại cho Seller"
+                                : "Từ chối yêu cầu";
+                            return (
+                                <>
+                                    <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc", background: resBg }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                            <CheckCircle size={16} color={resColor} />
+                                            <div>
+                                                <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, marginBottom: 3 }}>Quyết định của Admin</p>
+                                                <p style={{ fontSize: 14, fontWeight: 700, color: resColor }}>
+                                                    {isResolved ? "✓" : "✕"} {resLabel}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {dispute.resolutionNote && (
+                                        <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc" }}>
+                                            <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Ghi chú từ Admin</p>
+                                            <p style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5, background: "#f8fafc", borderRadius: 8, padding: "10px 12px" }}>{dispute.resolutionNote}</p>
+                                        </div>
+                                    )}
+
+                                    {dispute.resolvedAt && (
+                                        <div className="info-row" style={{ padding: "14px 20px", borderBottom: "1px solid #f8fafc" }}>
+                                            <p style={{ fontSize: 12, color: "#64748b" }}>
+                                                ✓ Xử lý lúc: <strong>{fmtDateTime(dispute.resolvedAt)}</strong>
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
                     </div>
                 )}
 
                 {/* ── Timeline ── */}
-                {detail.timeline && detail.timeline.length > 0 && (
-                    <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #e8ecf4", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,.05)" }}>
-                        <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
-                            <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Lịch sử đơn hàng</p>
-                        </div>
+                {detail.timeline && detail.timeline.length > 0 && (() => {
+                    const TIMELINE_LABELS: Record<string, string> = {
+                        ESCROWED: "Đơn hàng đã được tạo",
+                        ACCEPTED: "Seller đã xác nhận",
+                        DELIVERED: "Đang giao hàng",
+                        COMPLETED: "Hoàn thành",
+                        CANCELLED: "Đã hủy",
+                        REFUNDED: "Đã hoàn tiền",
+                        RETURN_REQUESTED: "Yêu cầu hoàn hàng",
+                        DISPUTED: "Mở đơn tranh chấp",
+                    };
+                    const TIMELINE_COLORS: Record<string, string> = {
+                        ESCROWED: "#3b82f6",
+                        ACCEPTED: "#8b5cf6",
+                        DELIVERED: "#f59e0b",
+                        COMPLETED: "#10b981",
+                        CANCELLED: "#ef4444",
+                        REFUNDED: "#10b981",
+                        RETURN_REQUESTED: "#f59e0b",
+                        DISPUTED: "#ef4444",
+                    };
+                    return (
+                        <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #e8ecf4", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,.05)" }}>
+                            <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
+                                <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Trạng thái của đơn hàng</p>
+                            </div>
 
-                        <div style={{ padding: "20px" }}>
-                            {detail.timeline.map((evt, i) => (
-                                <div key={i} style={{ display: "flex", gap: 12, marginBottom: i === detail.timeline!.length - 1 ? 0 : 20, paddingBottom: i === detail.timeline!.length - 1 ? 0 : 20, borderBottom: i === detail.timeline!.length - 1 ? "none" : "1px solid #f1f5f9" }}>
-                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: evt.status === "DISPUTED" ? "#ef4444" : "#10b981", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 16, fontWeight: 700 }}>
-                                            {evt.status === "DISPUTED" ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
+                            <div style={{ padding: "16px 20px" }}>
+                                {detail.timeline!.map((evt, i) => {
+                                    const color = TIMELINE_COLORS[evt.status] ?? "#64748b";
+                                    const label = TIMELINE_LABELS[evt.status] ?? evt.status;
+                                    const isLast = i === detail.timeline!.length - 1;
+                                    return (
+                                        <div key={i} style={{ display: "flex", gap: 12 }}>
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                <div style={{ width: 30, height: 30, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", color: "white", flexShrink: 0 }}>
+                                                    {evt.status === "DISPUTED" ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
+                                                </div>
+                                                {!isLast && (
+                                                    <div style={{ width: 2, flex: 1, minHeight: 16, background: "#e8ecf4", marginTop: 4 }} />
+                                                )}
+                                            </div>
+                                            <div style={{ paddingBottom: isLast ? 0 : 12 }}>
+                                                <p style={{ fontSize: 13, fontWeight: 600, color, marginBottom: 1, lineHeight: "30px" }}>{label}</p>
+                                                {evt.note && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 1 }}>{evt.note}</p>}
+                                                <p style={{ fontSize: 11, color: "#94a3b8" }}>{fmtDateTime(evt.timestamp)}</p>
+                                            </div>
                                         </div>
-                                        {i < detail.timeline!.length - 1 && (
-                                            <div style={{ width: 2, height: 32, background: "#e8ecf4", marginTop: 8 }} />
-                                        )}
-                                    </div>
-                                    <div style={{ flex: 1, paddingTop: 4 }}>
-                                        <p style={{ fontSize: 13, fontWeight: 600, color: evt.status === "DISPUTED" ? "#ef4444" : "#0f172a", marginBottom: 2 }}>
-                                            {evt.status === "DISPUTED" ? "🚨 Tranh chấp được mở" : `✓ ${evt.status}`}
-                                        </p>
-                                        {evt.note && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>{evt.note}</p>}
-                                        {evt.actor && <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>bởi {evt.actor}</p>}
-                                        <p style={{ fontSize: 11, color: "#94a3b8" }}>{fmtDateTime(evt.timestamp)}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
         </div>
     );
