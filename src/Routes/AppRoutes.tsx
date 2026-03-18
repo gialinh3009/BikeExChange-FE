@@ -57,20 +57,21 @@ function PrivateRoute({
   })();
 
   if (!user) return <Navigate to={redirectTo} replace />;
-  if (roles.length > 0 && !roles.includes(user.role)) return <Navigate to="/login" replace />;
+  if (roles.length > 0 && !roles.includes(user.role)) {
+    const home = ROLE_HOME[user.role] ?? "/";
+    return <Navigate to={home} replace />;
+  }
   return <Outlet />;
 }
 
 const ROLE_HOME: Record<string, string> = {
   ADMIN: "/admin",
-  SELLER: "/seller",
   INSPECTOR: "/inspector",
-  BUYER: "/buyer",
 };
 
 const getRoleHome = (role?: string | null) => {
   if (!role) return "/";
-  return ROLE_HOME[role] ?? "/buyer";
+  return ROLE_HOME[role] ?? "/";
 };
 
 interface AppRoutesProps {
@@ -84,15 +85,23 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
   return (
     <Routes>
       {/* Public */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={
+        user
+          ? <Navigate to={defaultHome} replace />
+          : <Login />
+      } />
+      <Route path="/register" element={
+        user
+          ? <Navigate to={defaultHome} replace />
+          : <Register />
+      } />
       <Route path="/verify" element={<VerifyEmail />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
 
-      {/* Profile */}
-      <Route element={<PrivateRoute />}>
+      {/* Profile – chỉ BUYER và SELLER */}
+      <Route element={<PrivateRoute roles={["BUYER", "SELLER"]} />}>
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
@@ -104,8 +113,16 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
         <Route path="/orders/:id/dispute" element={<DisputeDetailPage />} />
       </Route>
 
-      {/* Root */}
-      <Route path="/" element={user ? <Navigate to={defaultHome} replace /> : <GuestLayout />} />
+      {/* Root – homepage cho guest / buyer / seller; admin & inspector về dashboard riêng */}
+      <Route path="/" element={
+        !user
+          ? <GuestLayout />
+          : user.role === "ADMIN"
+            ? <Navigate to="/admin" replace />
+            : user.role === "INSPECTOR"
+              ? <Navigate to="/inspector" replace />
+              : <GuestLayout />
+      } />
 
       {/* Admin */}
       <Route element={<PrivateRoute roles={["ADMIN"]} />}>

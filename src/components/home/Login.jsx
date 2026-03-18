@@ -43,7 +43,10 @@ export default function Login() {
       const userData = await loginAPI(form);
       localStorage.setItem("token", userData.accessToken);
       localStorage.setItem("user", JSON.stringify(userData));
-      navigate("/", { replace: true });
+      const role = (userData.role || "").toUpperCase();
+      if (role === "ADMIN") navigate("/admin", { replace: true });
+      else if (role === "INSPECTOR") navigate("/inspector", { replace: true });
+      else navigate("/", { replace: true });
     } catch (err) {
       const msg = err.message || "";
       if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
