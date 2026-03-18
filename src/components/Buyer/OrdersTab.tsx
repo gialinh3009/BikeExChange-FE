@@ -324,30 +324,12 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
 
             case "DELIVERED":
                 return (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-
-                        <button
-                            style={btnStyle("#10b981", "#f0fdf4", "#6ee7b7")}
-                            onClick={() => handleConfirmReceipt(order.id)}
-                            disabled={busy}
-                        >
-                            <CheckCircle size={13} /> Xác nhận nhận hàng
-                        </button>
-
-                        <button
-                            style={btnStyle("#f59e0b", "#fffbeb", "#fde68a")}
-                            onClick={() => handleRequestReturn(order.id)}
-                            disabled={busy}
-                        >
-                            <RotateCcw size={13} /> Yêu cầu hoàn hàng
-                        </button>
-
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         {order.daysUntilAutoRelease !== undefined && (
                             <span style={{ fontSize: 11, color: "#94a3b8", alignSelf: "center" }}>
                                 Tự động xác nhận sau {order.daysUntilAutoRelease} ngày
                             </span>
                         )}
-
                     </div>
                 );
 
@@ -363,7 +345,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                 );
 
             case "COMPLETED":
-                if (order.canReview) {
+                if (mode === "all" && order.canReview) {
                     return (
                         <button
                             style={btnStyle("#2563eb", "#eff6ff", "#bfdbfe")}
