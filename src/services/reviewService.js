@@ -1,8 +1,9 @@
 import { BASE_URL } from "../config/apiConfig";
 
-export async function createReviewAPI({ sellerId, rating, comment }, token) {
+export async function createReviewAPI({ sellerId, orderId, rating, comment }, token) {
   const params = new URLSearchParams();
   params.append("sellerId", sellerId);
+  if (orderId) params.append("orderId", orderId);
   params.append("rating", rating);
   if (comment) params.append("comment", comment);
 

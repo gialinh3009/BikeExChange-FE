@@ -24,6 +24,7 @@ import {
     requestReturnAPI,
     openReturnDisputeAPI,
 } from "../../services/Buyer/orderActionService";
+import { listReviewsBySellerAPI } from "../../services/reviewService";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 type OrderStatus =
@@ -131,7 +132,7 @@ export default function OrderDetailPage() {
     const [showDisputeModal, setShowDisputeModal] = useState(false);
     const [showConfirmReceiptModal, setShowConfirmReceiptModal] = useState(false);
     const [pendingConfirm, setPendingConfirm] = useState<{ msg: string; action: () => Promise<void> } | null>(null);
-    const [showAlreadyReviewedModal, setShowAlreadyReviewedModal] = useState(false);
+    const [sellerAlreadyReviewed, setSellerAlreadyReviewed] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -139,6 +140,24 @@ export default function OrderDetailPage() {
         try {
             const data = await getOrderHistoryAPI(orderId);
             setDetail(data);
+
+            // Check if buyer already reviewed this seller
+            if (data.order?.status === "COMPLETED") {
+                const sellerId = Number(data.order.sellerId ?? data.order.seller?.id);
+                const currentUser = (() => {
+                    try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+                })();
+                const uid = currentUser?.id || currentUser?.userId;
+                if (sellerId > 0 && uid) {
+                    try {
+                        const reviews = await listReviewsBySellerAPI(sellerId);
+                        const mine = (Array.isArray(reviews) ? reviews : []).find(
+                            (r: any) => Number(r.reviewer?.id) === Number(uid),
+                        );
+                        setSellerAlreadyReviewed(!!mine);
+                    } catch { /* ignore */ }
+                }
+            }
         } catch (e) {
             setError(String(e instanceof Error ? e.message : e));
         } finally {
@@ -212,7 +231,7 @@ export default function OrderDetailPage() {
             <div style={{ background: "white", borderRadius: 16, padding: 32, textAlign: "center", maxWidth: 360 }}>
                 <p style={{ color: "#ef4444", fontWeight: 700, marginBottom: 8 }}>Không tìm thấy đơn hàng</p>
                 <p style={{ color: "#64748b", fontSize: 14, marginBottom: 20 }}>{error}</p>
-                <button onClick={() => navigate(-1)} style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Quay lại</button>
+                <button onClick={() => navigate("/buyer", { state: { tab: "orders" } })} style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Quay lại</button>
             </div>
         </div>
     );
@@ -242,7 +261,7 @@ export default function OrderDetailPage() {
 
             {/* ── Top bar ── */}
             <div style={{ background: "white", borderBottom: "1px solid #e8ecf4", height: 54, display: "flex", alignItems: "center", padding: "0 24px", gap: 12, position: "sticky", top: 0, zIndex: 50, boxShadow: "0 1px 8px rgba(0,0,0,.04)" }}>
-                <button onClick={() => navigate(-1)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#2563eb", fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}>
+                <button onClick={() => navigate("/buyer", { state: { tab: "orders" } })} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#2563eb", fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}>
                     <ChevronLeft size={17} strokeWidth={2.5} /> Quay lại
                 </button>
                 <span style={{ color: "#e2e8f0" }}>|</span>
@@ -432,18 +451,19 @@ export default function OrderDetailPage() {
                         </div>
                     );
 
-                    if (order.status === "COMPLETED" && detail.canReview) return (
+                    if (order.status === "COMPLETED" && !sellerAlreadyReviewed) return (
                         <button className="action-btn"
-                                onClick={() => {
-                                    if (detail.isReviewed) {
-                                        setShowAlreadyReviewedModal(true);
-                                    } else {
-                                        navigate(`/orders/${order.id}/review`);
-                                    }
-                                }}
+                                onClick={() => navigate(`/orders/${order.id}/review`)}
                                 style={{ ...btnBase, background: "#eff6ff", color: "#2563eb", border: "1.5px solid #bfdbfe" }}>
                             <MessageSquare size={16} /> Đánh giá giao dịch
                         </button>
+                    );
+
+                    if (order.status === "COMPLETED" && sellerAlreadyReviewed) return (
+                        <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                            <CheckCircle size={18} color="#10b981" />
+                            <span style={{ fontSize: 14, fontWeight: 600, color: "#166534" }}>Bạn đã đánh giá người bán này</span>
+                        </div>
                     );
 
                     return null;
@@ -529,36 +549,6 @@ export default function OrderDetailPage() {
                                 Hủy
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {showAlreadyReviewedModal && (
-                <div style={{
-                    position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-                    background: "rgba(0,0,0,0.18)", zIndex: 9999,
-                    display: "flex", alignItems: "center", justifyContent: "center"
-                }}>
-                    <div style={{
-                        background: "white", borderRadius: 16, padding: 32,
-                        minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
-                    }}>
-                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
-                            Bạn đã đánh giá rồi
-                        </h3>
-                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
-                            Đánh giá đã được ghi nhận trước đó nên không thể gửi lại.
-                        </p>
-                        <button
-                            style={{
-                                padding: "10px 24px", background: "#2563eb", color: "white",
-                                border: "none", borderRadius: 8, fontWeight: 600,
-                                cursor: "pointer", fontSize: 15
-                            }}
-                            onClick={() => setShowAlreadyReviewedModal(false)}
-                        >
-                            Quay lại
-                        </button>
                     </div>
                 </div>
             )}

@@ -42,12 +42,6 @@ interface OrderHistoryDetail {
   review?: unknown;
 }
 
-interface SellerReviewItem {
-  reviewerId?: number;
-  reviewer?: { id?: number };
-  createdAt?: string;
-}
-
 const fmtDateTime = (iso?: string) => {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("vi-VN", {
@@ -60,18 +54,6 @@ const fmtDateTime = (iso?: string) => {
 };
 
 const fmtMoney = (p?: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
-
-const getCurrentUserId = (): number | null => {
-  try {
-    const raw = localStorage.getItem("user");
-    if (!raw) return null;
-    const user = JSON.parse(raw);
-    const id = Number(user?.id ?? user?.userId);
-    return Number.isFinite(id) && id > 0 ? id : null;
-  } catch {
-    return null;
-  }
-};
 
 export default function OrderReviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -87,8 +69,7 @@ export default function OrderReviewPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [formError, setFormError] = useState("");
   const [sellerReviewed, setSellerReviewed] = useState(false);
-  const [sellerReviewedAt, setSellerReviewedAt] = useState<string | null>(null);
-  const [sellerReviewChecked, setSellerReviewChecked] = useState(false);
+  const [existingReview, setExistingReview] = useState<{ rating: number; comment?: string; createdAt?: string } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -100,6 +81,40 @@ export default function OrderReviewPage() {
       try {
         const data = await getOrderHistoryAPI(orderId);
         setDetail(data);
+
+        // Extract sellerId from order response
+        const sellerId = Number(
+          data.order?.sellerId
+          ?? data.order?.seller?.id
+          ?? data.order?.seller?.userId
+          ?? data.order?.seller?.sellerId,
+        );
+
+        // Get current user from localStorage
+        const currentUser = (() => {
+          try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+        })();
+        const currentUserId = currentUser?.id || currentUser?.userId;
+
+        // Pre-check: has this buyer already reviewed this seller?
+        if (sellerId > 0 && currentUserId) {
+          try {
+            const reviews = await listReviewsBySellerAPI(sellerId);
+            const myReview = (Array.isArray(reviews) ? reviews : []).find(
+              (r: any) => Number(r.reviewer?.id) === Number(currentUserId),
+            );
+            if (myReview) {
+              setSellerReviewed(true);
+              setExistingReview({
+                rating: myReview.rating,
+                comment: myReview.comment,
+                createdAt: myReview.createdAt,
+              });
+            }
+          } catch {
+            // Ignore - will be caught on submit if review exists
+          }
+        }
       } catch (e) {
         setError(String(e instanceof Error ? e.message : e));
       } finally {
@@ -108,39 +123,6 @@ export default function OrderReviewPage() {
     };
     void load();
   }, [orderId]);
-
-  useEffect(() => {
-    const checkSellerReview = async () => {
-      if (!detail?.order) return;
-
-      const sellerId = Number(
-        detail.order.sellerId
-        ?? detail.order.seller?.id
-        ?? detail.order.seller?.userId
-        ?? detail.order.seller?.sellerId,
-      );
-      const currentUserId = getCurrentUserId();
-      if (!Number.isFinite(sellerId) || sellerId <= 0 || !currentUserId) return;
-
-      try {
-        const reviews = await listReviewsBySellerAPI(sellerId);
-        const match = (Array.isArray(reviews) ? reviews : []).find((rv: SellerReviewItem) => {
-          const reviewerId = Number(rv?.reviewerId ?? rv?.reviewer?.id);
-          return Number.isFinite(reviewerId) && reviewerId === currentUserId;
-        });
-
-        setSellerReviewed(Boolean(match));
-        setSellerReviewedAt(match?.createdAt ?? null);
-      } catch {
-        setSellerReviewed(false);
-        setSellerReviewedAt(null);
-      } finally {
-        setSellerReviewChecked(true);
-      }
-    };
-
-    void checkSellerReview();
-  }, [detail]);
 
   const submitReview = async () => {
     if (!detail?.order) return;
@@ -168,22 +150,10 @@ export default function OrderReviewPage() {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Vui lòng đăng nhập để đánh giá.");
 
-      const latest = await getOrderHistoryAPI(orderId);
-      const reviewedNow = Boolean(latest?.isReviewed ?? latest?.reviewed ?? latest?.review);
-      if (reviewedNow) {
-        setDetail(latest);
-        setFormError("Bạn đã đánh giá người bán này trước đó.");
-        return;
-      }
-
-      if (sellerReviewed) {
-        setFormError("Bạn đã đánh giá người bán này trước đó.");
-        return;
-      }
-
       await createReviewAPI(
         {
           sellerId,
+          orderId,
           rating,
           comment: comment.trim(),
         },
@@ -198,7 +168,7 @@ export default function OrderReviewPage() {
     }
   };
 
-  if (loading || !sellerReviewChecked) {
+  if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
         <p style={{ color: "#64748b", fontSize: 14 }}>Đang tải dữ liệu đánh giá...</p>
@@ -221,33 +191,57 @@ export default function OrderReviewPage() {
   }
 
   const canReview = detail?.canReview !== false;
+  const isReviewed = sellerReviewed || Boolean(detail?.isReviewed ?? detail?.reviewed ?? detail?.review);
 
-  if (sellerReviewed) {
+  if (isReviewed) {
     return (
       <div style={{
-        minHeight: "100vh", background: "rgba(0,0,0,0.18)",
+        minHeight: "100vh", background: "#f4f6fb",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontFamily: "'DM Sans',sans-serif"
       }}>
         <div style={{
-          background: "white", borderRadius: 16, padding: 32,
-          minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
+          background: "white", borderRadius: 16, padding: 32, width: "min(92vw, 460px)",
+          boxShadow: "0 4px 24px rgba(0,0,0,.08)", border: "1.5px solid #e2e8f0"
         }}>
-          <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
-            Bạn đã đánh giá rồi
-          </h3>
-          <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
-            Đánh giá đã được ghi nhận trước đó nên không thể gửi lại.
-          </p>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <CheckCircle2 size={40} color="#10b981" style={{ marginBottom: 8 }} />
+            <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 6, color: "#0f172a" }}>
+              Bạn đã đánh giá người bán này rồi
+            </h3>
+            <p style={{ color: "#64748b", fontSize: 14 }}>
+              Mỗi người bán chỉ được đánh giá một lần. Đánh giá đã được ghi nhận trước đó.
+            </p>
+          </div>
+
+          {existingReview && (
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#334155" }}>Đánh giá của bạn</p>
+              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} size={18}
+                    color={s <= existingReview.rating ? "#f59e0b" : "#cbd5e1"}
+                    fill={s <= existingReview.rating ? "#f59e0b" : "transparent"} />
+                ))}
+              </div>
+              {existingReview.comment && (
+                <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{existingReview.comment}</p>
+              )}
+              {existingReview.createdAt && (
+                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8" }}>{fmtDateTime(existingReview.createdAt)}</p>
+              )}
+            </div>
+          )}
+
           <button
             style={{
-              padding: "10px 24px", background: "#2563eb", color: "white",
+              width: "100%", padding: "10px 24px", background: "#2563eb", color: "white",
               border: "none", borderRadius: 8, fontWeight: 600,
               cursor: "pointer", fontSize: 15
             }}
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(`/orders/${orderId}`)}
           >
-            Quay lại
+            Quay lại đơn hàng
           </button>
         </div>
       </div>
