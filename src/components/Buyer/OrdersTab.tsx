@@ -324,30 +324,12 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
 
             case "DELIVERED":
                 return (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-
-                        <button
-                            style={btnStyle("#10b981", "#f0fdf4", "#6ee7b7")}
-                            onClick={() => handleConfirmReceipt(order.id)}
-                            disabled={busy}
-                        >
-                            <CheckCircle size={13} /> Xác nhận nhận hàng
-                        </button>
-
-                        <button
-                            style={btnStyle("#f59e0b", "#fffbeb", "#fde68a")}
-                            onClick={() => handleRequestReturn(order.id)}
-                            disabled={busy}
-                        >
-                            <RotateCcw size={13} /> Yêu cầu hoàn hàng
-                        </button>
-
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         {order.daysUntilAutoRelease !== undefined && (
                             <span style={{ fontSize: 11, color: "#94a3b8", alignSelf: "center" }}>
                                 Tự động xác nhận sau {order.daysUntilAutoRelease} ngày
                             </span>
                         )}
-
                     </div>
                 );
 
@@ -363,17 +345,6 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                 );
 
             case "COMPLETED":
-                if (order.canReview && !order.isReviewed) {
-                    return (
-                        <button
-                            style={btnStyle("#2563eb", "#eff6ff", "#bfdbfe")}
-                            onClick={() => navigate(`/orders/${order.id}/review`)}
-                            disabled={busy}
-                        >
-                            <MessageSquare size={13} /> Đánh giá đơn hàng
-                        </button>
-                    );
-                }
                 return null;
 
             default:
@@ -395,7 +366,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
             </h3>
             <p style={{ color: "#94a3b8", fontSize: 13 }}>
                 {mode === "review-needed"
-                    ? "Các đơn COMPLETED chưa đánh giá sẽ xuất hiện tại đây."
+                    ? "Các đơn chưa đánh giá sẽ xuất hiện tại đây."
                     : (filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!")}
             </p>
         </div>
@@ -407,10 +378,10 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
                     <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>
-                        {mode === "review-needed" ? "Đơn hàng cần đánh giá" : "Đơn hàng của tôi"}
+                        {mode === "review-needed" ? "Đánh giá" : "Đơn hàng của tôi"}
                     </h2>
                     <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
-                        {displayedOrders.length} {mode === "review-needed" ? "đơn cần review" : "đơn hàng"}
+                        {displayedOrders.length} {mode === "review-needed" ? "đơn chưa đánh giá" : "đơn hàng"}
                     </p>
                 </div>
                 <button onClick={() => fetchOrders()}
@@ -622,6 +593,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                 onClose={() => setConfirmationModal({ open: false, order: null })}
                 onSuccess={handleConfirmationSuccess}
             />
+
         </div>
     );
 }

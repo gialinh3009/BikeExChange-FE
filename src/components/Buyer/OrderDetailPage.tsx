@@ -16,6 +16,7 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import RequestReturnModal from "./RequestReturnModal";
 import OpenDisputeModal from "./OpenDisputeModal";
+import OrderConfirmationModal from "./OrderConfirmationModal";
 import {
     getOrderHistoryAPI,
     cancelOrderAPI,
@@ -128,6 +129,8 @@ export default function OrderDetailPage() {
     const [actionBusy, setAction]   = useState<string | null>(null);
     const [showReturnModal, setShowReturnModal] = useState(false);
     const [showDisputeModal, setShowDisputeModal] = useState(false);
+    const [showConfirmReceiptModal, setShowConfirmReceiptModal] = useState(false);
+    const [pendingConfirm, setPendingConfirm] = useState<{ msg: string; action: () => Promise<void> } | null>(null);
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -146,15 +149,22 @@ export default function OrderDetailPage() {
 
     /* ── Actions ── */
     const doAction = async (actionKey: string, fn: () => Promise<unknown>, confirmMsg?: string) => {
-        if (confirmMsg && !confirm(confirmMsg)) return;
-        setAction(actionKey);
-        try {
-            await fn();
-            await fetchDetail();
-        } catch (e) {
-            alert(String(e instanceof Error ? e.message : e));
-        } finally {
-            setAction(null);
+        const execute = async () => {
+            setAction(actionKey);
+            try {
+                await fn();
+                await fetchDetail();
+            } catch (e) {
+                alert(String(e instanceof Error ? e.message : e));
+            } finally {
+                setAction(null);
+            }
+        };
+
+        if (confirmMsg) {
+            setPendingConfirm({ msg: confirmMsg, action: execute });
+        } else {
+            await execute();
         }
     };
 
@@ -165,11 +175,7 @@ export default function OrderDetailPage() {
 
     const handleConfirmReceipt = () => {
         if (!orderId) return;
-        void doAction(
-            "confirm-receipt",
-            () => confirmReceiptAPI(orderId),
-            "Xác nhận đã nhận hàng? Tiền sẽ được giải ngân ngay cho người bán.",
-        );
+        setShowConfirmReceiptModal(true);
     };
 
     const handleRequestReturn = () => {
@@ -205,13 +211,13 @@ export default function OrderDetailPage() {
             <div style={{ background: "white", borderRadius: 16, padding: 32, textAlign: "center", maxWidth: 360 }}>
                 <p style={{ color: "#ef4444", fontWeight: 700, marginBottom: 8 }}>Không tìm thấy đơn hàng</p>
                 <p style={{ color: "#64748b", fontSize: 14, marginBottom: 20 }}>{error}</p>
-                <button onClick={() => navigate(-1)} style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Quay lại</button>
+                <button onClick={() => navigate("/buyer", { state: { tab: "orders" } })} style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Quay lại</button>
             </div>
         </div>
     );
 
     const order    = detail.order;
-    const meta     = STATUS_META[order.status] ?? STATUS_META.ESCROWED;
+    const meta     = STATUS_META[order.status] ?? STATUS_META.UNKNOWN;
     const stepIdx  = getStepIndex(order.status);
     const isCancelledOrRefunded = order.status === "CANCELLED" || order.status === "REFUNDED";
 
@@ -235,7 +241,7 @@ export default function OrderDetailPage() {
 
             {/* ── Top bar ── */}
             <div style={{ background: "white", borderBottom: "1px solid #e8ecf4", height: 54, display: "flex", alignItems: "center", padding: "0 24px", gap: 12, position: "sticky", top: 0, zIndex: 50, boxShadow: "0 1px 8px rgba(0,0,0,.04)" }}>
-                <button onClick={() => navigate(-1)} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#2563eb", fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}>
+                <button onClick={() => navigate("/buyer", { state: { tab: "orders" } })} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#2563eb", fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}>
                     <ChevronLeft size={17} strokeWidth={2.5} /> Quay lại
                 </button>
                 <span style={{ color: "#e2e8f0" }}>|</span>
@@ -343,29 +349,39 @@ export default function OrderDetailPage() {
                 {detail.timeline && detail.timeline.length > 0 && (
                     <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #e8ecf4", overflow: "hidden", marginBottom: 20 }}>
                         <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9" }}>
-                            <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Lịch sử hoạt động</p>
+                            <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Trạng thái của đơn hàng</p>
                         </div>
                         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                            {detail.timeline.map((evt, i) => {
-                                const evtMeta = STATUS_META[evt.status] ?? STATUS_META.UNKNOWN;
-                                const isLast  = i === detail.timeline!.length - 1;
-                                return (
-                                    <div key={i} style={{ display: "flex", gap: 12 }}>
-                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                            <div style={{ width: 32, height: 32, borderRadius: "50%", background: evtMeta.bg, color: evtMeta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                                {evtMeta.icon}
+                            {(() => {
+                                const timeline = detail.timeline!;
+                                let firstCompletedShown = false;
+                                const hasMultipleCompleted = timeline.filter(e => e.status === "COMPLETED").length > 1;
+                                return timeline.map((evt, i) => {
+                                    let evtMeta = STATUS_META[evt.status] ?? STATUS_META.UNKNOWN;
+                                    // If there are duplicate COMPLETED events, show the first as "Đã xác nhận nhận hàng"
+                                    if (hasMultipleCompleted && evt.status === "COMPLETED" && !firstCompletedShown) {
+                                        firstCompletedShown = true;
+                                        evtMeta = { ...evtMeta, label: "Đã xác nhận nhận hàng", color: "#3b82f6", bg: "#eff6ff" };
+                                    }
+                                    const isLast = i === timeline.length - 1;
+                                    return (
+                                        <div key={i} style={{ display: "flex", gap: 12 }}>
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: "50%", background: evtMeta.bg, color: evtMeta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                                    {evtMeta.icon}
+                                                </div>
+                                                {!isLast && <div style={{ width: 2, flex: 1, background: "#f1f5f9", marginTop: 4 }} />}
                                             </div>
-                                            {!isLast && <div style={{ width: 2, flex: 1, background: "#f1f5f9", marginTop: 4 }} />}
+                                            <div style={{ paddingBottom: isLast ? 0 : 4 }}>
+                                                <p style={{ fontWeight: 700, color: evtMeta.color, fontSize: 13, marginBottom: 2 }}>{evtMeta.label}</p>
+                                                {evt.note   && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>{evt.note}</p>}
+                                                {evt.actor  && <p style={{ fontSize: 11, color: "#94a3b8" }}>bởi {evt.actor}</p>}
+                                                <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmtDateTime(evt.timestamp)}</p>
+                                            </div>
                                         </div>
-                                        <div style={{ paddingBottom: isLast ? 0 : 4 }}>
-                                            <p style={{ fontWeight: 700, color: evtMeta.color, fontSize: 13, marginBottom: 2 }}>{evtMeta.label}</p>
-                                            {evt.note   && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>{evt.note}</p>}
-                                            {evt.actor  && <p style={{ fontSize: 11, color: "#94a3b8" }}>bởi {evt.actor}</p>}
-                                            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmtDateTime(evt.timestamp)}</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                });
+                            })()}
                         </div>
                     </div>
                 )}
@@ -415,12 +431,19 @@ export default function OrderDetailPage() {
                         </div>
                     );
 
-                    if (order.status === "COMPLETED" && !detail.isReviewed && detail.canReview) return (
+                    if (order.status === "COMPLETED" && detail?.canReview) return (
                         <button className="action-btn"
                                 onClick={() => navigate(`/orders/${order.id}/review`)}
                                 style={{ ...btnBase, background: "#eff6ff", color: "#2563eb", border: "1.5px solid #bfdbfe" }}>
                             <MessageSquare size={16} /> Đánh giá giao dịch
                         </button>
+                    );
+
+                    if (order.status === "COMPLETED" && !detail?.canReview) return (
+                        <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+                            <CheckCircle size={18} color="#10b981" />
+                            <span style={{ fontSize: 14, fontWeight: 600, color: "#166534" }}>Đơn hàng này đã được đánh giá</span>
+                        </div>
                     );
 
                     return null;
@@ -440,6 +463,75 @@ export default function OrderDetailPage() {
                 onClose={() => setShowDisputeModal(false)}
                 onConfirm={submitOpenDispute}
             />
+
+            {detail?.order && (
+                <OrderConfirmationModal
+                    isOpen={showConfirmReceiptModal}
+                    order={{
+                        id: detail.order.id,
+                        bikeTitle: detail.order.bikeTitle,
+                        sellerName: detail.order.sellerName,
+                        amountPoints: detail.order.amountPoints,
+                        status: detail.order.status,
+                        deliveredAt: detail.order.deliveredAt,
+                        shippingCarrier: detail.order.shippingCarrier,
+                        trackingCode: detail.order.trackingCode,
+                        daysUntilAutoRelease: detail.order.daysUntilAutoRelease,
+                    }}
+                    token={localStorage.getItem("token") || ""}
+                    onClose={() => setShowConfirmReceiptModal(false)}
+                    onSuccess={() => {
+                        setShowConfirmReceiptModal(false);
+                        void fetchDetail();
+                    }}
+                />
+            )}
+
+            {pendingConfirm && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+                    background: "rgba(0,0,0,0.18)", zIndex: 9999,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                    <div style={{
+                        background: "white", borderRadius: 16, padding: 32,
+                        minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center"
+                    }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>
+                            Xác nhận
+                        </h3>
+                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>
+                            {pendingConfirm.msg}
+                        </p>
+                        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                            <button
+                                style={{
+                                    padding: "10px 24px", background: "#2563eb", color: "white",
+                                    border: "none", borderRadius: 8, fontWeight: 600,
+                                    cursor: "pointer", fontSize: 15
+                                }}
+                                onClick={async () => {
+                                    const action = pendingConfirm.action;
+                                    setPendingConfirm(null);
+                                    await action();
+                                }}
+                            >
+                                Xác nhận
+                            </button>
+                            <button
+                                style={{
+                                    padding: "10px 24px", background: "#f1f5f9", color: "#2563eb",
+                                    border: "none", borderRadius: 8, fontWeight: 600,
+                                    cursor: "pointer", fontSize: 15
+                                }}
+                                onClick={() => setPendingConfirm(null)}
+                            >
+                                Hủy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

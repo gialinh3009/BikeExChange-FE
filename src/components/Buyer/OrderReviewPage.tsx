@@ -15,13 +15,45 @@ interface OrderDetail {
   sellerName: string;
   bikeTitle: string;
   status: OrderStatus;
+  bikeId?: number;
+  amountPoints?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  acceptedAt?: string;
+  deliveredAt?: string;
+  seller?: {
+    id?: number;
+    userId?: number;
+    sellerId?: number;
+    name?: string;
+    fullName?: string;
+  };
+  bike?: {
+    id?: number;
+    title?: string;
+  };
 }
 
 interface OrderHistoryDetail {
   order: OrderDetail;
   canReview?: boolean;
   isReviewed?: boolean;
+  reviewed?: boolean;
+  review?: unknown;
 }
+
+const fmtDateTime = (iso?: string) => {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const fmtMoney = (p?: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
 export default function OrderReviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +67,8 @@ export default function OrderReviewPage() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [formError, setFormError] = useState("");
+
 
   useEffect(() => {
     const load = async () => {
@@ -56,12 +90,14 @@ export default function OrderReviewPage() {
   }, [orderId]);
 
   const submitReview = async () => {
-    if (!detail?.order?.id) return;
+    if (!detail?.order) return;
+
     if (rating < 1 || rating > 5) {
-      alert("Vui lòng chọn số sao từ 1 đến 5.");
+      setFormError("Vui lòng chọn số sao từ 1 đến 5.");
       return;
     }
 
+    setFormError("");
     setSubmitting(true);
     try {
       const token = localStorage.getItem("token");
@@ -78,7 +114,7 @@ export default function OrderReviewPage() {
 
       setShowSuccess(true);
     } catch (e) {
-      alert(String(e instanceof Error ? e.message : e));
+      setFormError(String(e instanceof Error ? e.message : e));
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +142,65 @@ export default function OrderReviewPage() {
     );
   }
 
-  if (detail.isReviewed || !detail.canReview || detail.order.status !== "COMPLETED") {
+  const canReview = detail?.canReview !== false;
+  const isReviewed = Boolean(detail?.isReviewed ?? detail?.reviewed ?? detail?.review);
+
+  if (isReviewed) {
+    return (
+      <div style={{
+        minHeight: "100vh", background: "#f4f6fb",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'DM Sans',sans-serif"
+      }}>
+        <div style={{
+          background: "white", borderRadius: 16, padding: 32, width: "min(92vw, 460px)",
+          boxShadow: "0 4px 24px rgba(0,0,0,.08)", border: "1.5px solid #e2e8f0"
+        }}>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <CheckCircle2 size={40} color="#10b981" style={{ marginBottom: 8 }} />
+            <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 6, color: "#0f172a" }}>
+              Đơn hàng này đã được đánh giá
+            </h3>
+            <p style={{ color: "#64748b", fontSize: 14 }}>
+              Mỗi đơn hàng chỉ được đánh giá một lần. Đánh giá đã được ghi nhận trước đó.
+            </p>
+          </div>
+
+          {(detail?.review as any) && (
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#334155" }}>Đánh giá của bạn</p>
+              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} size={18}
+                    color={s <= (detail.review as any).rating ? "#f59e0b" : "#cbd5e1"}
+                    fill={s <= (detail.review as any).rating ? "#f59e0b" : "transparent"} />
+                ))}
+              </div>
+              {(detail.review as any).comment && (
+                <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{(detail.review as any).comment}</p>
+              )}
+              {(detail.review as any).createdAt && (
+                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8" }}>{fmtDateTime((detail.review as any).createdAt)}</p>
+              )}
+            </div>
+          )}
+
+          <button
+            style={{
+              width: "100%", padding: "10px 24px", background: "#2563eb", color: "white",
+              border: "none", borderRadius: 8, fontWeight: 600,
+              cursor: "pointer", fontSize: 15
+            }}
+            onClick={() => navigate(`/orders/${orderId}`)}
+          >
+            Quay lại đơn hàng
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canReview || detail.order.status !== "COMPLETED") {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
         <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 14, padding: 24, width: "min(92vw, 520px)" }}>
@@ -178,9 +272,47 @@ export default function OrderReviewPage() {
 
       <div style={{ width: "min(92vw, 680px)", margin: "0 auto", padding: "28px 16px 64px" }}>
         <div style={{ background: "white", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: 20 }}>
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Đánh giá đơn hàng #{detail.order.id}</p>
-          <p style={{ margin: 0, color: "#0f172a", fontSize: 16, fontWeight: 700 }}>{detail.order.bikeTitle}</p>
-          <p style={{ margin: "4px 0 16px", color: "#64748b", fontSize: 13 }}>Người bán: {detail.order.sellerName}</p>
+          {(() => {
+            const sellerId = Number(
+              detail.order.sellerId
+              ?? detail.order.seller?.id
+              ?? detail.order.seller?.userId
+              ?? detail.order.seller?.sellerId,
+            );
+            const sellerName = detail.order.sellerName || detail.order.seller?.fullName || detail.order.seller?.name || `Seller #${sellerId}`;
+            const bikeId = Number(detail.order.bikeId ?? detail.order.bike?.id);
+            const bikeTitle = detail.order.bikeTitle || detail.order.bike?.title || "Không có tên xe";
+
+            return (
+              <>
+                <p style={{ margin: 0, color: "#94a3b8", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Đánh giá đơn hàng #{detail.order.id}</p>
+
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", fontSize: 13, fontWeight: 700, color: "#334155" }}>
+                    Thông tin xe
+                  </div>
+                  <div style={{ padding: "12px 14px", display: "grid", gap: 8 }}>
+                    <p style={{ margin: 0, color: "#0f172a", fontSize: 15, fontWeight: 700 }}>{bikeTitle}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Mã xe: {Number.isFinite(bikeId) && bikeId > 0 ? `#${bikeId}` : "—"}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Giá trị đơn: {fmtMoney(detail.order.amountPoints)}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Ngày tạo: {fmtDateTime(detail.order.createdAt)}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Ngày giao: {fmtDateTime(detail.order.deliveredAt)}</p>
+                  </div>
+                </div>
+
+                <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", fontSize: 13, fontWeight: 700, color: "#334155" }}>
+                    Thông tin người bán
+                  </div>
+                  <div style={{ padding: "12px 14px", display: "grid", gap: 8 }}>
+                    <p style={{ margin: 0, color: "#0f172a", fontSize: 14, fontWeight: 700 }}>{sellerName}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Mã người bán: {Number.isFinite(sellerId) && sellerId > 0 ? `#${sellerId}` : "—"}</p>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>Trạng thái đơn: {detail.order.status}</p>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           <p style={{ margin: "0 0 8px", color: "#0f172a", fontSize: 14, fontWeight: 700 }}>Chọn số sao</p>
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -204,6 +336,10 @@ export default function OrderReviewPage() {
             placeholder="Chia sẻ trải nghiệm giao dịch của bạn..."
             style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 12px", fontSize: 14, fontFamily: "inherit", resize: "vertical", marginBottom: 16 }}
           />
+
+          {formError && (
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#dc2626", fontWeight: 600 }}>{formError}</p>
+          )}
 
           <button
             onClick={() => void submitReview()}

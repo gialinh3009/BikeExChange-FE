@@ -13,11 +13,18 @@ const ACTION_TO_STATUS = {
     created: "ESCROWED",
     accepted: "ACCEPTED",
     delivered: "DELIVERED",
+    completed: "COMPLETED",
+    confirmed_receipt: "COMPLETED",
     confirm_receipt: "COMPLETED",
     confirm_return: "REFUNDED",
     request_return: "RETURN_REQUESTED",
+    return_requested: "RETURN_REQUESTED",
     return_dispute: "DISPUTED",
+    open_dispute: "DISPUTED",
+    disputed: "DISPUTED",
     seller_cancel: "CANCELLED",
+    seller_cancelled: "CANCELLED",
+    cancelled: "CANCELLED",
     cancel: "CANCELLED",
     refunded: "REFUNDED",
 };
@@ -84,22 +91,61 @@ function normalizeHistoryEvents(rawEvents = []) {
 
     return rawEvents
         .map((evt) => {
-            const actionStatus = ACTION_TO_STATUS[String(evt?.action || "").toLowerCase()];
+            const actionRaw = String(evt?.action || "").trim();
+            const actionStatus = ACTION_TO_STATUS[actionRaw.toLowerCase()];
             const status =
                 canonicalizeStatus(evt?.status) ||
                 canonicalizeStatus(evt?.newStatus) ||
+                canonicalizeStatus(actionRaw) ||
                 canonicalizeStatus(actionStatus) ||
                 canonicalizeStatus(evt?.type) ||
-                "PENDING_PAYMENT";
+                "UNKNOWN";
+
+            let note = evt?.note;
+            if (!note && typeof evt?.metadata === "string" && evt.metadata.trim()) {
+                try {
+                    const parsed = JSON.parse(evt.metadata);
+                    note = parsed?.reason || parsed?.note || parsed?.resolutionNote || parsed?.message || evt.metadata;
+                } catch {
+                    note = evt.metadata;
+                }
+            }
 
             return {
                 status,
                 timestamp: evt?.timestamp || evt?.createdAt || evt?.updatedAt,
                 actor: evt?.performedByName || evt?.actor || (evt?.performedBy != null ? `User #${evt.performedBy}` : undefined),
-                note: evt?.note || evt?.metadata?.reason || undefined,
+                note: note || undefined,
             };
         })
         .filter((evt) => !!evt.timestamp);
+}
+
+function ensureCurrentStatusInTimeline(timeline, order = {}) {
+    const currentStatus = canonicalizeStatus(order?.status);
+    if (!currentStatus || currentStatus === "ESCROWED") return timeline;
+
+    const hasStatus = timeline.some((evt) => canonicalizeStatus(evt?.status) === currentStatus);
+    if (hasStatus) return timeline;
+
+    const timestamp = order?.updatedAt || order?.deliveredAt || order?.acceptedAt || order?.createdAt || new Date().toISOString();
+    const statusNoteMap = {
+        RETURN_REQUESTED: "Người mua đã gửi yêu cầu hoàn hàng.",
+        DISPUTED: "Đơn hàng đã được mở tranh chấp và đang chờ Admin xử lý.",
+        REFUNDED: "Đơn hàng đã được hoàn tiền.",
+        CANCELLED: "Đơn hàng đã bị hủy.",
+        COMPLETED: "Giao dịch đã hoàn tất.",
+    };
+
+    return [
+        ...timeline,
+        {
+            status: currentStatus,
+            timestamp,
+            actor: "Hệ thống",
+            note: statusNoteMap[currentStatus],
+        },
+    ];
 }
 
 export async function getOrderHistoryAPI(orderId) {
@@ -118,9 +164,13 @@ export async function getOrderHistoryAPI(orderId) {
         ? payload.timeline
         : payload.history;
 
+    const normalizedTimeline = normalizeHistoryEvents(sourceTimeline);
+    const timeline = ensureCurrentStatusInTimeline(normalizedTimeline, payload?.order)
+        .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
+
     return {
         ...payload,
-        timeline: normalizeHistoryEvents(sourceTimeline),
+        timeline,
         isReviewed: payload.isReviewed ?? payload.reviewed ?? false,
     };
 }
