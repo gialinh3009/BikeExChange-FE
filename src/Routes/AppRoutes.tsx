@@ -21,7 +21,7 @@ import ManagerBike from "../components/Admin/Manager/ManagerBike";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
-import VerifyEmail from "../components/home/VerifyEmail";
+import VerifyEmail from "../components/home/VerifyEmail.jsx";
 import SellerPage from "../components/Seller/SellerPage";
 import SellerOrderDetailPage from "../components/Seller/SellerOrderDetailPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
