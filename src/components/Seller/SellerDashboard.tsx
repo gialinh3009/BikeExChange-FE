@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listBikesAPI, requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/Seller/sellerService";
+import { listBikesAPI } from "../../services/Seller/bikeManagementService";
+import { requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/Seller/inspectionService";
 import PostsTab from "./PostsTab";
 import BikeDetailModal from "./BikeDetailModal";
 import InspectionReportModal from "./InspectionReportModal";
@@ -220,6 +221,9 @@ export default function SellerDashboard() {
                 onCreateClick={() => navigate("/seller/create")}
                 onRequestInspection={openRequestForBike}
                 onViewInspection={openInspectionForBike}
+                onViewDetails={setBikeDetail}
+                onEditBike={() => {}}
+                onDeleteBike={() => {}}
                 canRequestInspection={canRequestInspection}
             />
 

@@ -1,4 +1,4 @@
-import { Plus, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck, Edit2, Trash2, Eye } from "lucide-react";
 
 type BikeItem = {
     id: number;
@@ -9,6 +9,12 @@ type BikeItem = {
     inspectionStatus?: string;
     media?: { url: string; type: string; sortOrder: number }[];
     createdAt?: string;
+    description?: string;
+    bikeType?: string;
+    frameSize?: string;
+    model?: string;
+    year?: string;
+    brand?: string;
 };
 
 interface PostsTabProps {
@@ -18,6 +24,9 @@ interface PostsTabProps {
     onCreateClick: () => void;
     onRequestInspection: (bike: BikeItem) => void;
     onViewInspection: (bikeId: number) => void;
+    onViewDetails: (bike: BikeItem) => void;
+    onEditBike: (bike: BikeItem) => void;
+    onDeleteBike: (bike: BikeItem) => void;
     canRequestInspection: (bike: BikeItem) => boolean;
 }
 
@@ -28,6 +37,9 @@ export default function PostsTab({
     onCreateClick,
     onRequestInspection,
     onViewInspection,
+    onViewDetails,
+    onEditBike,
+    onDeleteBike,
     canRequestInspection,
 }: PostsTabProps) {
     const sortedBikes = [...bikes].sort((a, b) => {
@@ -151,7 +163,7 @@ export default function PostsTab({
                                     <div className="text-xs text-gray-500">
                                         {bike?.status ?? "ACTIVE"}
                                     </div>
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end gap-2 flex-wrap">
                                         {bike?.id && canRequestInspection(bike) && (
                                             <button
                                                 type="button"
@@ -168,6 +180,36 @@ export default function PostsTab({
                                                 className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                                             >
                                                 Xem kiểm định
+                                            </button>
+                                        )}
+                                        {bike?.id && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onViewDetails(bike)}
+                                                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+                                            >
+                                                <Eye size={12} />
+                                                Xem
+                                            </button>
+                                        )}
+                                        {bike?.id && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onEditBike(bike)}
+                                                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 flex items-center gap-1"
+                                            >
+                                                <Edit2 size={12} />
+                                                Sửa
+                                            </button>
+                                        )}
+                                        {bike?.id && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onDeleteBike(bike)}
+                                                className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 flex items-center gap-1"
+                                            >
+                                                <Trash2 size={12} />
+                                                Xóa
                                             </button>
                                         )}
                                     </div>

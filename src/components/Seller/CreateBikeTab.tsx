@@ -1,186 +1,153 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Wallet, AlertCircle, Bike, Upload, CheckCircle2 } from "lucide-react";
-import { createBikeAPI, getCategoriesAPI, getBrandsAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
-import { uploadImageToCloudinary } from "../../services/firebaseService";
+import { Plus, X, Wallet, AlertCircle, Bike, CheckCircle2 } from "lucide-react";
+import { createBikeWithImagesAPI } from "../../services/Seller/bikeManagementService";
+import { getCategoriesAPI, getBrandsAPI } from "../../services/Seller/catalogService";
+import { uploadMultipleToCloudinary } from "../../utils/cloudinaryUpload";
 
-type WalletLike = {
-    availablePoints?: number;
-    frozenPoints?: number;
-    data?: {
-        availablePoints?: number;
-        frozenPoints?: number;
-    };
-};
+type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
+interface CreateBikeTabProps { token: string; wallet: WalletLike | null; onBikeCreated: () => void; onWalletRefresh: () => void }
 
-type Category = { id: number; name: string };
-
-type ApiDataWrapper<T> = { data?: T };
-
-type CreateBikeResponse = { id?: number; data?: { id?: number } };
-
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-const isCategory = (value: unknown): value is Category => {
-    if (!isObject(value)) return false;
-    return typeof value.id === "number" && typeof value.name === "string";
-};
-
-interface CreateBikeTabProps {
-    token: string;
-    wallet: WalletLike | null;
-    onBikeCreated: () => void;
-    onWalletRefresh: () => void;
-}
-
-const POSTING_FEE = 5;
+const POSTING_FEE = 5000;
+const BIKE_TYPES = ["Road", "MTB", "Gravel", "Touring", "Hybrid", "Fixie"];
+const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "48cm", "50cm", "52cm", "54cm", "56cm", "58cm"];
+const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qua sử dụng"];
 
 export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRefresh }: CreateBikeTabProps) {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [images, setImages] = useState<{ name: string; dataUrl: string; file: File }[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [mediaPreview, setMediaPreview] = useState<string[]>([]);
+    const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
+    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+    const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
     const [form, setForm] = useState({
         title: "", bikeType: "Road", brandId: undefined as number | undefined,
         model: "", frameSize: "M", condition: "Tốt", year: "", priceVnd: "", description: "",
-        categoryIds: [] as number[], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: ""
+        categoryId: undefined as number | undefined
     });
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const walletAvailable = wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
-    const hasEnough = walletAvailable >= POSTING_FEE;
+    const totalFee = POSTING_FEE;
+    const hasEnough = walletAvailable >= totalFee;
 
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                const resCats = await getCategoriesAPI();
-                const rawCats = Array.isArray(resCats) ? resCats : (isObject(resCats) && "data" in resCats ? (resCats as ApiDataWrapper<unknown>).data : []);
-                const listCats = Array.isArray(rawCats) ? rawCats : [];
-                setCategories(listCats.filter(isCategory));
+        getCategoriesAPI().then((res: any) => {
+            const data = Array.isArray(res) ? res : (res?.data || []);
+            setCategories(data.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
+        }).catch(() => {});
+        getBrandsAPI().then((res: any) => {
+            const data = Array.isArray(res) ? res : (res?.data || []);
+            setBrands(data.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
+        }).catch(() => {});
+    }, [onWalletRefresh]);
 
-                // Load brands but don't use them for now
-            } catch (e: unknown) {
-                console.error("Error loading categories/brands:", e);
-            }
-        };
-        void loadData();
-    }, []);
+    const handleSubmit = async () => {
+        setError(null); setSuccess(null);
+        if (!token) { setError("Bạn cần đăng nhập."); return; }
+        if (!form.title || !form.brandId || !form.priceVnd) { setError("Vui lòng nhập: Tiêu đề, Hãng, Giá."); return; }
+        if (images.length === 0) { setError("Vui lòng thêm ít nhất một ảnh."); return; }
+        
+        if (walletAvailable < totalFee) { 
+            setError(`Không đủ tiền. Cần ${totalFee} VND, có ${walletAvailable} VND.`); 
+            return; 
+        }
 
-    useEffect(() => {
-        if (!success) return;
-        const timeout = window.setTimeout(() => setSuccess(null), 5000);
-        return () => window.clearTimeout(timeout);
-    }, [success]);
-
-    const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-
-        files.forEach((file) => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const dataUrl = event.target?.result as string;
-                setMediaPreview((p) => [...p, dataUrl]);
-                // ✅ IMPORTANT: Cập nhật images state với File object để upload
-                setImages((prev) => [...prev, { 
-                    name: file.name, 
-                    dataUrl: dataUrl, 
-                    file: file 
-                }]);
-            };
-            reader.readAsDataURL(file);
-        });
-    };
-
-    const removeMedia = (idx: number) => {
-        setMediaPreview((p) => p.filter((_, i) => i !== idx));
-        // ✅ Cũng xóa từ images state
-        setImages((prev) => prev.filter((_, i) => i !== idx));
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
         try {
             setLoading(true);
-            setError(null);
-            
-            // ✅ Validate required fields
-            if (!form.title.trim()) {
-                setError("Vui lòng nhập tiêu đề xe");
-                setLoading(false);
-                return;
-            }
-            if (!form.brandId) {
-                setError("Vui lòng chọn thương hiệu");
-                setLoading(false);
-                return;
-            }
-            if (!form.priceVnd) {
-                setError("Vui lòng nhập giá bán");
-                setLoading(false);
-                return;
-            }
-            if (images.length < 2) {
-                setError("Vui lòng tải lên ít nhất 2 ảnh xe");
-                setLoading(false);
-                return;
-            }
-            
-            // ✅ Upload images to Cloudinary
             setUploading(true);
-            const uploadedUrls = await Promise.all(
-                images.map(async (img, idx) => {
-                    if (!img.file) {
-                        throw new Error("File ảnh không hợp lệ");
-                    }
-                    const url = await uploadImageToCloudinary(img.file);
-                    console.log(`✅ Ảnh ${idx + 1} uploaded to Cloudinary:`, url);
-                    return { url, type: "IMAGE", sortOrder: idx + 1 };
-                })
-            );
+            
+            // Step 1: Upload images to Cloudinary
+            setSuccess("Đang upload ảnh lên Cloudinary...");
+            const imageFiles = images.map(img => img.file).filter(Boolean) as File[];
+            const cloudinaryUrls = await uploadMultipleToCloudinary(imageFiles);
+            
+            if (!cloudinaryUrls || cloudinaryUrls.length === 0) {
+                throw new Error("Không thể upload ảnh. Vui lòng thử lại.");
+            }
+
+            // Step 2: Create FormData for /bikes/with-images API with Cloudinary URLs
+            setSuccess("Đang tạo bài đăng...");
+            const formData = new FormData();
+            formData.append("title", form.title);
+            formData.append("description", form.description);
+            formData.append("brand_id", String(form.brandId));
+            formData.append("model", form.model);
+            formData.append("condition", form.condition);
+            formData.append("bike_type", form.bikeType);
+            formData.append("frame_size", form.frameSize);
+            formData.append("price_points", String(Number(form.priceVnd.replace(/[^\d]/g, ""))));
+            formData.append("year", form.year ? String(parseInt(form.year)) : "0");
+            
+            // Add category IDs
+            if (form.categoryId) {
+                formData.append("category_ids", String(form.categoryId));
+            }
+            
+            // Add Cloudinary image URLs as files
+            // Since backend expects MultipartFile[], we need to convert URLs to files
+            for (let i = 0; i < cloudinaryUrls.length; i++) {
+                const url = cloudinaryUrls[i];
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const file = new File([blob], `bike-image-${i}.jpg`, { type: "image/jpeg" });
+                formData.append("images", file);
+            }
 
             setUploading(false);
             
-            const payload = {
-                title: form.title,
-                description: form.description,
-                brandId: form.brandId,
-                model: form.model,
-                condition: form.condition,
-                bikeType: form.bikeType,
-                frameSize: form.frameSize,
-                pricePoints: Number(form.priceVnd.replace(/[^\d]/g, "")),
-                year: form.year ? Number(form.year) : null,
-                categoryIds: form.categoryIds && form.categoryIds.length > 0 ? form.categoryIds : [],
-                media: uploadedUrls  // ✅ Cloudinary URLs
-            };
-
-            const res = (await createBikeAPI(payload, token)) as CreateBikeResponse;
-            const bikeId = res?.id ?? (isObject(res) ? (res as ApiDataWrapper<{ id?: number }>).data?.id : undefined);
+            const res: any = await createBikeWithImagesAPI(formData, token);
+            const bikeId = res?.id ?? res?.data?.id;
             if (!bikeId) throw new Error("Tạo xe thất bại.");
 
-            if (form.preferredDate || form.address) {
-                await requestInspectionAPI({
-                    bikeId, preferredDate: form.preferredDate || null, preferredTimeSlot: form.preferredTimeSlot || null,
-                    address: form.address || null, contactPhone: form.contactPhone || null, notes: form.notes || null
-                }, token);
-            }
-
-            setSuccess(`Đăng bài thành công! Đã upload ${uploadedUrls.length} ảnh từ Cloudinary. Đã trừ ${POSTING_FEE} VND.`);
+            setShowSuccessModal(true);
             setForm({ title: "", bikeType: "Road", brandId: undefined, model: "", frameSize: "M", condition: "Tốt",
-                year: "", priceVnd: "", description: "", categoryIds: [], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "" });
+                year: "", priceVnd: "", description: "", categoryId: undefined });
             setImages([]);
-            setMediaPreview([]);
+            setSuccess(null);
             onBikeCreated(); onWalletRefresh();
         } catch (e: any) {
             console.error("Create bike error:", e);
-            const errObj = isObject(e) ? e : {};
-            const message = typeof errObj.message === "string" ? errObj.message : "Không thể tạo xe.";
-            setError(message);
+            setError(e.message || "Không thể đăng bài.");
         } finally {
             setLoading(false);
             setUploading(false);
         }
+    };
+
+    const handleImages = async (files: FileList | null) => {
+        if (!files) return;
+        const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string; file: File }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext("2d");
+                    if (ctx) {
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                const reader2 = new FileReader();
+                                reader2.onload = () => {
+                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result), file: new File([blob], f.name, { type: "image/png" }) });
+                                };
+                                reader2.readAsDataURL(blob);
+                            } else {
+                                reject(new Error("Không thể chuyển đổi ảnh"));
+                            }
+                        }, "image/png");
+                    }
+                };
+                img.onerror = () => reject(new Error("Không thể tải ảnh"));
+                img.src = String(reader.result);
+            };
+            reader.onerror = () => reject(new Error("Lỗi đọc ảnh"));
+            reader.readAsDataURL(f);
+        }));
+        Promise.all(reads).then(results => setImages(prev => [...prev, ...results])).catch((e: any) => setError(e.message));
     };
 
     return (
@@ -206,113 +173,36 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                             {hasEnough ? <Wallet size={20} className="text-emerald-600" /> : <AlertCircle size={20} className="text-red-600" />}
                         </div>
                         <div>
-                            <div className={`font-bold text-lg ${hasEnough ? "text-emerald-900" : "text-red-900"}`}>Phí đăng tin: {POSTING_FEE} VND</div>
+                            <div className={`font-bold text-lg ${hasEnough ? "text-emerald-900" : "text-red-900"}`}>
+                                Phí đăng tin: {POSTING_FEE} VND
+                            </div>
                             <p className={`text-sm ${hasEnough ? "text-emerald-700" : "text-red-700"}`}>
-                                {hasEnough ? `Ví đủ tiền. Hệ thống sẽ tự động trừ ${POSTING_FEE} VND khi đăng.` : `Không đủ tiền. Cần thêm ${POSTING_FEE - walletAvailable} VND.`}
+                                {hasEnough ? `Hệ thống sẽ tự động trừ ${totalFee} VND khi đăng.` : `Không đủ tiền. Cần thêm ${totalFee - walletAvailable} VND.`}
                             </p>
                         </div>
                     </div>
                 </div>
 
                 {error && <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex gap-2"><AlertCircle size={18} />{error}</div>}
+                {success && <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">{success}</div>}
 
-                {/* Success modal centered on screen */}
-                {success && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
-                        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-                            <div className="flex items-start justify-between">
-                                <div className="text-lg font-bold text-emerald-700">Đăng tin thành công</div>
-                                <button onClick={() => setSuccess(null)} className="text-gray-400 hover:text-gray-600">
-                                    <X size={20} />
-                                </button>
-                            </div>
-                            <div className="mt-4 text-sm text-gray-700">
-                                {success}
-                            </div>
-                            <div className="mt-6 flex justify-end">
-                                <button onClick={() => setSuccess(null)}
-                                    className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800">
-                                    Đóng
-                                </button>
-                            </div>
-                        </div>
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center"><Plus size={20} className="text-blue-600" /></div>
+                        <div><div className="font-bold text-gray-900">Hình ảnh xe</div><div className="text-sm text-gray-500">Tải lên ảnh thực tế</div></div>
                     </div>
-                )}
-
-                <div>
-                    <label className="text-sm font-medium text-gray-700">Mô tả chi tiết</label>
-                    <textarea
-                        value={form.description}
-                        onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                        placeholder="Mô tả tình trạng, tính năng, lý do bán..."
-                        className="mt-1 w-full min-h-24 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-                    />
-                </div>
-
-                    <div className="mt-5 rounded-xl border border-gray-200 p-4 bg-gray-50">
-                        <div className="flex items-center justify-between mb-3">
-                            <div><div className="text-sm font-semibold text-gray-900">Danh mục</div><div className="text-xs text-gray-500">Chọn danh mục phù hợp</div></div>
-                        </div>
-                        {categories.length > 0 && (
-                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                {categories.map(c => {
-                                    const checked = form.categoryIds.includes(c.id);
-                                    return (
-                                        <label key={c.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm cursor-pointer ${checked ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                                            <input type="checkbox" checked={checked} onChange={(e) => {
-                                                const on = e.target.checked;
-                                                setForm(p => ({ ...p, categoryIds: on ? [...p.categoryIds, c.id] : p.categoryIds.filter(id => id !== c.id) }));
-                                            }} />
-                                            <span className="truncate">{c.name}</span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-700">Ảnh xe</label>
-                        <span className={`text-xs font-semibold ${
-                            images.length >= 2
-                                ? "text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"
-                                : "text-orange-600 bg-orange-50 px-2 py-1 rounded-full"
-                        }`}>
-                            {images.length}/2 ảnh tối thiểu
-                        </span>
-                    </div>
-                    <div className="mt-2 rounded-xl border-2 border-dashed border-gray-300 p-6 text-center hover:border-blue-400 transition">
-                        <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={handleMediaChange}
-                            className="hidden"
-                            id="media-input"
-                        />
-                        <label htmlFor="media-input" className="cursor-pointer">
-                            <Upload size={24} className="mx-auto text-gray-400 mb-2" />
-                            <div className="text-sm text-gray-600">
-                                Kéo thả ảnh hoặc <span className="text-blue-600 font-semibold">chọn từ máy</span>
-                            </div>
-                        </label>
-                    </div>
-
-                    {mediaPreview.length > 0 && (
-                        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {mediaPreview.map((preview, idx) => (
-                                <div key={idx} className="relative rounded-xl overflow-hidden border border-gray-200">
-                                    <img
-                                        src={preview}
-                                        alt={`Preview ${idx + 1}`}
-                                        className="w-full h-24 object-cover"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => removeMedia(idx)}
-                                        className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
-                                    >
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 shadow-md disabled:opacity-50" style={{ pointerEvents: uploading || loading ? 'none' : 'auto', opacity: uploading || loading ? 0.6 : 1 }}>
+                        <Plus size={18} />{uploading ? "Đang upload..." : loading ? "Đang xử lý..." : "Chọn ảnh"}
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} disabled={uploading || loading} />
+                    </label>
+                    <span className="ml-3 text-sm text-gray-600">Đã chọn: <b className="text-blue-600">{images.length}</b> ảnh</span>
+                    {images.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                            {images.map((img, i) => (
+                                <div key={i} className="relative rounded-xl border-2 border-gray-200 overflow-hidden group">
+                                    <img src={img.dataUrl} alt={img.name} className="h-28 w-full object-cover" />
+                                    <button onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                                        className="absolute top-2 right-2 h-7 w-7 rounded-lg bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600">
                                         <X size={14} />
                                     </button>
                                 </div>
@@ -321,16 +211,90 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     )}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
-                    <button
-                        type="reset"
-                        className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                        Xóa
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center"><Bike size={20} className="text-emerald-600" /></div>
+                        <div><div className="font-bold text-gray-900">Thông tin xe</div><div className="text-sm text-gray-500">Điền đầy đủ thông tin</div></div>
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-2">
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Tiêu đề <span className="text-red-500">*</span></label>
+                            <input value={form.title} onChange={(e) => setForm(p => ({ ...p, title: e.target.value }))} placeholder="VD: Giant XTC 800 2021"
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Loại xe</label>
+                            <select value={form.bikeType} onChange={(e) => setForm(p => ({ ...p, bikeType: e.target.value }))}
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
+                                {BIKE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Hãng <span className="text-red-500">*</span></label>
+                            <select value={form.brandId ?? ""} onChange={(e) => setForm(p => ({ ...p, brandId: e.target.value ? Number(e.target.value) : undefined }))}
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
+                                <option value="">-- Chọn hãng --</option>
+                                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Model</label>
+                            <input value={form.model} onChange={(e) => setForm(p => ({ ...p, model: e.target.value }))} placeholder="Escape 3"
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Kích thước khung</label>
+                            <select value={form.frameSize} onChange={(e) => setForm(p => ({ ...p, frameSize: e.target.value }))}
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
+                                {FRAME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Tình trạng</label>
+                            <select value={form.condition} onChange={(e) => setForm(p => ({ ...p, condition: e.target.value }))}
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
+                                {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Năm sản xuất</label>
+                            <input value={form.year} onChange={(e) => setForm(p => ({ ...p, year: e.target.value }))} placeholder="2021"
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Giá (VND) <span className="text-red-500">*</span></label>
+                            <input value={form.priceVnd} onChange={(e) => setForm(p => ({ ...p, priceVnd: e.target.value }))} placeholder="12500000"
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
+                            <div className="text-xs text-gray-500 mt-1">Nhập số tiền (VD: 12500000)</div>
+                        </div>
+                    </div>
+
+                    <div className="mt-5">
+                        <label className="text-sm font-semibold text-gray-700 mb-2 block">Danh mục</label>
+                        <select value={form.categoryId ?? ""} onChange={(e) => setForm(p => ({ ...p, categoryId: e.target.value ? Number(e.target.value) : undefined }))}
+                            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white">
+                            <option value="">-- Chọn danh mục --</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="mt-5">
+                        <label className="text-sm font-semibold text-gray-700 mb-2 block">Mô tả chi tiết</label>
+                        <textarea value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
+                            placeholder="Mô tả tình trạng xe, lịch sử sử dụng..."
+                            className="w-full min-h-28 rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
+                    </div>
+                </div>
+
+                
+                <div className="flex justify-end gap-3">
+                    <button onClick={() => { setError(null); setSuccess(null); }}
+                        className="rounded-xl border-2 border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                        Huỷ
                     </button>
-                    <button onClick={handleSubmit} disabled={loading || uploading || !hasEnough || images.length < 2}
+                    <button onClick={handleSubmit} disabled={loading || uploading || !hasEnough}
                         className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-                        {uploading ? "Đang upload ảnh..." : loading ? "Đang đăng..." : images.length < 2 ? "Cần thêm ảnh" : "Đăng tin"}
+                        {uploading ? "Đang upload ảnh..." : loading ? "Đang xử lý..." : "Đăng tin"}
                     </button>
                 </div>
             </div>
@@ -346,7 +310,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                             <p className="text-emerald-700 text-sm mb-4">Bài đăng của bạn đã được tạo thành công</p>
                             <div className="bg-white rounded-xl p-4 mb-4">
                                 <div className="text-xs text-gray-600 mb-1">Phí đã trừ</div>
-                                <div className="text-2xl font-bold text-emerald-600">{POSTING_FEE} VND</div>
+                                <div className="text-2xl font-bold text-emerald-600">{totalFee} VND</div>
                             </div>
                             <p className="text-xs text-gray-600 mb-6">Xe của bạn sẽ hiển thị trong danh sách bài đăng</p>
                         </div>

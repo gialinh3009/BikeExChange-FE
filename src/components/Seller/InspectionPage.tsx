@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listBikesAPI } from "../../services/Seller/sellerService";
+import { listBikesAPI } from "../../services/Seller/bikeManagementService";
 import InspectionTab from "./InspectionTab";
 
 type BikeBrowseItem = {
