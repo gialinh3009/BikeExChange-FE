@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, X, Wallet, AlertCircle, Bike } from "lucide-react";
+import { Plus, X, Wallet, AlertCircle, Bike, Upload, CheckCircle2 } from "lucide-react";
 import { createBikeAPI, getCategoriesAPI, getBrandsAPI, requestInspectionAPI } from "../../services/Seller/sellerService";
 import { uploadImageToCloudinary } from "../../services/firebaseService";
 
@@ -38,7 +38,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [images] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
+    const [images, setImages] = useState<{ name: string; dataUrl: string; file: File }[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [mediaPreview, setMediaPreview] = useState<string[]>([]);
     const [form, setForm] = useState({
@@ -79,7 +79,14 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         files.forEach((file) => {
             const reader = new FileReader();
             reader.onload = (event) => {
-                setMediaPreview((p) => [...p, event.target?.result as string]);
+                const dataUrl = event.target?.result as string;
+                setMediaPreview((p) => [...p, dataUrl]);
+                // ✅ IMPORTANT: Cập nhật images state với File object để upload
+                setImages((prev) => [...prev, { 
+                    name: file.name, 
+                    dataUrl: dataUrl, 
+                    file: file 
+                }]);
             };
             reader.readAsDataURL(file);
         });
@@ -87,20 +94,47 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
 
     const removeMedia = (idx: number) => {
         setMediaPreview((p) => p.filter((_, i) => i !== idx));
+        // ✅ Cũng xóa từ images state
+        setImages((prev) => prev.filter((_, i) => i !== idx));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             setLoading(true);
-            setUploading(true);
+            setError(null);
             
+            // ✅ Validate required fields
+            if (!form.title.trim()) {
+                setError("Vui lòng nhập tiêu đề xe");
+                setLoading(false);
+                return;
+            }
+            if (!form.brandId) {
+                setError("Vui lòng chọn thương hiệu");
+                setLoading(false);
+                return;
+            }
+            if (!form.priceVnd) {
+                setError("Vui lòng nhập giá bán");
+                setLoading(false);
+                return;
+            }
+            if (images.length < 2) {
+                setError("Vui lòng tải lên ít nhất 2 ảnh xe");
+                setLoading(false);
+                return;
+            }
+            
+            // ✅ Upload images to Cloudinary
+            setUploading(true);
             const uploadedUrls = await Promise.all(
                 images.map(async (img, idx) => {
                     if (!img.file) {
                         throw new Error("File ảnh không hợp lệ");
                     }
                     const url = await uploadImageToCloudinary(img.file);
+                    console.log(`✅ Ảnh ${idx + 1} uploaded to Cloudinary:`, url);
                     return { url, type: "IMAGE", sortOrder: idx + 1 };
                 })
             );
@@ -118,7 +152,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 pricePoints: Number(form.priceVnd.replace(/[^\d]/g, "")),
                 year: form.year ? Number(form.year) : null,
                 categoryIds: form.categoryIds && form.categoryIds.length > 0 ? form.categoryIds : [],
-                media: uploadedUrls
+                media: uploadedUrls  // ✅ Cloudinary URLs
             };
 
             const res = (await createBikeAPI(payload, token)) as CreateBikeResponse;
@@ -132,10 +166,11 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 }, token);
             }
 
-            setSuccess(`Đăng bài thành công! Đã trừ ${POSTING_FEE} VND.`);
+            setSuccess(`Đăng bài thành công! Đã upload ${uploadedUrls.length} ảnh từ Cloudinary. Đã trừ ${POSTING_FEE} VND.`);
             setForm({ title: "", bikeType: "Road", brandId: undefined, model: "", frameSize: "M", condition: "Tốt",
                 year: "", priceVnd: "", description: "", categoryIds: [], preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "" });
             setImages([]);
+            setMediaPreview([]);
             onBikeCreated(); onWalletRefresh();
         } catch (e: any) {
             console.error("Create bike error:", e);
@@ -237,7 +272,16 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     </div>
 
                 <div>
-                    <label className="text-sm font-medium text-gray-700">Ảnh xe (tùy chọn)</label>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-gray-700">Ảnh xe</label>
+                        <span className={`text-xs font-semibold ${
+                            images.length >= 2
+                                ? "text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"
+                                : "text-orange-600 bg-orange-50 px-2 py-1 rounded-full"
+                        }`}>
+                            {images.length}/2 ảnh tối thiểu
+                        </span>
+                    </div>
                     <div className="mt-2 rounded-xl border-2 border-dashed border-gray-300 p-6 text-center hover:border-blue-400 transition">
                         <input
                             type="file"
@@ -284,9 +328,9 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     >
                         Xóa
                     </button>
-                    <button onClick={handleSubmit} disabled={loading || uploading || !hasEnough}
+                    <button onClick={handleSubmit} disabled={loading || uploading || !hasEnough || images.length < 2}
                         className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-                        {uploading ? "Đang upload ảnh..." : loading ? "Đang đăng..." : "Đăng tin"}
+                        {uploading ? "Đang upload ảnh..." : loading ? "Đang đăng..." : images.length < 2 ? "Cần thêm ảnh" : "Đăng tin"}
                     </button>
                 </div>
             </div>

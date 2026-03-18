@@ -1,43 +1,44 @@
-// Image Upload Service
-// Uses placeholder URLs instead of data URLs to avoid database truncation
+// Backend-Proxy Image Upload Service
+// Files are uploaded to backend, which uploads to Cloudinary
+// More secure than frontend direct upload
 
 export async function uploadImageToCloudinary(file) {
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-
-  // If Cloudinary is configured, use it
-  if (uploadPreset && cloudName) {
-    return await uploadToCloudinary(file, uploadPreset, cloudName);
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  
+  if (!apiBaseUrl) {
+    console.warn("API Base URL not configured, using placeholder");
+    return generatePlaceholderUrl();
   }
 
-  // Otherwise use placeholder URL (to avoid database truncation)
-  // In production, you should setup Cloudinary or another image hosting service
-  return generatePlaceholderUrl();
-}
-
-async function uploadToCloudinary(file, uploadPreset, cloudName) {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-
   try {
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Upload to backend, which will proxy to Cloudinary
+    const uploadRes = await fetch(`${apiBaseUrl}/cloudinary/upload`, {
       method: "POST",
       body: formData,
     });
 
-    if (!res.ok) {
-      throw new Error("Upload ảnh thất bại");
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed: ${uploadRes.statusText}`);
     }
 
-    const data = await res.json();
-    return data.secure_url;
+    const uploadData = await uploadRes.json();
+    
+    if (!uploadData.url) {
+      throw new Error("No URL in response");
+    }
+    
+    console.log("✅ Image uploaded to Cloudinary via backend:", uploadData.url);
+    return uploadData.url;
   } catch (error) {
-    console.error("Cloudinary upload error:", error);
+    console.error("Backend proxy upload error:", error);
     console.warn("Falling back to placeholder URL");
     return generatePlaceholderUrl();
   }
 }
+
 
 // Generate placeholder URL (short, fits in database)
 function generatePlaceholderUrl() {
