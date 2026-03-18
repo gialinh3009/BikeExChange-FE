@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, Star } from "lucide-react";
 import { getOrderHistoryAPI } from "../../services/Buyer/orderActionService";
-import { createReviewAPI, listReviewsBySellerAPI } from "../../services/reviewService";
+import { createReviewAPI } from "../../services/reviewService";
 
 type OrderStatus =
   | "PENDING_PAYMENT" | "ESCROWED" | "ACCEPTED" | "DELIVERED"
@@ -68,8 +68,7 @@ export default function OrderReviewPage() {
   const [comment, setComment] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [formError, setFormError] = useState("");
-  const [sellerReviewed, setSellerReviewed] = useState(false);
-  const [existingReview, setExistingReview] = useState<{ rating: number; comment?: string; createdAt?: string } | null>(null);
+
 
   useEffect(() => {
     const load = async () => {
@@ -81,40 +80,6 @@ export default function OrderReviewPage() {
       try {
         const data = await getOrderHistoryAPI(orderId);
         setDetail(data);
-
-        // Extract sellerId from order response
-        const sellerId = Number(
-          data.order?.sellerId
-          ?? data.order?.seller?.id
-          ?? data.order?.seller?.userId
-          ?? data.order?.seller?.sellerId,
-        );
-
-        // Get current user from localStorage
-        const currentUser = (() => {
-          try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
-        })();
-        const currentUserId = currentUser?.id || currentUser?.userId;
-
-        // Pre-check: has this buyer already reviewed this seller?
-        if (sellerId > 0 && currentUserId) {
-          try {
-            const reviews = await listReviewsBySellerAPI(sellerId);
-            const myReview = (Array.isArray(reviews) ? reviews : []).find(
-              (r: any) => Number(r.reviewer?.id) === Number(currentUserId),
-            );
-            if (myReview) {
-              setSellerReviewed(true);
-              setExistingReview({
-                rating: myReview.rating,
-                comment: myReview.comment,
-                createdAt: myReview.createdAt,
-              });
-            }
-          } catch {
-            // Ignore - will be caught on submit if review exists
-          }
-        }
       } catch (e) {
         setError(String(e instanceof Error ? e.message : e));
       } finally {
@@ -126,18 +91,6 @@ export default function OrderReviewPage() {
 
   const submitReview = async () => {
     if (!detail?.order) return;
-
-    const sellerId = Number(
-      detail.order.sellerId
-      ?? detail.order.seller?.id
-      ?? detail.order.seller?.userId
-      ?? detail.order.seller?.sellerId,
-    );
-
-    if (!Number.isFinite(sellerId) || sellerId <= 0) {
-      setFormError("Không xác định được người bán để gửi đánh giá.");
-      return;
-    }
 
     if (rating < 1 || rating > 5) {
       setFormError("Vui lòng chọn số sao từ 1 đến 5.");
@@ -152,7 +105,6 @@ export default function OrderReviewPage() {
 
       await createReviewAPI(
         {
-          sellerId,
           orderId,
           rating,
           comment: comment.trim(),
@@ -191,7 +143,7 @@ export default function OrderReviewPage() {
   }
 
   const canReview = detail?.canReview !== false;
-  const isReviewed = sellerReviewed || Boolean(detail?.isReviewed ?? detail?.reviewed ?? detail?.review);
+  const isReviewed = Boolean(detail?.isReviewed ?? detail?.reviewed ?? detail?.review);
 
   if (isReviewed) {
     return (
@@ -207,28 +159,28 @@ export default function OrderReviewPage() {
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <CheckCircle2 size={40} color="#10b981" style={{ marginBottom: 8 }} />
             <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 6, color: "#0f172a" }}>
-              Bạn đã đánh giá người bán này rồi
+              Đơn hàng này đã được đánh giá
             </h3>
             <p style={{ color: "#64748b", fontSize: 14 }}>
-              Mỗi người bán chỉ được đánh giá một lần. Đánh giá đã được ghi nhận trước đó.
+              Mỗi đơn hàng chỉ được đánh giá một lần. Đánh giá đã được ghi nhận trước đó.
             </p>
           </div>
 
-          {existingReview && (
+          {(detail?.review as any) && (
             <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 20 }}>
               <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#334155" }}>Đánh giá của bạn</p>
               <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star key={s} size={18}
-                    color={s <= existingReview.rating ? "#f59e0b" : "#cbd5e1"}
-                    fill={s <= existingReview.rating ? "#f59e0b" : "transparent"} />
+                    color={s <= (detail.review as any).rating ? "#f59e0b" : "#cbd5e1"}
+                    fill={s <= (detail.review as any).rating ? "#f59e0b" : "transparent"} />
                 ))}
               </div>
-              {existingReview.comment && (
-                <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{existingReview.comment}</p>
+              {(detail.review as any).comment && (
+                <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{(detail.review as any).comment}</p>
               )}
-              {existingReview.createdAt && (
-                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8" }}>{fmtDateTime(existingReview.createdAt)}</p>
+              {(detail.review as any).createdAt && (
+                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8" }}>{fmtDateTime((detail.review as any).createdAt)}</p>
               )}
             </div>
           )}

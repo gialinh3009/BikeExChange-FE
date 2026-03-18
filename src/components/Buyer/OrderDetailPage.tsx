@@ -24,7 +24,6 @@ import {
     requestReturnAPI,
     openReturnDisputeAPI,
 } from "../../services/Buyer/orderActionService";
-import { listReviewsBySellerAPI } from "../../services/reviewService";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 type OrderStatus =
@@ -132,7 +131,6 @@ export default function OrderDetailPage() {
     const [showDisputeModal, setShowDisputeModal] = useState(false);
     const [showConfirmReceiptModal, setShowConfirmReceiptModal] = useState(false);
     const [pendingConfirm, setPendingConfirm] = useState<{ msg: string; action: () => Promise<void> } | null>(null);
-    const [sellerAlreadyReviewed, setSellerAlreadyReviewed] = useState(false);
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -140,24 +138,6 @@ export default function OrderDetailPage() {
         try {
             const data = await getOrderHistoryAPI(orderId);
             setDetail(data);
-
-            // Check if buyer already reviewed this seller
-            if (data.order?.status === "COMPLETED") {
-                const sellerId = Number(data.order.sellerId ?? data.order.seller?.id);
-                const currentUser = (() => {
-                    try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
-                })();
-                const uid = currentUser?.id || currentUser?.userId;
-                if (sellerId > 0 && uid) {
-                    try {
-                        const reviews = await listReviewsBySellerAPI(sellerId);
-                        const mine = (Array.isArray(reviews) ? reviews : []).find(
-                            (r: any) => Number(r.reviewer?.id) === Number(uid),
-                        );
-                        setSellerAlreadyReviewed(!!mine);
-                    } catch { /* ignore */ }
-                }
-            }
         } catch (e) {
             setError(String(e instanceof Error ? e.message : e));
         } finally {
@@ -451,7 +431,7 @@ export default function OrderDetailPage() {
                         </div>
                     );
 
-                    if (order.status === "COMPLETED" && !sellerAlreadyReviewed) return (
+                    if (order.status === "COMPLETED" && detail?.canReview) return (
                         <button className="action-btn"
                                 onClick={() => navigate(`/orders/${order.id}/review`)}
                                 style={{ ...btnBase, background: "#eff6ff", color: "#2563eb", border: "1.5px solid #bfdbfe" }}>
@@ -459,10 +439,10 @@ export default function OrderDetailPage() {
                         </button>
                     );
 
-                    if (order.status === "COMPLETED" && sellerAlreadyReviewed) return (
+                    if (order.status === "COMPLETED" && !detail?.canReview) return (
                         <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
                             <CheckCircle size={18} color="#10b981" />
-                            <span style={{ fontSize: 14, fontWeight: 600, color: "#166534" }}>Bạn đã đánh giá người bán này</span>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: "#166534" }}>Đơn hàng này đã được đánh giá</span>
                         </div>
                     );
 
