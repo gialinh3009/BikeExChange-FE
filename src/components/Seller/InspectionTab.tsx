@@ -48,11 +48,11 @@ export default function InspectionTab({
 
     return (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
+            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="font-semibold text-gray-800 mb-1">Kiểm định xe đạp</h2>
-                        <p className="text-sm text-gray-500">
+                        <h2 className="font-bold text-gray-900 text-lg">Kiểm định xe đạp</h2>
+                        <p className="text-sm text-gray-500 mt-0.5">
                             Quản lý trạng thái kiểm định của các xe đạp đã đăng bán
                         </p>
                     </div>
@@ -60,48 +60,46 @@ export default function InspectionTab({
                         type="button"
                         onClick={onRefresh}
                         disabled={bikesLoading}
-                        className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition"
+                        className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition"
                     >
                         {bikesLoading ? "Đang tải..." : "Làm mới"}
                     </button>
                 </div>
             </div>
 
-            <div className="px-6 py-3 border-b border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => onFilterChange("all")}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                                inspectionFilter === "all"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                        >
-                            Tất cả
-                        </button>
-                        <button
-                            onClick={() => onFilterChange("approved")}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                                inspectionFilter === "approved"
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                        >
-                            Đã kiểm định
-                        </button>
-                        <button
-                            onClick={() => onFilterChange("pending")}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                                inspectionFilter === "pending"
-                                    ? "bg-amber-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
-                        >
-                            Đang kiểm định
-                        </button>
-                    </div>
-                    <div className="text-xs text-gray-500">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        onClick={() => onFilterChange("all")}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                            inspectionFilter === "all"
+                                ? "bg-blue-600 text-white"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+                        }`}
+                    >
+                        Tất cả
+                    </button>
+                    <button
+                        onClick={() => onFilterChange("approved")}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                            inspectionFilter === "approved"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+                        }`}
+                    >
+                        Đã kiểm định
+                    </button>
+                    <button
+                        onClick={() => onFilterChange("pending")}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                            inspectionFilter === "pending"
+                                ? "bg-amber-600 text-white"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+                        }`}
+                    >
+                        Đang kiểm định
+                    </button>
+                    <div className="ml-auto text-xs text-gray-600 font-medium">
                         Tổng: {bikes.length} xe
                     </div>
                 </div>

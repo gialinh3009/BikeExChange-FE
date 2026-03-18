@@ -243,64 +243,71 @@ export default function SellerPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <Link to="/buyer" className="flex items-center gap-3 group">
-                    <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center group-hover:bg-blue-700 transition">
-                        <Bike size={18} className="text-white" />
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                    <Link to="/buyer" className="flex items-center gap-3 group">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center group-hover:shadow-lg transition">
+                            <Bike size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <div className="font-bold text-gray-900 text-base">BikeExchange</div>
+                            <div className="text-xs text-gray-500">Người bán</div>
+                        </div>
+                    </Link>
+                    <div className="flex items-center gap-6">
+                        <div className="text-right">
+                            <div className="text-sm font-medium text-gray-900">{user?.email ?? "Người bán"}</div>
+                            <div className="text-xs text-gray-500">Tài khoản bán hàng</div>
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
+                        >
+                            <LogOut size={16} />
+                            Đăng xuất
+                        </button>
                     </div>
-                    <span className="font-bold text-gray-900 text-lg group-hover:text-blue-700 transition">
-                        BikeExchange
-                    </span>
-                    <span className="text-gray-300 mx-1">|</span>
-                    <span className="text-sm text-gray-500">Người bán</span>
-                </Link>
-                <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600">{user?.email ?? "Người bán"}</span>
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-500 transition"
-                    >
-                        <LogOut size={16} />
-                        Đăng xuất
-                    </button>
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-6 py-8">
-                {/* Welcome */}
+            <main className="max-w-7xl mx-auto px-6 py-8">
+                {/* Welcome Section */}
                 <div className="mb-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Xin chào, {user?.email ?? "bạn"} 👋</h1>
-                    <p className="text-gray-500 text-sm mt-1">Quản lý danh sách xe và đơn hàng của bạn.</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Xin chào, {user?.email?.split("@")[0] ?? "bạn"} 👋</h1>
+                    <p className="text-gray-600 text-sm mt-2">Quản lý bài đăng, đơn hàng và ví của bạn</p>
                 </div>
 
-                {/* Tabs */}
-                <div className="mb-6 flex flex-wrap gap-2">
-                    {[
-                        { key: "posts", label: "Bài đăng của tôi" },
-                        { key: "orders", label: "Đơn hàng" },
-                        { key: "disputes", label: "Tranh chấp" },
-                        { key: "create", label: "Đăng tin bán xe" },
-                        { key: "inspection", label: "Kiểm định" },
-                        { key: "wallet", label: "Ví" },
-                    ].map((t) => (
-                        <button
-                            key={t.key}
-                            onClick={() => {
-                                const k = t.key as TabKey;
-                                setTab(k);
-                                if (k === "posts") void refreshBikes();
-                                if (k === "inspection") void refreshBikes();
-                                if (k === "wallet") void refreshWallet();
-                            }}
-                            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                                tab === (t.key as TabKey)
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                            }`}
-                        >
-                            {t.label}
-                        </button>
-                    ))}
+                {/* Tabs Navigation */}
+                <div className="mb-8 border-b border-gray-200">
+                    <div className="flex gap-1 overflow-x-auto">
+                        {[
+                            { key: "posts", label: "Bài đăng của tôi", icon: "📝" },
+                            { key: "create", label: "Đăng tin bán xe", icon: "➕" },
+                            { key: "inspection", label: "Kiểm định", icon: "✓" },
+                            { key: "orders", label: "Đơn hàng", icon: "📦" },
+                            { key: "disputes", label: "Tranh chấp", icon: "⚠️" },
+                            { key: "wallet", label: "Ví", icon: "💰" },
+                        ].map((t) => (
+                            <button
+                                key={t.key}
+                                onClick={() => {
+                                    const k = t.key as TabKey;
+                                    setTab(k);
+                                    if (k === "posts") void refreshBikes();
+                                    if (k === "inspection") void refreshBikes();
+                                    if (k === "wallet") void refreshWallet();
+                                }}
+                                className={`px-4 py-3 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+                                    tab === (t.key as TabKey)
+                                        ? "border-blue-600 text-blue-600"
+                                        : "border-transparent text-gray-600 hover:text-gray-900"
+                                }`}
+                            >
+                                <span className="mr-1">{t.icon}</span>
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* POSTS TAB */}

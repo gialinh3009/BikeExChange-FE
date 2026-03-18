@@ -32,7 +32,6 @@ import SellerProfileView from "../components/Buyer/SellerProfileView";
 import OrderDetailPage from "../components/Buyer/OrderDetailPage";
 import DisputeDetailPage from "../components/Buyer/DisputeDetailPage";
 import OrderReviewPage from "../components/Buyer/OrderReviewPage";
-import RolePlaceholder from "./RolePlaceHolder";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
 import InspectorDashboard from "../components/Inspector/InspectorDashboard";
 import ManagerInspection from "../components/Inspector/ManagerInspection";

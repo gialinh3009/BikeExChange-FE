@@ -62,61 +62,67 @@ export default function SellerDisputesTab({ token }: SellerDisputesTabProps) {
 
     if (loading) {
         return (
-            <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                <div style={{ width: 40, height: 40, border: "3px solid #e8ecf4", borderTop: "3px solid #2563eb", borderRadius: "50%", margin: "0 auto 16px", animation: "spin 1s linear infinite" }} />
-                <p style={{ color: "#64748b", fontSize: 14 }}>Đang tải...</p>
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-12 text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-4" />
+                    <p className="text-gray-600 text-sm">Đang tải...</p>
+                </div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                <AlertTriangle size={40} color="#ef4444" style={{ margin: "0 auto 16px" }} />
-                <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>{error}</p>
-                <button
-                    onClick={() => fetchDisputes()}
-                    style={{ padding: "8px 16px", background: "#2563eb", color: "white", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                >
-                    Thử lại
-                </button>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-12 text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                        <AlertTriangle size={32} className="text-red-600" />
+                    </div>
+                    <p className="text-gray-600 text-sm mb-4">{error}</p>
+                    <button
+                        onClick={() => fetchDisputes()}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition"
+                    >
+                        Thử lại
+                    </button>
+                </div>
             </div>
         );
     }
 
     if (disputes.length === 0) {
         return (
-            <div style={{ padding: "60px 20px", textAlign: "center" }}>
-                <div style={{ width: 56, height: 56, borderRadius: 14, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", color: "#2563eb" }}>
-                    <CheckCircle size={28} />
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-16 text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
+                        <CheckCircle size={32} className="text-blue-600" />
+                    </div>
+                    <p className="text-gray-900 font-semibold text-sm mb-1">Không có tranh chấp</p>
+                    <p className="text-gray-500 text-xs">Tất cả các giao dịch của bạn đều bình thường</p>
                 </div>
-                <p style={{ fontSize: 14, color: "#64748b", fontWeight: 500, marginBottom: 4 }}>Không có tranh chấp</p>
-                <p style={{ fontSize: 12, color: "#94a3b8" }}>Tất cả các giao dịch của bạn đều bình thường</p>
             </div>
         );
     }
 
     return (
-        <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
-                .dispute-card:hover { background: #f8faff !important; }
-            `}</style>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, marginBottom: 12, borderBottom: "1px solid #e8ecf4" }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
-                    Danh sách tranh chấp ({disputes.length})
-                </p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+                <div>
+                    <h2 className="font-bold text-gray-900 text-lg">Tranh chấp</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">Quản lý tất cả tranh chấp của bạn ({disputes.length})</p>
+                </div>
                 <button
                     onClick={() => fetchDisputes()}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1.5px solid #e8ecf4", borderRadius: 6, padding: "6px 10px", fontSize: 12, color: "#64748b", fontWeight: 600, cursor: "pointer", transition: "all .2s" }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                 >
-                    <RefreshCw size={12} /> Làm mới
+                    <RefreshCw size={16} />
+                    Làm mới
                 </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Disputes list */}
+            <div className="divide-y divide-gray-100">
                 {disputes.map((dispute) => (
                     <div
                         key={dispute.orderId}
