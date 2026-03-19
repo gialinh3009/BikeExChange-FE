@@ -1,9 +1,4 @@
-import { CldUploadWidget, CldImage } from 'next-cloudinary';
-import { Cloudinary } from 'cloudinary-core';
-
-const cloudinaryInstance = new Cloudinary({
-  cloud_name: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwe8yl6xv',
-});
+const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwe8yl6xv';
 
 /**
  * Upload file to Cloudinary
@@ -80,14 +75,12 @@ export const getOptimizedImageUrl = (
   height: number = 400,
   quality: string = 'auto'
 ): string => {
-  return cloudinaryInstance.url(publicId, {
-    width,
-    height,
-    crop: 'fill',
-    gravity: 'auto',
-    quality,
-    secure: true,
-  });
+  const encodedPublicId = publicId
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  const transformations = `c_fill,g_auto,w_${width},h_${height},q_${quality}`;
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}/${encodedPublicId}`;
 };
 
 /**

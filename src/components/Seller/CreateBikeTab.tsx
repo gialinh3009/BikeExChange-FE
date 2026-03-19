@@ -14,6 +14,7 @@ const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qu
 export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRefresh }: CreateBikeTabProps) {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [catalogLoading, setCatalogLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
@@ -31,21 +32,57 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const hasEnough = walletAvailable >= totalFee;
 
     useEffect(() => {
-        getCategoriesAPI().then((res: any) => {
-            const data = Array.isArray(res) ? res : (res?.data || []);
-            setCategories(data.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
-        }).catch(() => {});
-        getBrandsAPI().then((res: any) => {
-            const data = Array.isArray(res) ? res : (res?.data || []);
-            setBrands(data.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
-        }).catch(() => {});
+        let mounted = true;
+
+        const loadCatalogs = async () => {
+            setCatalogLoading(true);
+            try {
+                const [categoriesRes, brandsRes] = await Promise.all([
+                    getCategoriesAPI(),
+                    getBrandsAPI(),
+                ]);
+
+                if (!mounted) return;
+
+                const categoryData = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
+                setCategories(categoryData.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
+
+                const brandData = Array.isArray(brandsRes) ? brandsRes : (brandsRes?.data || []);
+                setBrands(brandData.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
+            } catch {
+                if (!mounted) return;
+                setError("Không thể tải danh mục/hãng xe. Vui lòng thử lại.");
+            } finally {
+                if (mounted) {
+                    setCatalogLoading(false);
+                }
+            }
+        };
+
+        void loadCatalogs();
+
+        return () => {
+            mounted = false;
+        };
     }, [onWalletRefresh]);
+
+    if (catalogLoading || wallet === null) {
+        return (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+                <div className="flex items-center gap-3 text-gray-700">
+                    <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm font-medium">Đang tải dữ liệu đăng tin...</span>
+                </div>
+            </div>
+        );
+    }
 
     const handleSubmit = async () => {
         setError(null); setSuccess(null);
         if (!token) { setError("Bạn cần đăng nhập."); return; }
         if (!form.title || !form.brandId || !form.priceVnd) { setError("Vui lòng nhập: Tiêu đề, Hãng, Giá."); return; }
         if (images.length === 0) { setError("Vui lòng thêm ít nhất một ảnh."); return; }
+        if (form.year && !/^\d+$/.test(form.year)) { setError("Năm sản xuất chỉ được nhập số."); return; }
         
         if (walletAvailable < totalFee) { 
             setError(`Không đủ tiền. Cần ${totalFee} VND, có ${walletAvailable} VND.`); 
@@ -55,9 +92,18 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         try {
             setLoading(true);
             setUploading(true);
-            setSuccess("Đang xử lý ảnh và tạo bài đăng...");
             
-            // Create FormData for /bikes/with-images API
+            // Step 1: Upload images to Cloudinary
+            setSuccess("Đang upload ảnh lên Cloudinary...");
+            const imageFiles = images.map(img => img.file).filter(Boolean) as File[];
+            const cloudinaryUrls = await uploadMultipleToCloudinary(imageFiles);
+            
+            if (!cloudinaryUrls || cloudinaryUrls.length === 0) {
+                throw new Error("Không thể upload ảnh. Vui lòng thử lại.");
+            }
+
+            // Step 2: Create FormData for /bikes/with-images API with Cloudinary URLs
+            setSuccess("Đang tạo bài đăng...");
             const formData = new FormData();
             formData.append("title", form.title);
             formData.append("description", form.description);
@@ -74,20 +120,14 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 formData.append("category_ids", String(form.categoryId));
             }
             
-            // Add images directly - backend will handle upload
-            let imageCount = 0;
-            images.forEach((img) => {
-                if (img.file) {
-                    formData.append("images", img.file);
-                    imageCount++;
-                }
-            });
-
-            if (imageCount === 0) {
-                setError("Vui lòng thêm ít nhất một ảnh.");
-                setLoading(false);
-                setUploading(false);
-                return;
+            // Add Cloudinary image URLs as files
+            // Since backend expects MultipartFile[], we need to convert URLs to files
+            for (let i = 0; i < cloudinaryUrls.length; i++) {
+                const url = cloudinaryUrls[i];
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const file = new File([blob], `bike-image-${i}.jpg`, { type: "image/jpeg" });
+                formData.append("images", file);
             }
 
             setUploading(false);
@@ -114,32 +154,20 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const handleImages = async (files: FileList | null) => {
         if (!files) return;
         const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string; file: File }>((resolve, reject) => {
+            if (!f.type.startsWith("image/")) {
+                reject(new Error(`File ${f.name} không phải ảnh hợp lệ.`));
+                return;
+            }
+
+            if (f.size > 5 * 1024 * 1024) {
+                reject(new Error(`File ${f.name} vượt quá 5MB.`));
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = () => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext("2d");
-                    if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                const reader2 = new FileReader();
-                                reader2.onload = () => {
-                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result), file: new File([blob], f.name, { type: "image/png" }) });
-                                };
-                                reader2.readAsDataURL(blob);
-                            } else {
-                                reject(new Error("Không thể chuyển đổi ảnh"));
-                            }
-                        }, "image/png");
-                    }
+                resolve({ name: f.name, dataUrl: String(reader.result), file: f });
                 };
-                img.onerror = () => reject(new Error("Không thể tải ảnh"));
-                img.src = String(reader.result);
-            };
             reader.onerror = () => reject(new Error("Lỗi đọc ảnh"));
             reader.readAsDataURL(f);
         }));
@@ -147,7 +175,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     };
 
     return (
-        <div className="bg-gradient-to-br from-white to-blue-50/30 rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+        <div className="relative bg-gradient-to-br from-white to-blue-50/30 rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
                 <div className="flex items-center justify-between">
                     <div>
@@ -254,7 +282,13 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         </div>
                         <div>
                             <label className="text-sm font-semibold text-gray-700 mb-2 block">Năm sản xuất</label>
-                            <input value={form.year} onChange={(e) => setForm(p => ({ ...p, year: e.target.value }))} placeholder="2021"
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={form.year}
+                                onChange={(e) => setForm(p => ({ ...p, year: e.target.value.replace(/\D/g, "") }))}
+                                placeholder="2021"
                                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
                         </div>
                         <div>
@@ -317,6 +351,18 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                             >
                                 Hoàn tất
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {(loading || uploading) && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl px-8 py-6 flex items-center gap-4 border border-gray-100">
+                        <div className="h-7 w-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <div>
+                            <div className="text-sm font-semibold text-gray-900">Đang xử lý đăng tin...</div>
+                            <div className="text-xs text-gray-500 mt-1">Vui lòng chờ trong giây lát</div>
                         </div>
                     </div>
                 </div>

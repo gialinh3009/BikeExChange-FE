@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { Bike, Mail, Phone, MapPin, ArrowRight } from "lucide-react";
 
 const LINKS = {

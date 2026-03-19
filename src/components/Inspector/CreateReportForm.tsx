@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { createInspectionReportAPI } from "../../services/Inspector/inspectionServices";
+import { uploadImageToCloudinary } from "../../services/firebaseService";
 
 interface MediaItem {
   url: string;
@@ -68,6 +69,7 @@ function ScoreButton({ value, selected, onClick }: { value: number; selected: bo
 export default function CreateReportForm({ inspectionId, bikeTitle, onSuccess, onCancel }: Props) {
   const [form, setForm] = useState<ReportFormData>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newMediaUrl, setNewMediaUrl] = useState("");
   const [newMediaType, setNewMediaType] = useState<"IMAGE" | "VIDEO">("IMAGE");
@@ -95,6 +97,27 @@ export default function CreateReportForm({ inspectionId, bikeTitle, onSuccess, o
     }));
   };
 
+  const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const validFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (validFiles.length === 0) {
+      setError("Vui lòng chọn file ảnh hợp lệ.");
+      e.target.value = "";
+      return;
+    }
+
+    setError(null);
+    setSelectedImageFiles((prev) => [...prev, ...validFiles]);
+    setNewMediaType("IMAGE");
+    e.target.value = "";
+  };
+
+  const removeSelectedImage = (index: number) => {
+    setSelectedImageFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!form.frameCondition.trim() || !form.groupsetCondition.trim() || !form.wheelCondition.trim()) {
       setError("Vui lòng điền đầy đủ tình trạng các bộ phận.");
@@ -107,7 +130,27 @@ export default function CreateReportForm({ inspectionId, bikeTitle, onSuccess, o
     setError(null);
     setSubmitting(true);
     try {
-      await createInspectionReportAPI(inspectionId, form);
+      const mediasToSubmit = [...form.medias];
+
+      if (selectedImageFiles.length > 0) {
+        const uploadedImageUrls = await Promise.all(
+          selectedImageFiles.map((file) => uploadImageToCloudinary(file))
+        );
+        const existingMediaCount = mediasToSubmit.length;
+
+        uploadedImageUrls.forEach((url, index) => {
+          mediasToSubmit.push({
+            url,
+            type: "IMAGE",
+            sortOrder: existingMediaCount + index,
+          });
+        });
+      }
+
+      await createInspectionReportAPI(inspectionId, {
+        ...form,
+        medias: mediasToSubmit,
+      });
       onSuccess();
     } catch (err) {
       const e = err as Error;
@@ -268,11 +311,28 @@ export default function CreateReportForm({ inspectionId, bikeTitle, onSuccess, o
                 <option value="IMAGE">🖼 IMAGE</option>
                 <option value="VIDEO">🎬 VIDEO</option>
               </select>
+              <label
+                style={{
+                  padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0",
+                  fontSize: 13, color: submitting ? "#94a3b8" : "#374151", background: "#f8fafc",
+                  cursor: submitting ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                {submitting ? "Đang xử lý..." : "Chọn ảnh (submit mới upload)"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageFileChange}
+                  disabled={submitting}
+                  style={{ display: "none" }}
+                />
+              </label>
               <input
                 type="text"
                 value={newMediaUrl}
                 onChange={(e) => setNewMediaUrl(e.target.value)}
-                placeholder="Nhập URL..."
+                placeholder="Nhập URL hoặc tải ảnh lên..."
                 style={{
                   flex: 1, padding: "8px 12px", borderRadius: 8,
                   border: "1px solid #e2e8f0", fontSize: 14, outline: "none",
@@ -284,15 +344,50 @@ export default function CreateReportForm({ inspectionId, bikeTitle, onSuccess, o
               <button
                 type="button"
                 onClick={addMedia}
-                disabled={!newMediaUrl.trim()}
+                disabled={!newMediaUrl.trim() || submitting}
                 style={{
                   padding: "8px 16px", borderRadius: 8, border: "none",
-                  background: newMediaUrl.trim() ? "#2563eb" : "#e2e8f0",
-                  color: newMediaUrl.trim() ? "#fff" : "#94a3b8",
-                  fontWeight: 600, fontSize: 13, cursor: newMediaUrl.trim() ? "pointer" : "not-allowed",
+                  background: newMediaUrl.trim() && !submitting ? "#2563eb" : "#e2e8f0",
+                  color: newMediaUrl.trim() && !submitting ? "#fff" : "#94a3b8",
+                  fontWeight: 600, fontSize: 13, cursor: newMediaUrl.trim() && !submitting ? "pointer" : "not-allowed",
                 }}
               >+ Thêm</button>
             </div>
+
+            {selectedImageFiles.length > 0 && (
+              <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                {selectedImageFiles.map((file, index) => (
+                  <div key={`${file.name}-${index}`} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: "#f8fafc", borderRadius: 8, padding: "8px 12px",
+                    border: "1px solid #e2e8f0",
+                  }}>
+                    <span style={{ fontSize: 12, color: "#2563eb", fontWeight: 600, minWidth: 48 }}>
+                      IMAGE
+                    </span>
+                    <span style={{
+                      flex: 1, fontSize: 13, color: "#475569",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {file.name}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                      (upload khi submit)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedImage(index)}
+                      disabled={submitting}
+                      style={{
+                        width: 24, height: 24, borderRadius: 6, border: "none",
+                        background: "#fee2e2", color: "#dc2626", cursor: submitting ? "not-allowed" : "pointer",
+                        fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Media list */}
             {form.medias.length > 0 && (

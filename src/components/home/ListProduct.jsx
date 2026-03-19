@@ -3,7 +3,7 @@
  * Trang hiển thị xe: carousel xe kiểm định + danh sách tất cả xe + bộ lọc
  * State management + API calls — UI được tách ra BikeCards / FilterPanel / WishlistModals
  */
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { RegularCard, Skeleton } from "../Buyer/BikeCards.jsx";

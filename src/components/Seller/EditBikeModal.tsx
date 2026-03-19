@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, Plus } from "lucide-react";
 import { updateBikeAPI } from "../../services/Seller/bikeManagementService";
-import { getCategoriesAPI, getBrandsAPI } from "../../services/Seller/catalogService";
+import { getBrandsAPI } from "../../services/Seller/catalogService";
+import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 
 type BikeBrowseItem = {
     id: number;
@@ -32,6 +33,7 @@ const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qu
 
 export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditBikeModalProps) {
     const [loading, setLoading] = useState(false);
+    const [brandsLoading, setBrandsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
@@ -51,77 +53,88 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
 
     useEffect(() => {
         if (!bike) return;
-        
-        setForm({
-            title: bike.title || "",
-            description: bike.description || "",
-            brandId: undefined,
-            model: bike.model || "",
-            year: bike.year?.toString() || "",
-            pricePoints: bike.pricePoints?.toString() || "",
-            condition: bike.condition || "Tốt",
-            bikeType: bike.bikeType || "Road",
-            frameSize: bike.frameSize || "M",
-            categoryIds: [],
-        });
 
-        // Load existing images
-        if (bike.media && bike.media.length > 0) {
-            setImages(bike.media.map((m) => ({
-                name: `image-${m.sortOrder}`,
-                dataUrl: m.url,
-                isNew: false,
-            })));
-        }
+        let mounted = true;
 
-        getCategoriesAPI()
-            .then(() => {
-                // Categories API called but not used in edit form
-            })
-            .catch(() => {});
+        const initializeForm = async () => {
+            setBrandsLoading(true);
 
-        getBrandsAPI()
-            .then((res: any) => {
-                const data = Array.isArray(res) ? res : (res?.data || []);
-                setBrands(data.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
-            })
-            .catch(() => {});
+            try {
+                const brandsRes: any = await getBrandsAPI();
+                if (!mounted) return;
+
+                const brandData = Array.isArray(brandsRes) ? brandsRes : (brandsRes?.data || []);
+                const normalizedBrands = brandData
+                    .map((b: any) => ({ id: b.id, name: b.name }))
+                    .filter((b: any) => b.id && b.name);
+                setBrands(normalizedBrands);
+
+                const matchedBrand = normalizedBrands.find(
+                    (b: { id: number; name: string }) =>
+                        String(b.name || "").trim().toLowerCase() === String(bike.brand || "").trim().toLowerCase()
+                );
+
+                setForm({
+                    title: bike.title || "",
+                    description: bike.description || "",
+                    brandId: matchedBrand?.id,
+                    model: bike.model || "",
+                    year: bike.year?.toString() || "",
+                    pricePoints: bike.pricePoints?.toString() || "",
+                    condition: bike.condition || "Tốt",
+                    bikeType: bike.bikeType || "Road",
+                    frameSize: bike.frameSize || "M",
+                    categoryIds: [],
+                });
+
+                if (bike.media && bike.media.length > 0) {
+                    setImages(bike.media.map((m) => ({
+                        name: `image-${m.sortOrder}`,
+                        dataUrl: m.url,
+                        isNew: false,
+                    })));
+                } else {
+                    setImages([]);
+                }
+            } catch {
+                if (!mounted) return;
+                setError("Không thể tải dữ liệu hãng xe. Vui lòng thử lại.");
+            } finally {
+                if (mounted) {
+                    setBrandsLoading(false);
+                }
+            }
+        };
+
+        void initializeForm();
+
+        return () => {
+            mounted = false;
+        };
     }, [bike]);
 
     const handleAddImages = async (files: FileList | null) => {
         if (!files) return;
-        
+
         const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string; file: File; isNew: boolean }>((resolve, reject) => {
+            if (!f.type.startsWith("image/")) {
+                reject(new Error(`File ${f.name} không phải ảnh hợp lệ.`));
+                return;
+            }
+
+            if (f.size > 5 * 1024 * 1024) {
+                reject(new Error(`File ${f.name} vượt quá 5MB.`));
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = () => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext("2d");
-                    if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                const reader2 = new FileReader();
-                                reader2.onload = () => {
-                                    resolve({ 
-                                        name: f.name.replace(/\.[^/.]+$/, ".png"), 
-                                        dataUrl: String(reader2.result), 
-                                        file: new File([blob], f.name, { type: "image/png" }),
-                                        isNew: true
-                                    });
-                                };
-                                reader2.readAsDataURL(blob);
-                            } else {
-                                reject(new Error("Không thể chuyển đổi ảnh"));
-                            }
-                        }, "image/png");
-                    }
-                };
-                img.onerror = () => reject(new Error("Không thể tải ảnh"));
-                img.src = String(reader.result);
+                resolve({
+                    name: f.name,
+                    dataUrl: String(reader.result),
+                    file: f,
+                    isNew: true,
+                });
             };
             reader.onerror = () => reject(new Error("Lỗi đọc ảnh"));
             reader.readAsDataURL(f);
@@ -147,6 +160,11 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
             return;
         }
 
+        if (form.year && !/^\d+$/.test(form.year)) {
+            setError("Năm sản xuất chỉ được nhập số.");
+            return;
+        }
+
         if (images.length === 0) {
             setError("Vui lòng giữ lại ít nhất một ảnh.");
             return;
@@ -154,13 +172,22 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
 
         try {
             setLoading(true);
-            
-            // Prepare media array with existing and new images
-            const media = images.map((img, idx) => ({
-                url: img.dataUrl,
+
+            const media = [] as { url: string; type: string; sortOrder: number }[];
+            let sortOrder = 1;
+
+            for (const image of images) {
+                let url = image.dataUrl;
+                if (image.isNew && image.file) {
+                    url = await uploadToCloudinary(image.file);
+                }
+
+                media.push({
+                    url,
                 type: "IMAGE",
-                sortOrder: idx + 1,
-            }));
+                    sortOrder: sortOrder++,
+                });
+            }
 
             const payload = {
                 title: form.title,
@@ -198,6 +225,7 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                     <h2 className="font-bold text-gray-900">Chỉnh sửa thông tin xe</h2>
                     <button
                         onClick={onClose}
+                        disabled={loading || brandsLoading}
                         className="p-1 hover:bg-gray-100 rounded-lg transition"
                     >
                         <X size={20} className="text-gray-500" />
@@ -213,6 +241,11 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                     {success && (
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-600">
                             {success}
+                        </div>
+                    )}
+                    {brandsLoading && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                            Đang tải dữ liệu chỉnh sửa...
                         </div>
                     )}
 
@@ -255,6 +288,7 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                                 multiple
                                 className="hidden"
                                 onChange={(e) => handleAddImages(e.target.files)}
+                                disabled={loading || brandsLoading}
                             />
                         </label>
                     </div>
@@ -307,9 +341,11 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Năm sản xuất</label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={form.year}
-                                    onChange={(e) => setForm({ ...form, year: e.target.value })}
+                                    onChange={(e) => setForm({ ...form, year: e.target.value.replace(/\D/g, "") })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="2022"
                                 />
@@ -390,16 +426,17 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                 <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
                     <button
                         onClick={onClose}
+                        disabled={loading || brandsLoading}
                         className="rounded-lg border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                     >
                         Hủy
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={loading}
+                        disabled={loading || brandsLoading}
                         className="rounded-lg bg-blue-600 text-white px-6 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {loading ? "Đang cập nhật..." : "Cập nhật"}
+                        {loading ? "Đang cập nhật..." : brandsLoading ? "Đang tải..." : "Cập nhật"}
                     </button>
                 </div>
             </div>

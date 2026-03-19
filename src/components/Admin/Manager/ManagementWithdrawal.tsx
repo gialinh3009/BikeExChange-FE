@@ -58,7 +58,7 @@ function formatDate(value: string) {
 
 
 function formatPoints(value: number) {
-  return value.toLocaleString("vi-VN") + " ₫";
+  return value.toLocaleString("vi-VN") + " VNĐ";
 }
 
 

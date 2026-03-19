@@ -20,7 +20,6 @@ import OrderConfirmationModal from "./OrderConfirmationModal";
 import {
     getOrderHistoryAPI,
     cancelOrderAPI,
-    confirmReceiptAPI,
     requestReturnAPI,
     openReturnDisputeAPI,
 } from "../../services/Buyer/orderActionService";

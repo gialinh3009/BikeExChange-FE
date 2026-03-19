@@ -137,7 +137,7 @@ export async function getDisputeDetailAPI(orderId, token) {
 export async function getDisputeByOrderIdAPI(orderId, token) {
   const disputes = await getMyDisputesAPI(token);
   const list = Array.isArray(disputes) ? disputes : disputes.data ?? [];
-  const dispute = list.find(d => d.orderId === orderId);
+  const dispute = list.find(d => Number(d.orderId) === Number(orderId));
   if (!dispute) throw new Error("Không tìm thấy tranh chấp cho đơn hàng này");
   return dispute;
 }
