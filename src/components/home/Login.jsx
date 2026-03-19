@@ -46,6 +46,7 @@ export default function Login() {
       const role = (userData.role || "").toUpperCase();
       if (role === "ADMIN") navigate("/admin", { replace: true });
       else if (role === "INSPECTOR") navigate("/inspector", { replace: true });
+      else if (role === "SELLER") navigate("/", { replace: true });
       else navigate("/", { replace: true });
     } catch (err) {
       const msg = err.message || "";
@@ -161,9 +162,9 @@ export default function Login() {
                     <label className="block text-sm font-medium text-gray-700">
                       Mật khẩu <span className="text-red-500">*</span>
                     </label>
-                    <button type="button" className="text-xs text-blue-600 hover:underline">
+                    <Link to="/forgot-password" className="text-xs text-blue-600 hover:underline">
                       Quên mật khẩu?
-                    </button>
+                    </Link>
                   </div>
                   <div className="relative">
                     <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />

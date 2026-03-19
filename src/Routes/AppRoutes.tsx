@@ -21,7 +21,9 @@ import ManagerBike from "../components/Admin/Manager/ManagerBike";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
-import VerifyEmail from "../components/home/VerifyEmail.jsx";
+import VerifyEmail from "../components/home/VerifyEmail";
+import ForgotPassword from "../components/home/ForgotPassword";
+import ResetPassword from "../components/home/ResetPassword";
 import SellerPage from "../components/Seller/SellerPage";
 import SellerOrderDetailPage from "../components/Seller/SellerOrderDetailPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
@@ -93,6 +95,8 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           : <Register />
       } />
       <Route path="/verify" element={<VerifyEmail />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
@@ -154,7 +158,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
 
       {/* Inspector */}
       <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
-        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
+        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>         
           <Route path="inspections" element={<ManagerInspection />} />
           <Route path="status" element={<ManagerInspectionStatus />} />
           <Route path="reports" element={<ManagerInspectionReport />} />
