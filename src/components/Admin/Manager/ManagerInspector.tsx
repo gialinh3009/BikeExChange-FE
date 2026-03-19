@@ -24,6 +24,17 @@ import {
 type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED" | "IN_PROGRESS";
 type AdminDecision = "APPROVED" | "REJECTED" | null;
 
+const BIKE_UNAVAILABLE_STATUSES = ["SOLD", "RESERVED", "CANCELLED"];
+
+const BIKE_STATUS_LABEL: Record<string, string> = {
+  ACTIVE:    "Đang bán",
+  VERIFIED:  "Đã kiểm định",
+  SOLD:      "Đã bán",
+  RESERVED:  "Đang đặt cọc",
+  CANCELLED: "Đã huỷ",
+  DRAFT:     "Nháp",
+};
+
 interface BikeInfo {
   id: number;
   title: string;
@@ -31,6 +42,7 @@ interface BikeInfo {
   model?: string;
   year?: number;
   location?: string;
+  status?: string;
   media?: { id: number; url: string; type: string; sortOrder: number }[];
 }
 
@@ -119,7 +131,9 @@ function DetailModal({ report, onClose, onApprove, approveLoadingId }: DetailMod
   const { request } = report;
   const reqStatus = REQUEST_STATUS_CONFIG[request.status] ?? { label: request.status, color: "bg-gray-100 text-gray-600" };
   const decisionCfg = report.adminDecision ? DECISION_CONFIG[report.adminDecision] : null;
-  const canApprove = !report.adminDecision;
+  const bikeStatus = request.bike.status ?? "";
+  const bikeUnavailable = BIKE_UNAVAILABLE_STATUSES.includes(bikeStatus);
+  const canApprove = !report.adminDecision && !bikeUnavailable;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -140,14 +154,38 @@ function DetailModal({ report, onClose, onApprove, approveLoadingId }: DetailMod
           <section>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Xe đạp</p>
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-              <p className="font-semibold text-gray-900">{request.bike.title}</p>
-              {(getBikeBrand(request.bike) || request.bike.model || request.bike.year) && (
-                <p className="text-sm text-gray-500">
-                  {[getBikeBrand(request.bike), request.bike.model, request.bike.year].filter(Boolean).join(" · ")}
-                </p>
-              )}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-gray-900">{request.bike.title}</p>
+                  {(getBikeBrand(request.bike) || request.bike.model || request.bike.year) && (
+                    <p className="text-sm text-gray-500">
+                      {[getBikeBrand(request.bike), request.bike.model, request.bike.year].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </div>
+                {bikeStatus && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    bikeStatus === "ACTIVE"   ? "bg-blue-100 text-blue-700"   :
+                    bikeStatus === "VERIFIED" ? "bg-green-100 text-green-700" :
+                    bikeStatus === "SOLD"     ? "bg-gray-200 text-gray-600"   :
+                    bikeStatus === "RESERVED" ? "bg-yellow-100 text-yellow-700" :
+                    "bg-red-100 text-red-600"
+                  }`}>
+                    {BIKE_STATUS_LABEL[bikeStatus] ?? bikeStatus}
+                  </span>
+                )}
+              </div>
             </div>
           </section>
+
+          {/* Warning when bike is unavailable */}
+          {bikeUnavailable && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="font-semibold">Lưu ý:</span> Xe này hiện có trạng thái{" "}
+              <span className="font-bold">"{BIKE_STATUS_LABEL[bikeStatus] ?? bikeStatus}"</span>.
+              Không thể duyệt "Đạt" cho xe không còn khả dụng để tránh xe bị bán/huỷ xuất hiện lại trên marketplace.
+            </div>
+          )}
 
           {/* Inspector */}
           <section>
@@ -483,6 +521,8 @@ export default function ManagerInspector() {
                   color: "bg-gray-100 text-gray-600",
                 };
                 const decisionCfg = r.adminDecision ? DECISION_CONFIG[r.adminDecision] : null;
+                const rowBikeStatus = r.request.bike.status ?? "";
+                const rowBikeUnavailable = BIKE_UNAVAILABLE_STATUSES.includes(rowBikeStatus);
 
                 return (
                   <tr key={r.id} className="border-b border-gray-50 hover:bg-blue-50">
@@ -491,8 +531,19 @@ export default function ManagerInspector() {
                       <div className="max-w-[180px] truncate font-medium text-gray-900">
                         {r.request.bike.title}
                       </div>
-                      <div className="text-xs text-gray-400">
-                        {getBikeBrand(r.request.bike)}
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-gray-400">{getBikeBrand(r.request.bike)}</span>
+                        {rowBikeStatus && (
+                          <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                            rowBikeStatus === "ACTIVE"   ? "bg-blue-100 text-blue-600"     :
+                            rowBikeStatus === "VERIFIED" ? "bg-green-100 text-green-600"   :
+                            rowBikeStatus === "SOLD"     ? "bg-gray-200 text-gray-500"     :
+                            rowBikeStatus === "RESERVED" ? "bg-yellow-100 text-yellow-600" :
+                            "bg-red-100 text-red-500"
+                          }`}>
+                            {BIKE_STATUS_LABEL[rowBikeStatus] ?? rowBikeStatus}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-5 py-3">
@@ -521,17 +572,18 @@ export default function ManagerInspector() {
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
-                          disabled={approveLoadingId === r.request.id}
+                          disabled={approveLoadingId === r.request.id || !!r.adminDecision || rowBikeUnavailable}
+                          title={rowBikeUnavailable ? `Không thể duyệt: xe đang "${BIKE_STATUS_LABEL[rowBikeStatus] ?? rowBikeStatus}"` : undefined}
                           onClick={() => handleApprove(r.request.id, true)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <CheckCircle size={12} /> Đạt
                         </button>
                         <button
                           type="button"
-                          disabled={approveLoadingId === r.request.id}
+                          disabled={approveLoadingId === r.request.id || !!r.adminDecision}
                           onClick={() => handleApprove(r.request.id, false)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <XCircle size={12} /> Không đạt
                         </button>

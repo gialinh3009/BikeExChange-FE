@@ -3,7 +3,10 @@ import { X, AlertCircle, CheckCircle, Loader, Wallet } from "lucide-react";
 import { upgradeToSellerAPI } from "../../services/Buyer/Upgradeservice";
 import { getWalletAPI } from "../../services/Buyer/walletService";
 
-const UPGRADE_COST = 10000; // điểm (theo BE requirement)
+const UPGRADE_COST = 50000; // đ — khớp với SELLER_UPGRADE_FEE = 50000L ở BE (1 điểm = 1đ)
+
+const fmtVND = (n: number) =>
+    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
 
 export interface UpdatedUser {
     shopName?: string;
@@ -55,7 +58,7 @@ export default function UpgradeToSellerModal({
         if (!shopDescription.trim()) { setError("Mô tả shop là bắt buộc"); return; }
         if (!agreeToTerms) { setError("Bạn phải đồng ý với điều khoản"); return; }
         if (walletPoints !== null && walletPoints < UPGRADE_COST) {
-            setError(`Ví không đủ điểm. Cần ${UPGRADE_COST} điểm, hiện có ${walletPoints} điểm.`);
+            setError(`Ví không đủ số dư. Cần ${fmtVND(UPGRADE_COST)}, hiện có ${fmtVND(walletPoints)}.`);
             return;
         }
 
@@ -89,7 +92,7 @@ export default function UpgradeToSellerModal({
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Có lỗi xảy ra";
             if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("balance")) {
-                setError(`Ví không đủ điểm để nâng cấp. Vui lòng nạp thêm điểm vào ví.`);
+                setError(`Ví không đủ số dư để nâng cấp. Vui lòng nạp thêm tiền vào ví.`);
             } else {
                 setError(msg);
             }
@@ -158,7 +161,7 @@ export default function UpgradeToSellerModal({
                         <span style={{ fontSize: 13, color: "rgba(255,255,255,.75)", fontWeight: 500 }}>Số dư ví</span>
                     </div>
                     <span style={{ fontSize: 18, fontWeight: 800, color: "white" }}>
-                        {walletLoading ? "..." : `${(walletPoints ?? 0).toLocaleString()} điểm`}
+                        {walletLoading ? "..." : fmtVND(walletPoints ?? 0)}
                     </span>
                 </div>
 
@@ -172,9 +175,9 @@ export default function UpgradeToSellerModal({
                     <AlertCircle size={15} color={walletLoading ? "#94a3b8" : hasEnoughPoints ? "#16a34a" : "#ea580c"} style={{ flexShrink: 0 }} />
                     <div style={{ fontSize: 13, color: walletLoading ? "#64748b" : hasEnoughPoints ? "#15803d" : "#9a3412", lineHeight: 1.5 }}>
                         {walletLoading ? "Đang kiểm tra số dư..." : hasEnoughPoints ? (
-                            <><strong>{UPGRADE_COST} điểm</strong> sẽ được trừ · Còn lại: <strong>{((walletPoints ?? 0) - UPGRADE_COST).toLocaleString()} điểm</strong></>
+                            <><strong>{fmtVND(UPGRADE_COST)}</strong> sẽ được trừ · Còn lại: <strong>{fmtVND((walletPoints ?? 0) - UPGRADE_COST)}</strong></>
                         ) : (
-                            <>Không đủ điểm. Cần <strong>{UPGRADE_COST} điểm</strong>, hiện có <strong>{(walletPoints ?? 0).toLocaleString()} điểm</strong>.</>
+                            <>Không đủ số dư. Cần <strong>{fmtVND(UPGRADE_COST)}</strong>, hiện có <strong>{fmtVND(walletPoints ?? 0)}</strong>.</>
                         )}
                     </div>
                 </div>
