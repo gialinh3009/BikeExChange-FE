@@ -160,6 +160,11 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
             return;
         }
 
+        if (form.year && !/^\d+$/.test(form.year)) {
+            setError("Năm sản xuất chỉ được nhập số.");
+            return;
+        }
+
         if (images.length === 0) {
             setError("Vui lòng giữ lại ít nhất một ảnh.");
             return;
@@ -336,9 +341,11 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Năm sản xuất</label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={form.year}
-                                    onChange={(e) => setForm({ ...form, year: e.target.value })}
+                                    onChange={(e) => setForm({ ...form, year: e.target.value.replace(/\D/g, "") })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="2022"
                                 />

@@ -82,6 +82,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         if (!token) { setError("Bạn cần đăng nhập."); return; }
         if (!form.title || !form.brandId || !form.priceVnd) { setError("Vui lòng nhập: Tiêu đề, Hãng, Giá."); return; }
         if (images.length === 0) { setError("Vui lòng thêm ít nhất một ảnh."); return; }
+        if (form.year && !/^\d+$/.test(form.year)) { setError("Năm sản xuất chỉ được nhập số."); return; }
         
         if (walletAvailable < totalFee) { 
             setError(`Không đủ tiền. Cần ${totalFee} VND, có ${walletAvailable} VND.`); 
@@ -164,7 +165,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     };
 
     return (
-        <div className="bg-gradient-to-br from-white to-blue-50/30 rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
+        <div className="relative bg-gradient-to-br from-white to-blue-50/30 rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
                 <div className="flex items-center justify-between">
                     <div>
@@ -271,7 +272,13 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         </div>
                         <div>
                             <label className="text-sm font-semibold text-gray-700 mb-2 block">Năm sản xuất</label>
-                            <input value={form.year} onChange={(e) => setForm(p => ({ ...p, year: e.target.value }))} placeholder="2021"
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={form.year}
+                                onChange={(e) => setForm(p => ({ ...p, year: e.target.value.replace(/\D/g, "") }))}
+                                placeholder="2021"
                                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white" />
                         </div>
                         <div>
@@ -334,6 +341,18 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                             >
                                 Hoàn tất
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {(loading || uploading) && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl px-8 py-6 flex items-center gap-4 border border-gray-100">
+                        <div className="h-7 w-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <div>
+                            <div className="text-sm font-semibold text-gray-900">Đang xử lý đăng tin...</div>
+                            <div className="text-xs text-gray-500 mt-1">Vui lòng chờ trong giây lát</div>
                         </div>
                     </div>
                 </div>
