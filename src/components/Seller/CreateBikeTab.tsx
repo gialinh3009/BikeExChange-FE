@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, X, Wallet, AlertCircle, Bike, CheckCircle2 } from "lucide-react";
-import { createBikeAPI, getCategoriesAPI, getBrandsAPI } from "../../services/Seller/sellerService";
+import { createBikeAPI } from "../../services/Seller/bikeManagementService";
+import { getCategoriesAPI, getBrandsAPI } from "../../services/Seller/catalogService";
 import { uploadMultipleToCloudinary } from "../../services/cloudinaryService";
 
 type WalletLike = {
