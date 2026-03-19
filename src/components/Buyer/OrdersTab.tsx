@@ -15,7 +15,6 @@ import {
     Clock,
     Truck,
     AlertTriangle,
-    MessageSquare,
 } from "lucide-react";
 import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import {
@@ -245,20 +244,9 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
         setShowCancelConfirm(id);
     };
 
-    const handleConfirmReceipt = (id: number) => {
-        const order = orders.find(o => o.id === id);
-        if (order) {
-            setConfirmationModal({ open: true, order });
-        }
-    };
-
     const handleConfirmationSuccess = () => {
         setConfirmationModal({ open: false, order: null });
         void fetchOrders();
-    };
-
-    const handleRequestReturn = (id: number) => {
-        setShowReturnModalForOrder(id);
     };
 
     const submitRequestReturn = async (reason: string) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 
 interface CreateBikeFormData {
@@ -32,7 +32,7 @@ export const CreateBikeWithImages = () => {
 
   const [dragActive, setDragActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [, setPreviewUrls] = useState<string[]>([]);
   const [sellerInfo, setSellerInfo] = useState<any>(null);
 
   // Fetch seller info (address, shop name)
@@ -51,6 +51,10 @@ export const CreateBikeWithImages = () => {
       console.error('Failed to fetch seller info:', error);
     }
   };
+
+  useEffect(() => {
+    void fetchSellerInfo();
+  }, []);
 
   // Handle file selection
   const handleFileSelect = (files: FileList | File[]) => {
