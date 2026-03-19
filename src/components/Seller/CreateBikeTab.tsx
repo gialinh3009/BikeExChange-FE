@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Plus, X, Wallet, AlertCircle, Bike, CheckCircle2 } from "lucide-react";
 import { createBikeWithImagesAPI } from "../../services/Seller/bikeManagementService";
 import { getCategoriesAPI, getBrandsAPI } from "../../services/Seller/catalogService";
-import { uploadMultipleToCloudinary } from "../../utils/cloudinaryUpload";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
 interface CreateBikeTabProps { token: string; wallet: WalletLike | null; onBikeCreated: () => void; onWalletRefresh: () => void }
@@ -56,18 +55,9 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         try {
             setLoading(true);
             setUploading(true);
+            setSuccess("Đang xử lý ảnh và tạo bài đăng...");
             
-            // Step 1: Upload images to Cloudinary
-            setSuccess("Đang upload ảnh lên Cloudinary...");
-            const imageFiles = images.map(img => img.file).filter(Boolean) as File[];
-            const cloudinaryUrls = await uploadMultipleToCloudinary(imageFiles);
-            
-            if (!cloudinaryUrls || cloudinaryUrls.length === 0) {
-                throw new Error("Không thể upload ảnh. Vui lòng thử lại.");
-            }
-
-            // Step 2: Create FormData for /bikes/with-images API with Cloudinary URLs
-            setSuccess("Đang tạo bài đăng...");
+            // Create FormData for /bikes/with-images API
             const formData = new FormData();
             formData.append("title", form.title);
             formData.append("description", form.description);
@@ -84,14 +74,20 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 formData.append("category_ids", String(form.categoryId));
             }
             
-            // Add Cloudinary image URLs as files
-            // Since backend expects MultipartFile[], we need to convert URLs to files
-            for (let i = 0; i < cloudinaryUrls.length; i++) {
-                const url = cloudinaryUrls[i];
-                const response = await fetch(url);
-                const blob = await response.blob();
-                const file = new File([blob], `bike-image-${i}.jpg`, { type: "image/jpeg" });
-                formData.append("images", file);
+            // Add images directly - backend will handle upload
+            let imageCount = 0;
+            images.forEach((img) => {
+                if (img.file) {
+                    formData.append("images", img.file);
+                    imageCount++;
+                }
+            });
+
+            if (imageCount === 0) {
+                setError("Vui lòng thêm ít nhất một ảnh.");
+                setLoading(false);
+                setUploading(false);
+                return;
             }
 
             setUploading(false);
@@ -192,7 +188,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         <div><div className="font-bold text-gray-900">Hình ảnh xe</div><div className="text-sm text-gray-500">Tải lên ảnh thực tế</div></div>
                     </div>
                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 shadow-md disabled:opacity-50" style={{ pointerEvents: uploading || loading ? 'none' : 'auto', opacity: uploading || loading ? 0.6 : 1 }}>
-                        <Plus size={18} />{uploading ? "Đang upload..." : loading ? "Đang xử lý..." : "Chọn ảnh"}
+                        <Plus size={18} />{uploading || loading ? "Đang xử lý..." : "Chọn ảnh"}
                         <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleImages(e.target.files)} disabled={uploading || loading} />
                     </label>
                     <span className="ml-3 text-sm text-gray-600">Đã chọn: <b className="text-blue-600">{images.length}</b> ảnh</span>
@@ -294,7 +290,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     </button>
                     <button onClick={handleSubmit} disabled={loading || uploading || !hasEnough}
                         className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 text-sm font-semibold text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-                        {uploading ? "Đang upload ảnh..." : loading ? "Đang xử lý..." : "Đăng tin"}
+                        {uploading || loading ? "Đang xử lý..." : "Đăng tin"}
                     </button>
                 </div>
             </div>
