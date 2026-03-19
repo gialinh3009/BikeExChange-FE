@@ -158,7 +158,8 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
 
       {/* Inspector */}
       <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
-        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>         
+        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}> 
+          <Route index element={<ManagerInspection />} />        
           <Route path="inspections" element={<ManagerInspection />} />
           <Route path="status" element={<ManagerInspectionStatus />} />
           <Route path="reports" element={<ManagerInspectionReport />} />

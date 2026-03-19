@@ -66,7 +66,7 @@ export default function ManagerInspectionReport() {
     fetchData();
   };
 
-  const COLUMNS = ["ID", "Xe", "Chủ xe", "Kiểm định viên", "Phí (điểm)", "Ngày hẹn", "Khung giờ", "Địa chỉ", "SĐT", "Ngày tạo", "Thao tác"];
+  const COLUMNS = ["ID", "Xe", "Chủ xe", "Kiểm định viên", "Phí (VNĐ)", "Ngày hẹn", "Khung giờ", "Địa chỉ", "SĐT", "Ngày tạo", "Thao tác"];
 
   return (
     <div style={{ padding: "28px 32px", fontFamily: "'Segoe UI', sans-serif", background: "#f8fafc", minHeight: "100vh" }}>
