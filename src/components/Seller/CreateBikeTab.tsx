@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Plus, X, Wallet, AlertCircle, Bike, CheckCircle2 } from "lucide-react";
 import { createBikeWithImagesAPI } from "../../services/Seller/bikeManagementService";
 import { getCategoriesAPI, getBrandsAPI } from "../../services/Seller/catalogService";
-import { uploadMultipleToCloudinary } from "../../utils/cloudinaryUpload";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };
 interface CreateBikeTabProps { token: string; wallet: WalletLike | null; onBikeCreated: () => void; onWalletRefresh: () => void }
@@ -15,6 +14,7 @@ const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qu
 export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRefresh }: CreateBikeTabProps) {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [catalogLoading, setCatalogLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File }[]>([]);
@@ -32,15 +32,50 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const hasEnough = walletAvailable >= totalFee;
 
     useEffect(() => {
-        getCategoriesAPI().then((res: any) => {
-            const data = Array.isArray(res) ? res : (res?.data || []);
-            setCategories(data.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
-        }).catch(() => {});
-        getBrandsAPI().then((res: any) => {
-            const data = Array.isArray(res) ? res : (res?.data || []);
-            setBrands(data.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
-        }).catch(() => {});
+        let mounted = true;
+
+        const loadCatalogs = async () => {
+            setCatalogLoading(true);
+            try {
+                const [categoriesRes, brandsRes] = await Promise.all([
+                    getCategoriesAPI(),
+                    getBrandsAPI(),
+                ]);
+
+                if (!mounted) return;
+
+                const categoryData = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
+                setCategories(categoryData.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name));
+
+                const brandData = Array.isArray(brandsRes) ? brandsRes : (brandsRes?.data || []);
+                setBrands(brandData.map((b: any) => ({ id: b.id, name: b.name })).filter((b: any) => b.id && b.name));
+            } catch {
+                if (!mounted) return;
+                setError("Không thể tải danh mục/hãng xe. Vui lòng thử lại.");
+            } finally {
+                if (mounted) {
+                    setCatalogLoading(false);
+                }
+            }
+        };
+
+        void loadCatalogs();
+
+        return () => {
+            mounted = false;
+        };
     }, [onWalletRefresh]);
+
+    if (catalogLoading || wallet === null) {
+        return (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+                <div className="flex items-center gap-3 text-gray-700">
+                    <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm font-medium">Đang tải dữ liệu đăng tin...</span>
+                </div>
+            </div>
+        );
+    }
 
     const handleSubmit = async () => {
         setError(null); setSuccess(null);
@@ -56,18 +91,13 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         try {
             setLoading(true);
             setUploading(true);
-            
-            // Step 1: Upload images to Cloudinary
-            setSuccess("Đang upload ảnh lên Cloudinary...");
+            setSuccess("Đang tải ảnh và tạo bài đăng...");
             const imageFiles = images.map(img => img.file).filter(Boolean) as File[];
-            const cloudinaryUrls = await uploadMultipleToCloudinary(imageFiles);
-            
-            if (!cloudinaryUrls || cloudinaryUrls.length === 0) {
-                throw new Error("Không thể upload ảnh. Vui lòng thử lại.");
+
+            if (imageFiles.length === 0) {
+                throw new Error("Không có ảnh hợp lệ để tải lên.");
             }
 
-            // Step 2: Create FormData for /bikes/with-images API with Cloudinary URLs
-            setSuccess("Đang tạo bài đăng...");
             const formData = new FormData();
             formData.append("title", form.title);
             formData.append("description", form.description);
@@ -84,13 +114,8 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 formData.append("category_ids", String(form.categoryId));
             }
             
-            // Add Cloudinary image URLs as files
-            // Since backend expects MultipartFile[], we need to convert URLs to files
-            for (let i = 0; i < cloudinaryUrls.length; i++) {
-                const url = cloudinaryUrls[i];
-                const response = await fetch(url);
-                const blob = await response.blob();
-                const file = new File([blob], `bike-image-${i}.jpg`, { type: "image/jpeg" });
+            // Send original files directly to backend; backend uploads to Cloudinary only on create flow
+            for (const file of imageFiles) {
                 formData.append("images", file);
             }
 
@@ -118,32 +143,20 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const handleImages = async (files: FileList | null) => {
         if (!files) return;
         const reads = Array.from(files).map(f => new Promise<{ name: string; dataUrl: string; file: File }>((resolve, reject) => {
+            if (!f.type.startsWith("image/")) {
+                reject(new Error(`File ${f.name} không phải ảnh hợp lệ.`));
+                return;
+            }
+
+            if (f.size > 5 * 1024 * 1024) {
+                reject(new Error(`File ${f.name} vượt quá 5MB.`));
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = () => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext("2d");
-                    if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                const reader2 = new FileReader();
-                                reader2.onload = () => {
-                                    resolve({ name: f.name.replace(/\.[^/.]+$/, ".png"), dataUrl: String(reader2.result), file: new File([blob], f.name, { type: "image/png" }) });
-                                };
-                                reader2.readAsDataURL(blob);
-                            } else {
-                                reject(new Error("Không thể chuyển đổi ảnh"));
-                            }
-                        }, "image/png");
-                    }
+                resolve({ name: f.name, dataUrl: String(reader.result), file: f });
                 };
-                img.onerror = () => reject(new Error("Không thể tải ảnh"));
-                img.src = String(reader.result);
-            };
             reader.onerror = () => reject(new Error("Lỗi đọc ảnh"));
             reader.readAsDataURL(f);
         }));

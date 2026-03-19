@@ -4,33 +4,35 @@
  * @returns {Promise<string>} - Cloudinary URL of uploaded image
  */
 export async function uploadToCloudinary(file) {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-  if (!cloudName || !uploadPreset) {
-    throw new Error("Cloudinary configuration is missing");
+  if (!apiBaseUrl) {
+    throw new Error("VITE_API_BASE_URL is missing");
   }
 
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
 
   try {
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    const response = await fetch(`${apiBaseUrl}/cloudinary/upload`, {
       method: "POST",
       body: formData,
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || "Upload failed");
+      const errorText = await response.text();
+      throw new Error(errorText || `Upload failed (${response.status})`);
     }
 
     const data = await response.json();
-    return data.secure_url;
+    if (!data?.url) {
+      throw new Error("Backend did not return uploaded URL");
+    }
+
+    return data.url;
   } catch (error) {
     console.error("Cloudinary upload error:", error);
-    throw new Error(`Lỗi upload ảnh: ${error.message}`);
+    throw new Error(`Lỗi upload ảnh: ${error?.message || "Unknown error"}`);
   }
 }
 

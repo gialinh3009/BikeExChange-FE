@@ -26,6 +26,13 @@ type BikeBrowseItem = {
     media?: { url: string; type: string; sortOrder: number }[];
     sellerId?: number;
     seller?: { id: number };
+    createdAt?: string;
+    description?: string;
+    bikeType?: string;
+    frameSize?: string;
+    model?: string;
+    year?: string;
+    brand?: string;
 };
 
 type BikeItem = BikeBrowseItem;
@@ -141,6 +148,13 @@ export default function SellerPage() {
                     inspectionStatus: b.inspectionStatus || "NONE",
                     media: b.media || [],
                     sellerId: b.sellerId || b.seller?.id || 0,
+                    createdAt: b.createdAt,
+                    description: b.description,
+                    bikeType: b.bikeType,
+                    frameSize: b.frameSize,
+                    model: b.model,
+                    year: b.year,
+                    brand: b.brand,
                 }));
             
             console.log(`✅ Filtered ${sellerBikes.length} bikes for seller #${userId}`);
