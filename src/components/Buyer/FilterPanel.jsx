@@ -2,6 +2,7 @@
  * FilterPanel.jsx
  * Bộ lọc xe: tìm kiếm, loại xe, thương hiệu, giá, năm sản xuất, sắp xếp
  */
+import React, { useState, useEffect } from "react";
 import { SlidersHorizontal, ChevronDown, Search, ShieldCheck, X } from "lucide-react";
 
 export const SORTS = [

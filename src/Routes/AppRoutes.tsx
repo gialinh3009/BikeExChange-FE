@@ -22,6 +22,8 @@ import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
 import VerifyEmail from "../components/home/VerifyEmail";
+import ForgotPassword from "../components/home/ForgotPassword";
+import ResetPassword from "../components/home/ResetPassword";
 import SellerPage from "../components/Seller/SellerPage";
 import SellerOrderDetailPage from "../components/Seller/SellerOrderDetailPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
@@ -33,11 +35,9 @@ import OrderDetailPage from "../components/Buyer/OrderDetailPage";
 import DisputeDetailPage from "../components/Buyer/DisputeDetailPage";
 import OrderReviewPage from "../components/Buyer/OrderReviewPage";
 import InspectorLayout from "../components/Inspector/InspectorLayout";
-import InspectorDashboard from "../components/Inspector/InspectorDashboard";
 import ManagerInspection from "../components/Inspector/ManagerInspection";
 import ManagerInspectionStatus from "../components/Inspector/ManagerInspectionStatus";
 import ManagerInspectionReport from "../components/Inspector/ManagerInspectionReport";
-import CreateReport from "../components/Inspector/CreateReport";
 import ManagerInspected from "../components/Inspector/ManagerInspected";
 
 function PrivateRoute({
@@ -95,6 +95,8 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           : <Register />
       } />
       <Route path="/verify" element={<VerifyEmail />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/bikes/:id" element={<BikedetailPage />} />
       <Route path="/sellers/:sellerId" element={<SellerProfileView />} />
@@ -156,12 +158,11 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
 
       {/* Inspector */}
       <Route element={<PrivateRoute roles={["INSPECTOR"]} />}>
-        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}>
-          <Route index element={<InspectorDashboard />} />
+        <Route path="/inspector" element={<InspectorLayout user={user} onLogout={onLogout} />}> 
+          <Route index element={<ManagerInspection />} />        
           <Route path="inspections" element={<ManagerInspection />} />
           <Route path="status" element={<ManagerInspectionStatus />} />
           <Route path="reports" element={<ManagerInspectionReport />} />
-          <Route path="create-report" element={<CreateReport />} />
           <Route path="reports-list" element={<ManagerInspected />} />
         </Route>
       </Route>

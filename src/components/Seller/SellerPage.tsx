@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bike, LogOut } from "lucide-react";
-import { listBikesAPI, requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI, getWalletAPI } from "../../services/Seller/sellerService";
+import { listSellerBikesAPI } from "../../services/Seller/bikeManagementService";
+import { requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/Seller/inspectionService";
+import { getWalletAPI } from "../../services/Seller/walletService";
 import PostsTab from "./PostsTab";
 import InspectionTab from "./InspectionTab";
 import CreateBikeTab from "./CreateBikeTab";
@@ -9,6 +11,8 @@ import WalletTab from "./WalletTab";
 import SellerOrdersTab from "./SellerOrdersTab";
 import SellerDisputesTab from "./SellerDisputesTab";
 import BikeDetailModal from "./BikeDetailModal";
+import EditBikeModal from "./EditBikeModal";
+import DeleteBikeModal from "./DeleteBikeModal";
 import InspectionReportModal from "./InspectionReportModal";
 import RequestInspectionModal from "./RequestInspectionModal";
 
@@ -22,6 +26,13 @@ type BikeBrowseItem = {
     media?: { url: string; type: string; sortOrder: number }[];
     sellerId?: number;
     seller?: { id: number };
+    createdAt?: string;
+    description?: string;
+    bikeType?: string;
+    frameSize?: string;
+    model?: string;
+    year?: string;
+    brand?: string;
 };
 
 type BikeItem = BikeBrowseItem;
@@ -61,6 +72,8 @@ export default function SellerPage() {
 
     const [tab, setTab] = useState<TabKey>("posts");
     const [bikeDetail, setBikeDetail] = useState<BikeBrowseItem | null>(null);
+    const [editBike, setEditBike] = useState<BikeBrowseItem | null>(null);
+    const [deleteBike, setDeleteBike] = useState<BikeBrowseItem | null>(null);
 
     // Seller bikes
     const [bikesLoading, setBikesLoading] = useState(false);
@@ -108,7 +121,7 @@ export default function SellerPage() {
             setBikesLoading(true);
             setBikesError(null);
             
-            const response = await listBikesAPI({ page: 0, size: 100 }, token);
+            const response = await listSellerBikesAPI({ page: 0, size: 100 }, token);
             
             let content = [];
             if (response?.data) {
@@ -135,6 +148,13 @@ export default function SellerPage() {
                     inspectionStatus: b.inspectionStatus || "NONE",
                     media: b.media || [],
                     sellerId: b.sellerId || b.seller?.id || 0,
+                    createdAt: b.createdAt,
+                    description: b.description,
+                    bikeType: b.bikeType,
+                    frameSize: b.frameSize,
+                    model: b.model,
+                    year: b.year,
+                    brand: b.brand,
                 }));
             
             console.log(`✅ Filtered ${sellerBikes.length} bikes for seller #${userId}`);
@@ -231,8 +251,9 @@ export default function SellerPage() {
                 },
                 token
             );
-            setRequestSuccess("Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ điểm từ ví của bạn.");
+            setRequestSuccess("Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ 200.000 VND từ ví của bạn.");
             void refreshBikes();
+            void refreshWallet();
         } catch (e) {
             setRequestError((e as Error).message || "Không thể gửi yêu cầu kiểm định.");
         } finally {
@@ -319,6 +340,9 @@ export default function SellerPage() {
                         onCreateClick={() => setTab("create")}
                         onViewInspection={openInspectionForBike}
                         onRequestInspection={openRequestForBike}
+                        onViewDetails={setBikeDetail}
+                        onEditBike={setEditBike}
+                        onDeleteBike={setDeleteBike}
                         canRequestInspection={canRequestInspection}
                     />
                 )}
@@ -364,7 +388,28 @@ export default function SellerPage() {
             </main>
 
             {/* Bike detail modal */}
-            <BikeDetailModal bike={bikeDetail} onClose={() => setBikeDetail(null)} />
+            <BikeDetailModal
+                bike={bikeDetail}
+                onClose={() => setBikeDetail(null)}
+                onEdit={setEditBike}
+                onDelete={setDeleteBike}
+            />
+
+            {/* Edit bike modal */}
+            <EditBikeModal
+                bike={editBike}
+                token={token}
+                onClose={() => setEditBike(null)}
+                onSuccess={refreshBikes}
+            />
+
+            {/* Delete bike modal */}
+            <DeleteBikeModal
+                bike={deleteBike}
+                token={token}
+                onClose={() => setDeleteBike(null)}
+                onSuccess={refreshBikes}
+            />
 
             {/* Inspection report modal */}
             <InspectionReportModal

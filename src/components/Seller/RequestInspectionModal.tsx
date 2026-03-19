@@ -1,5 +1,7 @@
 import { X, AlertCircle, CheckCircle } from "lucide-react";
 
+const INSPECTION_FEE = 200000; // 200,000 VND
+
 type BikeBrowseItem = {
     id: number;
     title: string;
@@ -60,6 +62,19 @@ export default function RequestInspectionModal({
                         <div className="font-semibold text-gray-900">{bike.title}</div>
                         <div className="text-sm text-gray-600 mt-1">
                             {bike.condition} • {bike.pricePoints?.toLocaleString("vi-VN")} VND
+                        </div>
+                    </div>
+
+                    {/* Inspection Fee Info */}
+                    <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-sm font-medium text-amber-900">Phí kiểm định</div>
+                                <div className="text-xs text-amber-700 mt-1">Sẽ được trừ từ ví của bạn khi gửi yêu cầu</div>
+                            </div>
+                            <div className="text-lg font-bold text-amber-900">
+                                {INSPECTION_FEE.toLocaleString("vi-VN")} VND
+                            </div>
                         </div>
                     </div>
 

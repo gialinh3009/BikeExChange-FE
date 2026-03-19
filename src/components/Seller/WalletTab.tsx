@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getWalletAPI, getWalletTransactionsAPI } from "../../services/Seller/sellerService";
+import { getWalletAPI, getWalletTransactionsAPI } from "../../services/Seller/walletService";
 
 type WalletLike = {
     availablePoints?: number;

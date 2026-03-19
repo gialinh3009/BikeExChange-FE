@@ -33,9 +33,12 @@ export async function verifyEmailAPI(token) {
   params.append("token", token);
   const res = await fetch(`${BASE_URL}/auth/verify?${params.toString()}`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
+  // Backend trả về { "message": "..." }, not { "success": true }
+  // Chỉ check res.ok (HTTP 200) để xác định success
+  if (!res.ok) {
     throw new Error(data.message || "Xác minh email thất bại.");
   }
   return data;
@@ -46,9 +49,11 @@ export async function forgotPasswordAPI(email) {
   params.append("email", email);
   const res = await fetch(`${BASE_URL}/auth/forgot-password?${params.toString()}`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
   });
   const data = await res.json();
-  if (!res.ok || data.success === false) {
+  // Backend trả về { "message": "..." }, not { "success": true }
+  if (!res.ok) {
     throw new Error(data.message || "Gửi yêu cầu quên mật khẩu thất bại.");
   }
   return data;

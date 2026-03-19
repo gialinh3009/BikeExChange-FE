@@ -51,7 +51,7 @@ function renderInspectionInfo(inspection: any) {
                 </div>
                 <div>
                     <p className="text-xs text-gray-500 font-semibold">Phí kiểm định</p>
-                    <p className="text-sm font-medium text-gray-900">{inspection.feePoints || 0} điểm</p>
+                    <p className="text-sm font-medium text-gray-900">{inspection.feePoints || 0} VND</p>
                 </div>
                 <div className="col-span-2">
                     <p className="text-xs text-gray-500 font-semibold">Ngày tạo</p>

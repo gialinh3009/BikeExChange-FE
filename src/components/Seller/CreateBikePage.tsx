@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getWalletAPI } from "../../services/Seller/sellerService";
+import { getWalletAPI } from "../../services/Seller/walletService";
 import CreateBikeTab from "./CreateBikeTab";
 
 type WalletLike = { availablePoints?: number; frozenPoints?: number; data?: { availablePoints?: number; frozenPoints?: number } };

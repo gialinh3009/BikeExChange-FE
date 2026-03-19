@@ -168,7 +168,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
 
     return (
         <div className="bg-gradient-to-br from-white to-blue-50/30 rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
-            {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
                 <div className="flex items-center justify-between">
                     <div>
@@ -188,7 +187,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
             </div>
 
             <div className="p-6 space-y-6">
-                {/* Fee notice */}
                 <div className={`rounded-xl border-2 p-4 ${hasEnough ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
                     <div className="flex items-start gap-3">
                         <div className={`h-10 w-10 rounded-full flex items-center justify-center ${hasEnough ? "bg-emerald-100" : "bg-red-100"}`}>
@@ -215,7 +213,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     </div>
                 )}
 
-                {/* Image upload */}
                 <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-4">
                         <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -258,7 +255,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                     )}
                 </div>
 
-                {/* Bike info form */}
                 <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-5">
                         <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -397,7 +393,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 </div>
             </div>
 
-            {/* Loading overlay */}
             {(loading || uploading) && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
                     <div className="bg-white rounded-2xl p-6 flex flex-col items-center gap-3 shadow-xl">
@@ -409,7 +404,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 </div>
             )}
 
-            {/* Success modal */}
             {showSuccessModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">

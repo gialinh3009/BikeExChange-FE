@@ -2,6 +2,7 @@
  * BikeCards.jsx
  * Các card hiển thị xe: VerifiedCard, RegularCard, Skeleton
  */
+import React, { useState, useEffect } from "react";
 import { Star, Heart, MapPin, Eye, ShieldCheck, ImageIcon } from "lucide-react";
 
 function safeStr(v, fallback = "—") {
