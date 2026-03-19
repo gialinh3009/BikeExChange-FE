@@ -38,13 +38,14 @@ function getSellerRating(bike) {
 }
 
 function isInspectedBike(bike) {
-  return bike?.inspectionStatus === "APPROVED"
+  return bike?.status === "VERIFIED"
+    || bike?.inspectionStatus === "APPROVED"
     || bike?.inspection_status === "APPROVED"
     || bike?.verified === true;
 }
 
 function getBikePriority(bike) {
-  if (bike?.status !== "ACTIVE") return 0;
+  if (bike?.status !== "ACTIVE" && bike?.status !== "VERIFIED") return 0;
   if (isInspectedBike(bike)) return 2;
   if (bike?.status === "ACTIVE") return 1;
   return 0;
@@ -64,14 +65,14 @@ function compareBikes(a, b, sortBy) {
   }
 
   // newest / mặc định:
-  //   1. Xe verified (APPROVED) luôn lên trước xe active thường
-  //   2. Trong cùng nhóm (cùng verified hoặc cùng active): rating cao hơn lên trước
-  //   3. Cùng rating: id mới hơn (lớn hơn) lên trước
-  const priorityDiff = getBikePriority(b) - getBikePriority(a);
-  if (priorityDiff !== 0) return priorityDiff;
-
+  //   1. Seller rating cao hơn lên trước (ưu tiên seller uy tín)
+  //   2. Cùng rating: xe verified (APPROVED/VERIFIED) lên trước xe active thường
+  //   3. Cùng rating + cùng verified: id mới hơn (lớn hơn) lên trước
   const ratingDiff = getSellerRating(b) - getSellerRating(a);
   if (ratingDiff !== 0) return ratingDiff;
+
+  const priorityDiff = getBikePriority(b) - getBikePriority(a);
+  if (priorityDiff !== 0) return priorityDiff;
 
   return (b.id ?? 0) - (a.id ?? 0);
 }
@@ -147,40 +148,79 @@ export default function ListProduct() {
   useEffect(() => {
     const fetchSeq = ++fetchSeqRef.current;
     setAllLoading(true);
-    // Khi sort theo giá: fetch toàn bộ data (page=0, size lớn) để sort global
-    // Khi sort khác: dùng server-side pagination bình thường
-    const isPriceSort = activeSortBy === "price_asc" || activeSortBy === "price_desc";
-    const isInspectedOnly = activeFilter.inspectedOnly === true;
-    // Fetch toàn bộ khi filter category để bikeType guard + pagination chính xác
+
+    const isInspectedOnly  = activeFilter.inspectedOnly === true;
     const isCategoryFilter = !!activeFilter.categoryId;
-    const useClientPagination = isPriceSort || isInspectedOnly || isCategoryFilter;
+    const isKeywordFilter  = !!activeFilter.keyword;
+    // Dùng client-side pagination khi FE cần filter thêm sau khi nhận response từ API
+    // (category theo bikeType, keyword theo title+brand, inspected-only)
+    const useClientPagination = isInspectedOnly || isCategoryFilter || isKeywordFilter;
 
     getBuyerListAPI({
-      category_id:    activeFilter.categoryId || undefined,
-      brand_id:       activeFilter.brandId    || undefined,
-      keyword:        activeFilter.keyword    || undefined,
-      status:         "ACTIVE",
+      // KHÔNG gửi category_id: BE dùng join table bike_categories có thể thiếu/sai data.
+      // Category filter được thực hiện client-side bằng cách so khớp
+      // bike.bikeType (từ GET /bikes response) với category.name (từ GET /categories response).
+      brand_id:       activeFilter.brandId ? Number(activeFilter.brandId) : undefined,
+      keyword:        activeFilter.keyword || undefined,
+      status:         "ACTIVE,VERIFIED",
       price_min:      activeFilter.priceMin ? Number(activeFilter.priceMin) : undefined,
       price_max:      activeFilter.priceMax ? Number(activeFilter.priceMax) : undefined,
       min_year:       activeFilter.minYear  ? Number(activeFilter.minYear)  : undefined,
       sort_by_rating: true,
       page:           useClientPagination ? 0    : page,
-      size:           useClientPagination ? 500  : PAGE_SIZE,
+      size:           useClientPagination ? 1000 : PAGE_SIZE,
     })
       .then(({ content, totalPages: tp }) => {
-        // Ignore stale responses to prevent older requests overriding latest filter.
         if (fetchSeq !== fetchSeqRef.current) return;
 
-        // Backend already filters by category_id / brand_id — just status-guard client side.
-        const activeOnly = content.filter((bike) => bike?.status === "ACTIVE");
+        // Chuẩn hóa chuỗi: lowercase trim
+        const normSearch = (s) => String(s || "").toLowerCase().trim();
 
-        const inspectedFiltered = isInspectedOnly
-          ? activeOnly.filter(isInspectedBike)
-          : activeOnly;
-        const sorted = [...inspectedFiltered].sort((a, b) => compareBikes(a, b, activeSortBy));
+        // 1. Status guard
+        let filtered = content.filter(b => b?.status === "ACTIVE" || b?.status === "VERIFIED");
+
+        // 2. Keyword filter client-side: chỉ giữ xe có keyword xuất hiện trong title hoặc brand
+        //    BE tìm trên cả model (field ẩn) nên trả về xe không liên quan với keyword của user.
+        //    FE lọc lại theo đúng những field hiển thị trên card (title + brand).
+        if (activeFilter.keyword) {
+          const kw = normSearch(activeFilter.keyword);
+          filtered = filtered.filter(bike =>
+            normSearch(bike.title).includes(kw) ||
+            normSearch(bike.brand).includes(kw)
+          );
+        }
+
+        // Chuẩn hóa chuỗi: uppercase, bỏ ký tự đặc biệt (dùng cho category filter bên dưới)
+        const norm = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+        // 3. Category filter: so khớp bike.bikeType (API field) với category.name (từ GET /categories API)
+        //    Cả 2 đều lấy từ API thật — chỉ là phép join xảy ra ở FE vì BE không có filter theo bikeType
+        if (isCategoryFilter && categories.length > 0) {
+          const selectedCat = categories.find(c => String(c.id) === activeFilter.categoryId);
+          if (selectedCat) {
+            const catNorm = norm(selectedCat.name);
+            if (catNorm) {
+              filtered = filtered.filter(bike => {
+                const typeNorm = norm(bike.bikeType || bike.type);
+                return typeNorm && (
+                  typeNorm === catNorm ||
+                  typeNorm.includes(catNorm) ||
+                  catNorm.includes(typeNorm)
+                );
+              });
+            }
+          }
+        }
+
+        // 4. Inspected-only filter
+        if (isInspectedOnly) {
+          filtered = filtered.filter(isInspectedBike);
+        }
+
+        // 5. Sort
+        const sorted = [...filtered].sort((a, b) => compareBikes(a, b, activeSortBy));
 
         if (useClientPagination) {
-          // Client-side pagination trên toàn bộ data đã sort theo giá
           const clientPages = Math.ceil(sorted.length / PAGE_SIZE);
           const start = page * PAGE_SIZE;
           setAllBikes(sorted.slice(start, start + PAGE_SIZE));
@@ -196,7 +236,8 @@ export default function ListProduct() {
       .finally(() => {
         if (fetchSeq === fetchSeqRef.current) setAllLoading(false);
       });
-  }, [activeFilter, activeSortBy, page]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilter, activeSortBy, page, categories]);
 
   // ── Resolve seller rating by sellerId (list API có thể không trả rating) ──
   useEffect(() => {
@@ -311,21 +352,8 @@ export default function ListProduct() {
     || activeFilter.categoryId
   );
 
-  // ── Lọc bikeType client-side theo tên category ────────────────────────────
-  // bikeType ("HYBRID", "GRAVEL"...) khớp trực tiếp với tên category.
-  // Guard này loại bỏ xe bị gắn sai category bởi seller.
-  const displayedBikes = useMemo(() => {
-    if (!activeFilter.categoryId || categories.length === 0) return allBikes;
-    const selectedCat = categories.find(c => String(c.id) === activeFilter.categoryId);
-    if (!selectedCat) return allBikes;
-    // Chuẩn hóa: uppercase + bỏ ký tự đặc biệt (City/Urban → CITYURBAN)
-    const catNorm = selectedCat.name.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    return allBikes.filter(bike => {
-      const typeNorm = (bike.bikeType || bike.type || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-      return typeNorm === catNorm || typeNorm.includes(catNorm) || catNorm.includes(typeNorm);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allBikes, activeFilter.categoryId, categories]);
+  // allBikes đã được filter + paginate trong useEffect — dùng trực tiếp
+  const displayedBikes = useMemo(() => allBikes, [allBikes]);
 
   const hasFilterFull = Boolean(
     activeFilter.keyword

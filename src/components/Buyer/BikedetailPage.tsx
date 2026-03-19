@@ -11,6 +11,7 @@ import { createOrderAPI } from "../../services/Buyer/Orderservice";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 import { WishlistAuthModal } from "./WishlistModals.jsx";
+import Header from "../home/Header";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 interface MediaItem { url: string; type: string; sortOrder: number; }
@@ -90,7 +91,7 @@ export default function BikedetailPage() {
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
-    const isPurchasable = bike?.status === "ACTIVE";
+    const isPurchasable = bike?.status === "ACTIVE" || bike?.status === "VERIFIED";
 
     /* Fetch bike */
     useEffect(() => {
@@ -218,7 +219,7 @@ export default function BikedetailPage() {
 
     const images     = (bike.media ?? []).filter(m => m.type === "IMAGE").sort((a, b) => a.sortOrder - b.sortOrder);
     const currentImg = images[activeImg]?.url ?? "";
-    const isVerified = bike.inspectionStatus === "APPROVED";
+    const isVerified = bike.status === "VERIFIED" || bike.inspectionStatus === "APPROVED";
     const condLabel  = bike.condition ? (conditionLabel[bike.condition] ?? bike.condition) : null;
     const condColor  = bike.condition ? (conditionColor[bike.condition] ?? "#64748b") : "#64748b";
 
@@ -235,6 +236,9 @@ export default function BikedetailPage() {
 
     return (
         <div style={{ minHeight: "100vh", background: "#f4f6fb", fontFamily: "'DM Sans',sans-serif" }}>
+            {/* ── Header navigation ── */}
+            <Header />
+
             {/* Modal xác nhận mua hàng */}
             {showConfirm && (
                 <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.18)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -275,18 +279,18 @@ export default function BikedetailPage() {
                 .icon-btn:hover { background: #f0f7ff !important; border-color: #bfdbfe !important; }
             `}</style>
 
-            {/* ── Sticky top bar ── */}
+            {/* ── Sticky back bar (sticks below Header) ── */}
             <div style={{
                 background: "white",
                 borderBottom: "1px solid #e8ecf4",
                 padding: "0 32px",
-                height: 54,
+                height: 48,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 position: "sticky",
-                top: 0,
-                zIndex: 50,
+                top: 64,
+                zIndex: 40,
                 boxShadow: "0 1px 8px rgba(0,0,0,.04)",
             }}>
                 <button

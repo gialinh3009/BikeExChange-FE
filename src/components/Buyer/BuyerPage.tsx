@@ -559,7 +559,7 @@ export default function BuyerPage() {
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: 14, fontWeight: 700, color: "#15803d", marginBottom: 2 }}>Nâng cấp lên Người bán</div>
-                                                <div style={{ fontSize: 12.5, color: "#16a34a" }}>Chi phí: 10,000 điểm — Bắt đầu bán xe</div>
+                                                <div style={{ fontSize: 12.5, color: "#16a34a" }}>Chi phí: 50.000đ — Bắt đầu bán xe</div>
                                             </div>
                                         </div>
                                         <ChevronRight size={16} color="#86efac" />

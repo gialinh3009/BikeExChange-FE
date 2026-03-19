@@ -111,7 +111,7 @@ export function RegularCard({ bike, onNavigate, onHeartClick, wishedIds }) {
   const img = bike.media?.find(m => m.type === "IMAGE" && !m.url?.includes("example.com"))?.url;
   const condKey2 = safeStr(bike.condition, "");
   const cond = CONDITION_META[condKey2] ?? { label: condKey2 || "—", cls: "bg-gray-100 text-gray-600" };
-  const isInspected = bike.inspectionStatus === "APPROVED" || bike.inspection_status === "APPROVED";
+  const isInspected = bike.status === "VERIFIED" || bike.inspectionStatus === "APPROVED" || bike.inspection_status === "APPROVED";
   const wished = wishedIds?.has(bike.id);
   const sellerRating = getSellerRating(bike);
   const roundedRating = Math.max(0, Math.min(5, Math.round(sellerRating)));
