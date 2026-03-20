@@ -30,6 +30,8 @@ interface EditBikeModalProps {
 const BIKE_TYPES = ["Road", "MTB", "Gravel", "Touring", "Hybrid", "Fixie"];
 const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "48cm", "50cm", "52cm", "54cm", "56cm", "58cm"];
 const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qua sử dụng"];
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_YEAR = 1900;
 
 export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditBikeModalProps) {
     const [loading, setLoading] = useState(false);
@@ -163,6 +165,18 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
         if (form.year && !/^\d+$/.test(form.year)) {
             setError("Năm sản xuất chỉ được nhập số.");
             return;
+        }
+
+        if (form.year) {
+            const year = parseInt(form.year);
+            if (year < MIN_YEAR) {
+                setError(`Năm sản xuất phải từ ${MIN_YEAR} trở lên.`);
+                return;
+            }
+            if (year > CURRENT_YEAR) {
+                setError(`Năm sản xuất không thể vượt quá năm hiện tại (${CURRENT_YEAR}).`);
+                return;
+            }
         }
 
         if (images.length === 0) {
@@ -338,18 +352,20 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mt-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Năm sản xuất</label>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    value={form.year}
-                                    onChange={(e) => setForm({ ...form, year: e.target.value.replace(/\D/g, "") })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="2022"
-                                />
-                            </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Năm sản xuất</label>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={form.year}
+                                onChange={(e) => setForm({ ...form, year: e.target.value.replace(/\D/g, "") })}
+                                maxLength={4}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder={`${CURRENT_YEAR}`}
+                            />
+                            <div className="text-xs text-gray-500 mt-1">Tối đa: {CURRENT_YEAR}</div>
+                        </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Giá (VND)</label>
