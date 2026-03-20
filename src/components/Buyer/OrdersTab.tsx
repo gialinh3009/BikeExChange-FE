@@ -344,24 +344,9 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
         ? orders.filter((order) => order.status === "COMPLETED" && order.canReview && !order.isReviewed)
         : orders;
 
-    if (!loading && displayedOrders.length === 0) return (
-        <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                <Package size={28} color="#cbd5e1" />
-            </div>
-            <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>
-                {mode === "review-needed" ? "Chưa có đơn cần đánh giá" : "Chưa có đơn hàng"}
-            </h3>
-            <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                {mode === "review-needed"
-                    ? "Các đơn chưa đánh giá sẽ xuất hiện tại đây."
-                    : (filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!")}
-            </p>
-        </div>
-    );
-
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
@@ -372,7 +357,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                         {displayedOrders.length} {mode === "review-needed" ? "đơn chưa đánh giá" : "đơn hàng"}
                     </p>
                 </div>
-                <button onClick={() => fetchOrders()}
+                <button onClick={() => void fetchOrders()}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "white", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, color: "#64748b", cursor: "pointer" }}>
                     <RefreshCw size={13} /> Làm mới
                 </button>
@@ -399,6 +384,27 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                     ))}
                 </div>
             )}
+
+            {loading ? (
+                <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid #e8ecf4", borderTopColor: "#2563eb", animation: "spin .8s linear infinite", margin: "0 auto 12px" }} />
+                    <p style={{ color: "#94a3b8", fontSize: 13 }}>Đang tải đơn hàng...</p>
+                </div>
+            ) : displayedOrders.length === 0 ? (
+                <div style={{ background: "white", borderRadius: 20, border: "1px solid #e8ecf5", padding: "60px 24px", textAlign: "center" }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 20, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                        <Package size={28} color="#cbd5e1" />
+                    </div>
+                    <h3 style={{ color: "#0f172a", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>
+                        {mode === "review-needed" ? "Chưa có đơn cần đánh giá" : "Chưa có đơn hàng"}
+                    </h3>
+                    <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                        {mode === "review-needed"
+                            ? "Các đơn chưa đánh giá sẽ xuất hiện tại đây."
+                            : (filter ? "Không có đơn nào ở trạng thái này." : "Hãy tìm kiếm và mua xe đạp bạn yêu thích!")}
+                    </p>
+                </div>
+            ) : null}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {displayedOrders.map(order => {

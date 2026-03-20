@@ -27,9 +27,10 @@ const EMPTY_FILTER = {
 };
 const PAGE_SIZE     = 8;
 
-function getSellerRating(bike) {
+function getSellerRating(bike, ratings = {}) {
   return Number(
-    bike?.sellerRating
+    ratings[bike?.sellerId]
+    ?? bike?.sellerRating
     ?? bike?.seller_rating
     ?? bike?.seller?.rating
     ?? bike?.user?.rating
@@ -51,7 +52,7 @@ function getBikePriority(bike) {
   return 0;
 }
 
-function compareBikes(a, b, sortBy) {
+function compareBikes(a, b, sortBy, ratings = {}) {
   if (sortBy === "price_asc") {
     const diff = (a.pricePoints ?? 0) - (b.pricePoints ?? 0);
     return diff !== 0 ? diff : (b.id ?? 0) - (a.id ?? 0);
@@ -65,14 +66,14 @@ function compareBikes(a, b, sortBy) {
   }
 
   // newest / mặc định:
-  //   1. Seller rating cao hơn lên trước (ưu tiên seller uy tín)
-  //   2. Cùng rating: xe verified (APPROVED/VERIFIED) lên trước xe active thường
-  //   3. Cùng rating + cùng verified: id mới hơn (lớn hơn) lên trước
-  const ratingDiff = getSellerRating(b) - getSellerRating(a);
-  if (ratingDiff !== 0) return ratingDiff;
-
+  //   1. Xe đã kiểm định (VERIFIED) luôn lên trước xe chưa kiểm định
+  //   2. Trong cùng nhóm (cùng verified hoặc cùng active): seller rating cao hơn lên trước
+  //   3. Cùng rating: id mới hơn (lớn hơn) lên trước
   const priorityDiff = getBikePriority(b) - getBikePriority(a);
   if (priorityDiff !== 0) return priorityDiff;
+
+  const ratingDiff = getSellerRating(b, ratings) - getSellerRating(a, ratings);
+  if (ratingDiff !== 0) return ratingDiff;
 
   return (b.id ?? 0) - (a.id ?? 0);
 }
@@ -218,7 +219,7 @@ export default function ListProduct() {
         }
 
         // 5. Sort
-        const sorted = [...filtered].sort((a, b) => compareBikes(a, b, activeSortBy));
+        const sorted = [...filtered].sort((a, b) => compareBikes(a, b, activeSortBy, sellerRatings));
 
         if (useClientPagination) {
           const clientPages = Math.ceil(sorted.length / PAGE_SIZE);
@@ -267,7 +268,14 @@ export default function ListProduct() {
       })
     ).then((entries) => {
       const patch = Object.fromEntries(entries);
-      setSellerRatings((prev) => ({ ...prev, ...patch }));
+      setSellerRatings((prev) => {
+        const next = { ...prev, ...patch };
+        // Re-sort sau khi có rating thực từ API
+        setAllBikes(bikes =>
+          [...bikes].sort((a, b) => compareBikes(a, b, activeSortBy, next))
+        );
+        return next;
+      });
     });
   }, [allBikes, sellerRatings]);
 
