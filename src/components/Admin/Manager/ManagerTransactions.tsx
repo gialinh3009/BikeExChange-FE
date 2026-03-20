@@ -14,6 +14,7 @@ type TxType =
   | "REFUND"
   | "COMMISSION"
   | "ESCROW"
+  | "ESCROW_HOLD"
   | "ADMIN_ADJUST";
 
 type FilterStatus = "all" | Lowercase<TxStatus>;
@@ -51,6 +52,7 @@ const TYPE_LABEL: Record<TxType, { label: string; color: string }> = {
   COMMISSION: { label: "Hoa hồng", color: "bg-purple-100 text-purple-700" },
   ESCROW: { label: "Ký quỹ", color: "bg-cyan-100 text-cyan-700" },
   ADMIN_ADJUST: { label: "Điều chỉnh admin", color: "bg-gray-100 text-gray-700" },
+  ESCROW_HOLD: { label: "Giữ ký quỹ", color: "bg-indigo-100 text-indigo-700" },
 };
 
 function formatDate(value: string) {

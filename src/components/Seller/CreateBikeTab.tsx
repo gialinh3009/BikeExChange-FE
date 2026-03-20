@@ -36,6 +36,8 @@ interface CreateBikeTabProps {
 }
 
 const POSTING_FEE = 5000;
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_YEAR = 1900;
 const BIKE_TYPES = ["Road", "Mountain", "City/Urban", "BMX", "Gravel", "Folding", "Electric", "Kids", "Highway"];
 const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const CONDITIONS = ["NEW", "LIKE_NEW", "GOOD", "FAIR", "POOR"];
@@ -112,6 +114,17 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
         }
         if (images.length === 0) { setError("Vui lòng thêm ít nhất một ảnh."); return; }
         if (form.year && !/^\d+$/.test(form.year)) { setError("Năm sản xuất chỉ được nhập số."); return; }
+        if (form.year) {
+            const year = parseInt(form.year);
+            if (year < MIN_YEAR) {
+                setError(`Năm sản xuất phải từ ${MIN_YEAR} trở lên.`);
+                return;
+            }
+            if (year > CURRENT_YEAR) {
+                setError(`Năm sản xuất không thể vượt quá năm hiện tại (${CURRENT_YEAR}).`);
+                return;
+            }
+        }
         if (walletAvailable < POSTING_FEE) {
             setError(`Không đủ tiền. Cần ${POSTING_FEE.toLocaleString("vi-VN")} VND, có ${walletAvailable.toLocaleString("vi-VN")} VND.`);
             return;
@@ -336,9 +349,11 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                                 type="text" inputMode="numeric" pattern="[0-9]*"
                                 value={form.year}
                                 onChange={(e) => setForm((p) => ({ ...p, year: e.target.value.replace(/\D/g, "") }))}
-                                placeholder="2021"
+                                placeholder={`${CURRENT_YEAR}`}
+                                maxLength={4}
                                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white"
                             />
+                            <div className="text-xs text-gray-500 mt-1">Tối đa: {CURRENT_YEAR}</div>
                         </div>
                         <div>
                             <label className="text-sm font-semibold text-gray-700 mb-2 block">

@@ -25,6 +25,7 @@ type InspectionStatus = "ASSIGNED" | "REQUESTED" | "REJECTED";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   REQUESTED:   { label: "Chờ duyệt",      color: "#d97706", bg: "#fef3c7" },
+  APPROVED:    { label: "Đã duyệt",       color: "#16a34a", bg: "#dcfce7" },
   ASSIGNED:    { label: "Đã phân công",   color: "#2563eb", bg: "#dbeafe" },
   IN_PROGRESS: { label: "Đang kiểm định", color: "#7c3aed", bg: "#ede9fe" },
   COMPLETED:   { label: "Hoàn thành",     color: "#16a34a", bg: "#dcfce7" },

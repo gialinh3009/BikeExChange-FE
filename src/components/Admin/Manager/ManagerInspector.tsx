@@ -101,6 +101,8 @@ const REQUEST_STATUS_CONFIG: Record<string, { label: string; color: string }> = 
   COMPLETED:   { label: "Hoàn thành",     color: "bg-green-100 text-green-700" },
   REJECTED:    { label: "Từ chối",        color: "bg-red-100 text-red-700" },
   INSPECTED:   { label: "Đã kiểm định",   color: "bg-purple-100 text-purple-700" },
+  REQUESTED:   { label: "Yêu cầu kiểm định", color: "bg-cyan-100 text-cyan-700" },
+  ASSIGNED:    { label: "Đã phân công",    color: "bg-indigo-100 text-indigo-700" },
 };
 
 const DECISION_CONFIG: Record<string, { label: string; color: string }> = {
