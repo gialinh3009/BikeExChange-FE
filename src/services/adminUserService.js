@@ -66,7 +66,7 @@ export async function lockUserAPI(userId, reason) {
   const params = new URLSearchParams();
   if (reason) params.set("reason", reason);
   const res = await fetch(`${BASE_URL}/admin/users/${userId}/lock?${params}`, {
-    method: "POST",
+    method: "PUT",
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -80,7 +80,7 @@ export async function lockUserAPI(userId, reason) {
  */
 export async function unlockUserAPI(userId) {
   const res = await fetch(`${BASE_URL}/admin/users/${userId}/unlock`, {
-    method: "POST",
+    method: "PUT",
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -96,3 +96,4 @@ export async function getAdminDashboardAPI() {
   if (!res.ok || !data.success) throw new Error(data.message || "Không thể tải dữ liệu dashboard.");
   return data.data;
 }
+

@@ -23,7 +23,7 @@ import {
 
 
 type UserRole = "ADMIN" | "SELLER" | "BUYER" | "INSPECTOR";
-type UserStatus = "ACTIVE" | "INACTIVE" | "BANNED";
+type UserStatus = "ACTIVE" | "INACTIVE" | "BANNED" | "LOCKED" | "DELETED" | "UNVERIFIED";
 
 
 interface User {
@@ -63,13 +63,19 @@ const STATUS_COLORS: Record<UserStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
   INACTIVE: "bg-gray-100 text-gray-500",
   BANNED: "bg-red-100 text-red-600",
+  LOCKED: "bg-yellow-100 text-yellow-700",
+  DELETED: "bg-gray-200 text-gray-400",
+  UNVERIFIED: "bg-blue-100 text-blue-600",
 };
 
 
 const STATUS_LABELS: Record<UserStatus, string> = {
   ACTIVE: "Hoạt động",
+  LOCKED: "Đã khóa",
+  DELETED : "Đã xóa",
   INACTIVE: "Không hoạt động",
   BANNED: "Bị cấm",
+  UNVERIFIED: "Chưa xác thực",
 };
 
 

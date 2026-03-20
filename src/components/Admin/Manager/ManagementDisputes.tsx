@@ -47,6 +47,7 @@ const DISPUTE_STATUS_LABEL: Record<string, { label: string; color: string }> = {
   INVESTIGATING: { label: "Đang xem xét",   color: "bg-blue-100 text-blue-700" },
   RESOLVED:      { label: "Đã giải quyết",  color: "bg-green-100 text-green-700" },
   REJECTED:      { label: "Đã từ chối",     color: "bg-red-100 text-red-700" },
+  OPEN:           { label: "Mở",            color: "bg-purple-100 text-purple-700" },
 };
 
 
@@ -382,7 +383,7 @@ export default function ManagementDisputes() {
         {[
           { label: "Tổng khiếu nại", value: disputes.length, icon: AlertTriangle, color: "bg-orange-100 text-orange-700" },
           { label: "Đang xem xét", value: investigatingCount, icon: ShoppingBag, color: "bg-blue-100 text-blue-700" },
-          { label: "Kết quả tìm kiếm", value: filtered.length, icon: Search, color: "bg-purple-100 text-purple-700" },
+          { label: "Kết quả tìm kiếm", value: filtered.length, icon: Search, color: "bg-purple-100 text-purple-7000" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4">
             <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>

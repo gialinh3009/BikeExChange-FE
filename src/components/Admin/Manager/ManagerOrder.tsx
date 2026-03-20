@@ -13,6 +13,8 @@ type OrderStatus =
   | "RETURN_REQUESTED"
   | "RETURNED"
   | "REFUNDED"
+  | "DISPUTED"
+  | "ACCEPTED"
   | "ESCROWED";
 
 type FilterStatus = "all" | Lowercase<OrderStatus>;
@@ -53,6 +55,8 @@ const STATUS_LABEL: Record<OrderStatus, { label: string; color: string }> = {
   RETURNED: { label: "Đã hoàn trả", color: "bg-red-100 text-red-700" },
   REFUNDED: { label: "Đã hoàn tiền", color: "bg-pink-100 text-pink-700" },
   ESCROWED: { label: "Đang giữ tiền", color: "bg-indigo-100 text-indigo-700" },
+  DISPUTED: { label: "Tranh chấp", color: "bg-rose-100 text-rose-700" },
+  ACCEPTED: { label: "Đã chấp nhận", color: "bg-cyan-100 text-cyan-700" },
 };
 
 function formatDate(value: string | null) {
