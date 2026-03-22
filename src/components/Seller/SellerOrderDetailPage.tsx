@@ -132,9 +132,9 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
 
 const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNode }[] = [
     { status: "ESCROWED",  label: "Đơn đã tạo",         icon: <Package size={16} /> },
-    { status: "ACCEPTED",  label: "Bạn xác nhận",       icon: <CheckCircle size={16} /> },
+    { status: "ACCEPTED",  label: "Seller xác nhận",    icon: <CheckCircle size={16} /> },
     { status: "SHIPPED",   label: "Đã gửi hàng",        icon: <Truck size={16} /> },
-    { status: "DELIVERED", label: "Xác nhận đã giao",   icon: <Truck size={16} /> },
+    { status: "DELIVERED", label: "Đã giao hàng",       icon: <Truck size={16} /> },
     { status: "COMPLETED", label: "Hoàn thành",         icon: <CheckCircle size={16} /> },
 ];
 
@@ -363,7 +363,7 @@ export default function SellerOrderDetailPage() {
                 {detail.timeline && detail.timeline.length > 0 && (
                     <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #e8ecf4", overflow: "hidden", marginBottom: 20 }}>
                         <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9" }}>
-                            <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Lịch sử hoạt động</p>
+                            <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Trạng thái của đơn hàng</p>
                         </div>
                         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
                             {detail.timeline.map((evt, i) => {
@@ -396,11 +396,11 @@ export default function SellerOrderDetailPage() {
                     if (order.status === "ESCROWED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
-                                Buyer đã tạo đơn hàng. Hãy xác nhận để bắt đầu xử lý.
+                                Đơn hàng đã được tạo, hãy xác nhận để bắt đầu xử lý.
                             </p>
                             <button className="action-btn" onClick={handleAccept} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#2563eb", color: "white", border: "none", boxShadow: "0 2px 12px rgba(37,99,235,.25)", opacity: busy ? .6 : 1 }}>
-                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "✓ Xác nhận nhận đơn"}
+                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "Xác nhận nhận đơn"}
                             </button>
                             <button className="action-btn" onClick={handleSellerCancel} disabled={busy}
                                     style={{ ...btnBase, background: "#fef2f2", color: "#ef4444", border: "1.5px solid #fecaca", opacity: busy ? .6 : 1 }}>
@@ -412,7 +412,7 @@ export default function SellerOrderDetailPage() {
                     if (order.status === "ACCEPTED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
-                                Nhập thông tin vận chuyển và đánh dấu đã gửi hàng.
+                                Nhập thông tin vận chuyển và xác nhận đã gửi hàng.
                             </p>
                             <input
                                 type="text"
@@ -440,7 +440,7 @@ export default function SellerOrderDetailPage() {
                             />
                             <button className="action-btn" onClick={handleDeliver} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#10b981", color: "white", border: "none", boxShadow: "0 2px 12px rgba(16,185,129,.25)", opacity: busy ? .6 : 1 }}>
-                                <Truck size={16} /> {busy ? "Đang xử lý..." : "🚚 Đánh dấu đã gửi"}
+                                <Truck size={16} /> {busy ? "Đang xử lý..." : "Xác nhận đã gửi hàng"}
                             </button>
                             <button className="action-btn" onClick={handleSellerCancel} disabled={busy}
                                     style={{ ...btnBase, background: "#fef2f2", color: "#ef4444", border: "1.5px solid #fecaca", opacity: busy ? .6 : 1 }}>
@@ -452,11 +452,11 @@ export default function SellerOrderDetailPage() {
                     if (order.status === "SHIPPED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
-                                Hàng đang vận chuyển. Khi buyer nhận được hàng, hãy xác nhận đã giao thành công.
+                                Hàng đang vận chuyển. Khi buyer nhận được hàng, hãy xác nhận đã giao hàng.
                             </p>
                             <button className="action-btn" onClick={handleConfirmDelivery} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#0ea5e9", color: "white", border: "none", boxShadow: "0 2px 12px rgba(14,165,233,.25)", opacity: busy ? .6 : 1 }}>
-                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "✅ Xác nhận đã giao"}
+                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "Xác nhận đã giao hàng"}
                             </button>
                         </div>
                     );
@@ -468,7 +468,7 @@ export default function SellerOrderDetailPage() {
                             </p>
                             <button className="action-btn" onClick={handleConfirmReturn} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#10b981", color: "white", border: "none", boxShadow: "0 2px 12px rgba(16,185,129,.25)", opacity: busy ? .6 : 1 }}>
-                                <RotateCcw size={16} /> {busy ? "Đang xử lý..." : "✓ Xác nhận đã nhận lại hàng"}
+                                <RotateCcw size={16} /> {busy ? "Đang xử lý..." : "Xác nhận đã nhận lại hàng"}
                             </button>
                         </div>
                     );
