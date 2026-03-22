@@ -9,11 +9,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Package, CheckCircle, Truck, Clock, AlertCircle, RefreshCw, RotateCcw } from "lucide-react";
-import { confirmReturnAPI, getSellerSalesHistoryAPI } from "../../services/orderService";
+import { confirmDeliveryAPI, confirmReturnAPI, getSellerSalesHistoryAPI } from "../../services/orderService";
 import OrderApprovalModal from "./OrderApprovalModal";
 import OrderDeliveryForm from "./OrderDeliveryForm";
 
-type OrderStatus = "ESCROWED" | "ACCEPTED" | "DELIVERED" | "COMPLETED" | "CANCELLED" | "REFUNDED" | "RETURN_REQUESTED" | "DISPUTED";
+type OrderStatus = "ESCROWED" | "ACCEPTED" | "SHIPPED" | "DELIVERED" | "COMPLETED" | "CANCELLED" | "REFUNDED" | "RETURN_REQUESTED" | "DISPUTED";
 
 interface SellerOrder {
   id: number;
@@ -42,6 +42,7 @@ const fmtDateTime = (iso?: string) => {
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   ESCROWED: { label: "Chờ xác nhận", color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} /> },
   ACCEPTED: { label: "Đã xác nhận", color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} /> },
+  SHIPPED: { label: "Đang vận chuyển", color: "#0ea5e9", bg: "#f0f9ff", icon: <Truck size={14} /> },
   DELIVERED: { label: "Đã giao hàng", color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} /> },
   COMPLETED: { label: "Hoàn thành", color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} /> },
   CANCELLED: { label: "Đã hủy", color: "#ef4444", bg: "#fef2f2", icon: <AlertCircle size={14} /> },
@@ -50,7 +51,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bg: str
   DISPUTED: { label: "Đang tranh chấp", color: "#ef4444", bg: "#fef2f2", icon: <AlertCircle size={14} /> },
 };
 
-type TabKey = "escrowed" | "accepted" | "delivered" | "returnRequested";
+type TabKey = "escrowed" | "accepted" | "shipped" | "delivered" | "returnRequested";
 
 interface SellerOrdersTabProps {
   token: string;
@@ -83,7 +84,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
       if (Array.isArray(data)) {
         // If data is array of objects with 'order' field, extract them
         if (data.length > 0 && data[0]?.order) {
-          allOrders = data.map((item: any) => item.order);
+          allOrders = data.map((item: { order: SellerOrder }) => item.order);
         } else {
           allOrders = data;
         }
@@ -91,13 +92,13 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
         if (Array.isArray(data.data)) {
           // Check if items have 'order' field
           if (data.data.length > 0 && data.data[0]?.order) {
-            allOrders = data.data.map((item: any) => item.order);
+            allOrders = data.data.map((item: { order: SellerOrder }) => item.order);
           } else {
             allOrders = data.data;
           }
         } else if (data.data?.content && Array.isArray(data.data.content)) {
           if (data.data.content.length > 0 && data.data.content[0]?.order) {
-            allOrders = data.data.content.map((item: any) => item.order);
+            allOrders = data.data.content.map((item: { order: SellerOrder }) => item.order);
           } else {
             allOrders = data.data.content;
           }
@@ -106,7 +107,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
         }
       } else if (data?.content && Array.isArray(data.content)) {
         if (data.content.length > 0 && data.content[0]?.order) {
-          allOrders = data.content.map((item: any) => item.order);
+          allOrders = data.content.map((item: { order: SellerOrder }) => item.order);
         } else {
           allOrders = data.content;
         }
@@ -151,6 +152,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
     const statusMap: Record<TabKey, OrderStatus[]> = {
       escrowed: ["ESCROWED"],
       accepted: ["ACCEPTED"],
+      shipped: ["SHIPPED"],
       delivered: ["DELIVERED"],
       returnRequested: ["RETURN_REQUESTED"],
     };
@@ -162,6 +164,18 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
     setActionOrderId(orderId);
     try {
       await confirmReturnAPI(orderId, token);
+      await fetchOrders();
+    } catch (e) {
+      alert(String(e instanceof Error ? e.message : e));
+    } finally {
+      setActionOrderId(null);
+    }
+  };
+
+  const handleConfirmDelivery = async (orderId: number) => {
+    setActionOrderId(orderId);
+    try {
+      await confirmDeliveryAPI(orderId, token);
       await fetchOrders();
     } catch (e) {
       alert(String(e instanceof Error ? e.message : e));
@@ -185,6 +199,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   const tabConfig = [
     { key: "escrowed" as TabKey, label: "Chờ xác nhận", count: orders.filter(o => o.status === "ESCROWED").length },
     { key: "accepted" as TabKey, label: "Chuẩn bị giao", count: orders.filter(o => o.status === "ACCEPTED").length },
+    { key: "shipped" as TabKey, label: "Đang vận chuyển", count: orders.filter(o => o.status === "SHIPPED").length },
     { key: "delivered" as TabKey, label: "Đã giao", count: orders.filter(o => o.status === "DELIVERED").length },
     { key: "returnRequested" as TabKey, label: "Hoàn hàng", count: orders.filter(o => o.status === "RETURN_REQUESTED").length },
   ];
@@ -256,6 +271,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
           <p className="text-gray-500 text-xs">
             {tab === "escrowed" && "Chưa có đơn hàng nào chờ xác nhận"}
             {tab === "accepted" && "Chưa có đơn hàng nào chuẩn bị giao"}
+            {tab === "shipped" && "Chưa có đơn hàng nào đang vận chuyển"}
             {tab === "delivered" && "Chưa có đơn hàng nào đã giao"}
             {tab === "returnRequested" && "Chưa có đơn hoàn hàng nào chờ xác nhận"}
           </p>
@@ -365,6 +381,26 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
                         onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                       >
                         🚚 Giao hàng
+                      </button>
+                    )}
+
+                    {order.status === "SHIPPED" && (
+                      <button
+                        onClick={() => void handleConfirmDelivery(order.id)}
+                        disabled={actionOrderId === order.id}
+                        style={{
+                          padding: "10px 14px",
+                          background: actionOrderId === order.id ? "#94a3b8" : "#0ea5e9",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: actionOrderId === order.id ? "not-allowed" : "pointer",
+                          transition: "opacity .2s",
+                        }}
+                      >
+                        {actionOrderId === order.id ? "Đang xử lý..." : "✅ Xác nhận đã giao"}
                       </button>
                     )}
 

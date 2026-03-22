@@ -133,11 +133,12 @@ const isIncome = (type: string) => ["DEPOSIT", "EARN", "EARN_ESCROW", "REFUND", 
 
 const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000];
 
-const HOLDING_STATUSES = ["ESCROWED", "ACCEPTED", "DELIVERED", "RETURN_REQUESTED", "DISPUTED"];
+const HOLDING_STATUSES = ["ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "RETURN_REQUESTED", "DISPUTED"];
 
 const HOLDING_STATUS_LABEL: Record<string, string> = {
     ESCROWED: "Chờ seller xác nhận",
     ACCEPTED: "Seller đã xác nhận",
+    SHIPPED: "Đang vận chuyển",
     DELIVERED: "Đã giao hàng, chờ xác nhận",
     RETURN_REQUESTED: "Đang yêu cầu hoàn hàng",
     DISPUTED: "Đang tranh chấp",

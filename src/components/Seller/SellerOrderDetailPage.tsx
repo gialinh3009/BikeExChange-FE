@@ -17,12 +17,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { BASE_URL } from "../../config/apiConfig";
 import {
     acceptOrderAPI,
+    confirmDeliveryAPI,
     deliverOrderAPI,
     confirmReturnAPI,
+    sellerCancelOrderAPI,
 } from "../../services/orderService";
 
 type OrderStatus =
-    | "PENDING_PAYMENT" | "ESCROWED" | "ACCEPTED" | "DELIVERED"
+    | "PENDING_PAYMENT" | "ESCROWED" | "ACCEPTED" | "SHIPPED" | "DELIVERED"
     | "COMPLETED" | "CANCELLED" | "REFUNDED"
     | "RETURN_REQUESTED" | "DISPUTED";
 
@@ -60,6 +62,52 @@ interface OrderHistoryDetail {
     timeline?: HistoryEvent[];
 }
 
+const TRACKING_HINTS: Record<string, string> = {
+    GHN: "GHN + 8-20 ký tự chữ/số (VD: GHN12345678)",
+    GHTK: "GHTK + 6-20 ký tự hoặc S + 8-20 số (VD: GHTK123456 hoặc S12345678)",
+    VTP: "VTP + 6-20 ký tự chữ/số (VD: VTP123456)",
+    "J&T": "JT/JNT + 8-20 ký tự chữ/số (VD: JT12345678)",
+    JNT: "JT/JNT + 8-20 ký tự chữ/số (VD: JNT12345678)",
+    JT: "JT/JNT + 8-20 ký tự chữ/số (VD: JT12345678)",
+};
+
+function validateTrackingCodeByCarrier(carrier: string, trackingCode: string): string | null {
+    const normalizedCarrier = String(carrier || "").trim().toUpperCase();
+    const normalizedCode = String(trackingCode || "").trim().toUpperCase();
+
+    if (!normalizedCarrier || normalizedCarrier === "OTHER") {
+        return null;
+    }
+
+    if (!normalizedCode) {
+        return `Vui lòng nhập mã vận đơn cho ${normalizedCarrier}`;
+    }
+
+    const patterns: Record<string, RegExp> = {
+        GHN: /^GHN[0-9A-Z]{8,20}$/,
+        GHTK: /^(GHTK[0-9A-Z]{6,20}|S[0-9]{8,20})$/,
+        VTP: /^VTP[0-9A-Z]{6,20}$/,
+        "J&T": /^(JT[0-9A-Z]{8,20}|JNT[0-9A-Z]{8,20})$/,
+    };
+
+    const pattern = patterns[normalizedCarrier];
+    if (!pattern) return null;
+
+    if (!pattern.test(normalizedCode)) {
+        return `Mã vận đơn không đúng định dạng của ${normalizedCarrier}.`;
+    }
+
+    return null;
+}
+
+function getTrackingHintByCarrier(carrier: string): string {
+    const normalizedCarrier = String(carrier || "").trim().toUpperCase();
+    if (!normalizedCarrier) {
+        return "Mã vận đơn theo từng đơn vị vận chuyển (GHN/GHTK/VTP/J&T).";
+    }
+    return TRACKING_HINTS[normalizedCarrier] || "Mã vận đơn theo định dạng của đơn vị vận chuyển đã chọn.";
+}
+
 const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
 const fmtDateTime = (iso?: string) => {
@@ -73,6 +121,7 @@ const fmtDateTime = (iso?: string) => {
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode; desc: string }> = {
     ESCROWED:         { label: "Chờ xác nhận",         color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Buyer đã tạo đơn, đang chờ bạn xác nhận" },
     ACCEPTED:         { label: "Đã xác nhận",          color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Bạn đã xác nhận, chuẩn bị giao hàng" },
+    SHIPPED:          { label: "Đang vận chuyển",      color: "#0ea5e9", bg: "#f0f9ff", icon: <Truck size={14} />,          desc: "Bạn đã gửi hàng cho đơn vị vận chuyển" },
     DELIVERED:        { label: "Đã giao hàng",         color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Bạn đã giao hàng, chờ buyer xác nhận" },
     COMPLETED:        { label: "Hoàn thành",           color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về ví bạn" },
     CANCELLED:        { label: "Đã hủy",               color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Đơn hàng đã bị hủy" },
@@ -84,15 +133,16 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
 const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNode }[] = [
     { status: "ESCROWED",  label: "Đơn đã tạo",         icon: <Package size={16} /> },
     { status: "ACCEPTED",  label: "Bạn xác nhận",       icon: <CheckCircle size={16} /> },
-    { status: "DELIVERED", label: "Bạn giao hàng",      icon: <Truck size={16} /> },
+    { status: "SHIPPED",   label: "Đã gửi hàng",        icon: <Truck size={16} /> },
+    { status: "DELIVERED", label: "Xác nhận đã giao",   icon: <Truck size={16} /> },
     { status: "COMPLETED", label: "Hoàn thành",         icon: <CheckCircle size={16} /> },
 ];
 
 function getStepIndex(status: OrderStatus): number {
-    const TIMELINE_ORDER: OrderStatus[] = ["ESCROWED", "ACCEPTED", "DELIVERED", "COMPLETED"];
+    const TIMELINE_ORDER: OrderStatus[] = ["ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "COMPLETED"];
     const idx = TIMELINE_ORDER.indexOf(status);
     if (status === "CANCELLED" || status === "REFUNDED") return -1;
-    if (status === "RETURN_REQUESTED" || status === "DISPUTED") return 2;
+    if (status === "RETURN_REQUESTED" || status === "DISPUTED") return 3;
     return idx;
 }
 
@@ -148,12 +198,24 @@ export default function SellerOrderDetailPage() {
     };
 
     const handleDeliver = () => {
-        if (!deliveryForm.shippingCarrier || !deliveryForm.trackingCode) {
-            alert("Vui lòng nhập đơn vị vận chuyển và mã vận đơn");
+        if (!deliveryForm.shippingCarrier) {
+            alert("Vui lòng nhập đơn vị vận chuyển");
             return;
         }
+
+        const trackingError = validateTrackingCodeByCarrier(deliveryForm.shippingCarrier, deliveryForm.trackingCode);
+        if (trackingError) {
+            alert(trackingError);
+            return;
+        }
+
         if (!orderId) return;
         void doAction("deliver", () => deliverOrderAPI(orderId, deliveryForm, token), "Xác nhận đã giao hàng?");
+    };
+
+    const handleConfirmDelivery = () => {
+        if (!orderId) return;
+        void doAction("confirm-delivery", () => confirmDeliveryAPI(orderId, token), "Xác nhận đơn hàng đã giao thành công tới buyer?");
     };
 
     const handleConfirmReturn = () => {
@@ -162,6 +224,15 @@ export default function SellerOrderDetailPage() {
             "confirm-return",
             () => confirmReturnAPI(orderId, token),
             "Xác nhận đã nhận lại hàng?"
+        );
+    };
+
+    const handleSellerCancel = () => {
+        if (!orderId) return;
+        void doAction(
+            "seller-cancel",
+            () => sellerCancelOrderAPI(orderId, token),
+            "Bạn chắc chắn muốn hủy đơn hàng này?"
         );
     };
 
@@ -282,7 +353,7 @@ export default function SellerOrderDetailPage() {
                     ].filter(Boolean).map((row, i) => row && (
                         <div key={i} className="info-row" style={{ display: "grid", gridTemplateColumns: "140px 1fr", padding: "11px 20px", borderBottom: "1px solid #f8fafc", transition: "background .15s", alignItems: "center" }}>
                             <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>{row.label}</span>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: (row as any).highlight ? "#2563eb" : (row as any).warn ? "#ef4444" : "#0f172a" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: (row as { highlight?: boolean; warn?: boolean }).highlight ? "#2563eb" : (row as { warn?: boolean }).warn ? "#ef4444" : "#0f172a" }}>
                                 {row.value}
                             </span>
                         </div>
@@ -331,13 +402,17 @@ export default function SellerOrderDetailPage() {
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#2563eb", color: "white", border: "none", boxShadow: "0 2px 12px rgba(37,99,235,.25)", opacity: busy ? .6 : 1 }}>
                                 <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "✓ Xác nhận nhận đơn"}
                             </button>
+                            <button className="action-btn" onClick={handleSellerCancel} disabled={busy}
+                                    style={{ ...btnBase, background: "#fef2f2", color: "#ef4444", border: "1.5px solid #fecaca", opacity: busy ? .6 : 1 }}>
+                                <XCircle size={16} /> {busy ? "Đang xử lý..." : "Hủy đơn hàng"}
+                            </button>
                         </div>
                     );
 
                     if (order.status === "ACCEPTED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
-                                Nhập thông tin vận chuyển và đánh dấu đã giao hàng.
+                                Nhập thông tin vận chuyển và đánh dấu đã gửi hàng.
                             </p>
                             <input
                                 type="text"
@@ -348,11 +423,14 @@ export default function SellerOrderDetailPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Mã vận đơn"
+                                placeholder="Mã vận đơn (VD: GHN12345678)"
                                 value={deliveryForm.trackingCode}
                                 onChange={(e) => setDeliveryForm(prev => ({ ...prev, trackingCode: e.target.value }))}
                                 style={{ padding: "10px 14px", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, fontFamily: "inherit" }}
                             />
+                            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                                {getTrackingHintByCarrier(deliveryForm.shippingCarrier)}
+                            </p>
                             <input
                                 type="text"
                                 placeholder="Ghi chú (tuỳ chọn)"
@@ -362,7 +440,23 @@ export default function SellerOrderDetailPage() {
                             />
                             <button className="action-btn" onClick={handleDeliver} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#10b981", color: "white", border: "none", boxShadow: "0 2px 12px rgba(16,185,129,.25)", opacity: busy ? .6 : 1 }}>
-                                <Truck size={16} /> {busy ? "Đang xử lý..." : "🚚 Đánh dấu đã giao"}
+                                <Truck size={16} /> {busy ? "Đang xử lý..." : "🚚 Đánh dấu đã gửi"}
+                            </button>
+                            <button className="action-btn" onClick={handleSellerCancel} disabled={busy}
+                                    style={{ ...btnBase, background: "#fef2f2", color: "#ef4444", border: "1.5px solid #fecaca", opacity: busy ? .6 : 1 }}>
+                                <XCircle size={16} /> {busy ? "Đang xử lý..." : "Hủy đơn hàng"}
+                            </button>
+                        </div>
+                    );
+
+                    if (order.status === "SHIPPED") return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
+                                Hàng đang vận chuyển. Khi buyer nhận được hàng, hãy xác nhận đã giao thành công.
+                            </p>
+                            <button className="action-btn" onClick={handleConfirmDelivery} disabled={busy}
+                                    style={{ ...btnBase, background: busy ? "#f1f5f9" : "#0ea5e9", color: "white", border: "none", boxShadow: "0 2px 12px rgba(14,165,233,.25)", opacity: busy ? .6 : 1 }}>
+                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "✅ Xác nhận đã giao"}
                             </button>
                         </div>
                     );

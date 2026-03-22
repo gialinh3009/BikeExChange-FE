@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, AlertCircle, CheckCircle, Loader, Wallet } from "lucide-react";
-import { upgradeToSellerAPI } from "../../services/Buyer/Upgradeservice";
+import { getSellerUpgradeFeeAPI, upgradeToSellerAPI } from "../../services/Buyer/Upgradeservice";
 import { getWalletAPI } from "../../services/Buyer/walletService";
-
-const UPGRADE_COST = 50000; // đ — khớp với SELLER_UPGRADE_FEE = 50000L ở BE (1 điểm = 1đ)
 
 const fmtVND = (n: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(n);
@@ -31,14 +29,21 @@ export default function UpgradeToSellerModal({
     const [shopName, setShopName] = useState("");
     const [shopDescription, setShopDescription] = useState("");
     const [agreeToTerms, setAgreeToTerms] = useState(false);
+    const [acceptBusinessResponsibility, setAcceptBusinessResponsibility] = useState(false);
+    const [confirmPhrase, setConfirmPhrase] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [walletPoints, setWalletPoints] = useState<number | null>(null);
     const [walletLoading, setWalletLoading] = useState(false);
+    const [upgradeCost, setUpgradeCost] = useState<number>(50000);
 
     // Fetch wallet khi modal mở
     useEffect(() => {
         if (!isOpen) return;
+        getSellerUpgradeFeeAPI()
+            .then((fee) => setUpgradeCost(Number(fee) || 50000))
+            .catch(() => setUpgradeCost(50000));
+
         setWalletLoading(true);
         getWalletAPI()
             .then((data) => {
@@ -49,16 +54,23 @@ export default function UpgradeToSellerModal({
             .finally(() => setWalletLoading(false));
     }, [isOpen]);
 
-    const hasEnoughPoints = walletPoints !== null && walletPoints >= UPGRADE_COST;
+    const hasEnoughPoints = walletPoints !== null && walletPoints >= upgradeCost;
 
     const handleSubmit = async () => {
         setError("");
         if (!userId) { setError("Lỗi: Không thể lấy ID người dùng"); return; }
         if (!shopName.trim()) { setError("Tên shop là bắt buộc"); return; }
+        if (shopName.trim().length < 3) { setError("Tên shop phải tối thiểu 3 ký tự"); return; }
         if (!shopDescription.trim()) { setError("Mô tả shop là bắt buộc"); return; }
+        if (shopDescription.trim().length < 20) { setError("Mô tả shop phải tối thiểu 20 ký tự"); return; }
         if (!agreeToTerms) { setError("Bạn phải đồng ý với điều khoản"); return; }
-        if (walletPoints !== null && walletPoints < UPGRADE_COST) {
-            setError(`Ví không đủ số dư. Cần ${fmtVND(UPGRADE_COST)}, hiện có ${fmtVND(walletPoints)}.`);
+        if (!acceptBusinessResponsibility) { setError("Bạn phải cam kết trách nhiệm kinh doanh"); return; }
+        if (confirmPhrase.trim().toUpperCase() !== "XAC NHAN NANG CAP SELLER") {
+            setError("Bạn cần nhập chính xác: XAC NHAN NANG CAP SELLER");
+            return;
+        }
+        if (walletPoints !== null && walletPoints < upgradeCost) {
+            setError(`Ví không đủ số dư. Cần ${fmtVND(upgradeCost)}, hiện có ${fmtVND(walletPoints)}.`);
             return;
         }
 
@@ -68,6 +80,8 @@ export default function UpgradeToSellerModal({
                 shopName,
                 shopDescription,
                 agreeToTerms: true,
+                acceptBusinessResponsibility: true,
+                confirmPhrase,
             }) as UpdatedUser;
 
             // Cập nhật localStorage
@@ -85,6 +99,8 @@ export default function UpgradeToSellerModal({
             setShopName("");
             setShopDescription("");
             setAgreeToTerms(false);
+            setAcceptBusinessResponsibility(false);
+            setConfirmPhrase("");
             onClose();
 
             // Redirect sang SellerPage
@@ -106,9 +122,11 @@ export default function UpgradeToSellerModal({
     const isFormDisabled = loading || walletLoading;
     const canSubmit =
         !isFormDisabled &&
-        shopName.trim().length > 0 &&
-        shopDescription.trim().length > 0 &&
+        shopName.trim().length >= 3 &&
+        shopDescription.trim().length >= 20 &&
         agreeToTerms &&
+        acceptBusinessResponsibility &&
+        confirmPhrase.trim().toUpperCase() === "XAC NHAN NANG CAP SELLER" &&
         hasEnoughPoints;
 
     return (
@@ -175,11 +193,28 @@ export default function UpgradeToSellerModal({
                     <AlertCircle size={15} color={walletLoading ? "#94a3b8" : hasEnoughPoints ? "#16a34a" : "#ea580c"} style={{ flexShrink: 0 }} />
                     <div style={{ fontSize: 13, color: walletLoading ? "#64748b" : hasEnoughPoints ? "#15803d" : "#9a3412", lineHeight: 1.5 }}>
                         {walletLoading ? "Đang kiểm tra số dư..." : hasEnoughPoints ? (
-                            <><strong>{fmtVND(UPGRADE_COST)}</strong> sẽ được trừ · Còn lại: <strong>{fmtVND((walletPoints ?? 0) - UPGRADE_COST)}</strong></>
+                            <><strong>{fmtVND(upgradeCost)}</strong> sẽ được trừ · Còn lại: <strong>{fmtVND((walletPoints ?? 0) - upgradeCost)}</strong></>
                         ) : (
-                            <>Không đủ số dư. Cần <strong>{fmtVND(UPGRADE_COST)}</strong>, hiện có <strong>{fmtVND(walletPoints ?? 0)}</strong>.</>
+                            <>Không đủ số dư. Cần <strong>{fmtVND(upgradeCost)}</strong>, hiện có <strong>{fmtVND(walletPoints ?? 0)}</strong>.</>
                         )}
                     </div>
+                </div>
+
+                <div style={{
+                    background: "#f8fafc",
+                    border: "1.5px solid #e2e8f0",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    marginBottom: 16,
+                }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+                        Lưu ý trước khi nâng cấp
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 18, color: "#475569", fontSize: 12.5, lineHeight: 1.6 }}>
+                        <li>Phí nâng cấp sẽ bị trừ trực tiếp từ ví ngay khi xác nhận thành công.</li>
+                        <li>Cần nhập đúng câu: <strong>XAC NHAN NANG CAP SELLER</strong>.</li>
+                        <li>Bạn phải đồng ý điều khoản và cam kết trách nhiệm kinh doanh.</li>
+                    </ul>
                 </div>
 
 
@@ -218,6 +253,23 @@ export default function UpgradeToSellerModal({
                         <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{shopDescription.length}/500</div>
                     </div>
 
+                    <div>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", letterSpacing: "0.5px", display: "block", marginBottom: 6 }}>
+                            NHẬP CÂU XÁC NHẬN
+                        </label>
+                        <input
+                            className="modal-input"
+                            placeholder="XAC NHAN NANG CAP SELLER"
+                            value={confirmPhrase}
+                            maxLength={50}
+                            disabled={isFormDisabled}
+                            onChange={(e) => { setConfirmPhrase(e.target.value); if (error) setError(""); }}
+                        />
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                            Bắt buộc nhập đúng: <strong>XAC NHAN NANG CAP SELLER</strong>
+                        </div>
+                    </div>
+
                     <div style={{
                         display: "flex", alignItems: "flex-start", gap: 10,
                         padding: "12px 14px", background: "#f8fafc",
@@ -236,6 +288,26 @@ export default function UpgradeToSellerModal({
                         }}>
                             Tôi đồng ý với <strong>điều khoản dịch vụ</strong> và{" "}
                             <strong>chính sách người bán</strong>
+                        </label>
+                    </div>
+
+                    <div style={{
+                        display: "flex", alignItems: "flex-start", gap: 10,
+                        padding: "12px 14px", background: "#f8fafc",
+                        borderRadius: 10, border: "1px solid #f1f5f9",
+                    }}>
+                        <input
+                            type="checkbox" id="accept-business-responsibility"
+                            checked={acceptBusinessResponsibility}
+                            onChange={(e) => { setAcceptBusinessResponsibility(e.target.checked); if (error) setError(""); }}
+                            disabled={isFormDisabled}
+                            style={{ width: 18, height: 18, cursor: isFormDisabled ? "not-allowed" : "pointer", marginTop: 2 }}
+                        />
+                        <label htmlFor="accept-business-responsibility" style={{
+                            fontSize: 13, color: "#475569",
+                            cursor: isFormDisabled ? "not-allowed" : "pointer", userSelect: "none", flex: 1,
+                        }}>
+                            Tôi cam kết chịu trách nhiệm về hoạt động kinh doanh, thông tin sản phẩm và giao dịch của shop.
                         </label>
                     </div>
                 </div>

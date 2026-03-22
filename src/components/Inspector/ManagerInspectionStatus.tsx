@@ -18,6 +18,7 @@ const STATUS_TABS = [
   { key: "ALL", label: "Tất cả", icon: ClipboardCheck, color: "text-gray-600", bg: "bg-gray-100" },
   { key: "REQUESTED", label: "Yêu cầu", icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
   { key: "ASSIGNED", label: "Đã phân công", icon: UserCheck, color: "text-blue-600", bg: "bg-blue-100" },
+  { key: "IN_PROGRESS", label: "Đang kiểm định", icon: RefreshCw, color: "text-indigo-600", bg: "bg-indigo-100" },
   { key: "INSPECTED", label: "Đã kiểm định", icon: ClipboardCheck, color: "text-purple-600", bg: "bg-purple-100" },
   { key: "APPROVED", label: "Đã duyệt", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
   { key: "REJECTED", label: "Từ chối", icon: XCircle, color: "text-red-600", bg: "bg-red-100" },
@@ -26,6 +27,7 @@ const STATUS_TABS = [
 const STATUS_CLS: Record<string, string> = {
   REQUESTED: "bg-amber-100 text-amber-700",
   ASSIGNED: "bg-blue-100 text-blue-700",
+  IN_PROGRESS: "bg-indigo-100 text-indigo-700",
   INSPECTED: "bg-purple-100 text-purple-700",
   APPROVED: "bg-emerald-100 text-emerald-700",
   REJECTED: "bg-red-100 text-red-600",
@@ -34,6 +36,7 @@ const STATUS_CLS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   REQUESTED: "Yêu cầu",
   ASSIGNED: "Đã phân công",
+  IN_PROGRESS: "Đang kiểm định",
   INSPECTED: "Đã kiểm định",
   APPROVED: "Đã duyệt",
   REJECTED: "Từ chối",

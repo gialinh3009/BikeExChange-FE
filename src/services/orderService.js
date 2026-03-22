@@ -72,7 +72,22 @@ export async function deliverOrderAPI(orderId, deliveryData, token) {
   });
   const data = await res.json();
   if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Đánh dấu giao hàng thất bại.");
+    throw new Error(data.message || "Đánh dấu gửi hàng thất bại.");
+  }
+  return data.data || data;
+}
+
+export async function confirmDeliveryAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/confirm-delivery`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Xác nhận đã giao thất bại.");
   }
   return data.data || data;
 }
@@ -88,6 +103,21 @@ export async function confirmReturnAPI(orderId, token) {
   const data = await res.json();
   if (!res.ok || data.success === false) {
     throw new Error(data.message || "Xác nhận nhận lại hàng thất bại.");
+  }
+  return data.data || data;
+}
+
+export async function sellerCancelOrderAPI(orderId, token) {
+  const res = await fetch(`${BASE_URL}/orders/${orderId}/seller-cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Hủy đơn hàng thất bại.");
   }
   return data.data || data;
 }

@@ -12,6 +12,7 @@ const authHeaders = () => {
 const ACTION_TO_STATUS = {
     created: "ESCROWED",
     accepted: "ACCEPTED",
+    shipped: "SHIPPED",
     delivered: "DELIVERED",
     completed: "COMPLETED",
     confirmed_receipt: "COMPLETED",
@@ -35,7 +36,10 @@ const STATUS_ALIASES = {
     ESCROW: "ESCROWED",
     ACCEPT: "ACCEPTED",
     ACCEPT_ORDER: "ACCEPTED",
-    SHIPPED: "DELIVERED",
+    SHIPPING: "SHIPPED",
+    SHIP: "SHIPPED",
+    IN_TRANSIT: "SHIPPED",
+    SHIPPED: "SHIPPED",
     RETURNED: "RETURN_REQUESTED",
     REQUESTED_RETURN: "RETURN_REQUESTED",
     REQUEST_REFUND: "RETURN_REQUESTED",
@@ -52,6 +56,7 @@ const KNOWN_STATUSES = new Set([
     "PENDING_PAYMENT",
     "ESCROWED",
     "ACCEPTED",
+    "SHIPPED",
     "DELIVERED",
     "COMPLETED",
     "CANCELLED",
@@ -79,7 +84,8 @@ function canonicalizeStatus(rawStatus) {
     if (normalized.includes("RETURN")) return "RETURN_REQUESTED";
     if (normalized.includes("CANCEL")) return "CANCELLED";
     if (normalized.includes("COMPLETE") || normalized.includes("CONFIRM_RECEIPT")) return "COMPLETED";
-    if (normalized.includes("DELIVER") || normalized.includes("SHIP")) return "DELIVERED";
+    if (normalized.includes("SHIP") || normalized.includes("TRANSIT")) return "SHIPPED";
+    if (normalized.includes("DELIVER")) return "DELIVERED";
     if (normalized.includes("ACCEPT")) return "ACCEPTED";
     if (normalized.includes("ESCROW") || normalized.includes("CREATE")) return "ESCROWED";
 

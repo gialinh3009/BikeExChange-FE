@@ -28,6 +28,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   APPROVED:    { label: "Đã duyệt",       color: "#16a34a", bg: "#dcfce7" },
   ASSIGNED:    { label: "Đã phân công",   color: "#2563eb", bg: "#dbeafe" },
   IN_PROGRESS: { label: "Đang kiểm định", color: "#7c3aed", bg: "#ede9fe" },
+  INSPECTED:   { label: "Đã kiểm định",   color: "#2563eb", bg: "#dbeafe" },
   COMPLETED:   { label: "Hoàn thành",     color: "#16a34a", bg: "#dcfce7" },
   REJECTED:    { label: "Từ chối",        color: "#dc2626", bg: "#fee2e2" },
   CANCELLED:   { label: "Đã hủy",         color: "#6b7280", bg: "#f3f4f6" },

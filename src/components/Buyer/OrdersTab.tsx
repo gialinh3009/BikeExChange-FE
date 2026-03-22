@@ -32,6 +32,7 @@ import OpenDisputeModal from "./OpenDisputeModal";
 type OrderStatus =
     | "ESCROWED"
     | "ACCEPTED"
+    | "SHIPPED"
     | "DELIVERED"
     | "COMPLETED"
     | "CANCELLED"
@@ -105,6 +106,12 @@ const STATUS_META: Record<
         bg: "#f5f3ff",
         icon: <CheckCircle size={13} />
     },
+    SHIPPED: {
+        label: "Đang vận chuyển",
+        color: "#0ea5e9",
+        bg: "#f0f9ff",
+        icon: <Truck size={13} />
+    },
     DELIVERED: {
         label: "Đã giao hàng",
         color: "#f59e0b",
@@ -147,6 +154,7 @@ const STATUS_FILTERS = [
     { label: "Tất cả", value: "" },
     { label: "Chờ xác nhận", value: "ESCROWED" },
     { label: "Đã xác nhận", value: "ACCEPTED" },
+    { label: "Đang vận chuyển", value: "SHIPPED" },
     { label: "Đã giao", value: "DELIVERED" },
     { label: "Hoàn thành", value: "COMPLETED" },
     { label: "Đã hủy", value: "CANCELLED" },

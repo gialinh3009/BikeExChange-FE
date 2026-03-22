@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
+  CreditCard,
   ShoppingCart,
   ClipboardCheck,
   UserCog,
@@ -73,6 +74,12 @@ export default function AdminSidebar({
         label: "Quản Lý Đơn Hàng",
         key: "orders",
         icon: ShoppingBag,
+      },
+      {
+        to: "/admin/payments",
+        label: "Cấu Hình Thanh Toán",
+        key: "payments",
+        icon: CreditCard,
       },
       {
         to: "/admin/transactions",

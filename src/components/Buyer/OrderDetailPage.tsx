@@ -26,7 +26,7 @@ import {
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
 type OrderStatus =
-    | "PENDING_PAYMENT" | "ESCROWED" | "ACCEPTED" | "DELIVERED"
+    | "PENDING_PAYMENT" | "ESCROWED" | "ACCEPTED" | "SHIPPED" | "DELIVERED"
     | "COMPLETED" | "CANCELLED" | "REFUNDED"
     | "RETURN_REQUESTED" | "DISPUTED";
 
@@ -88,6 +88,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
     PENDING_PAYMENT:  { label: "Chờ thanh toán",      color: "#f59e0b", bg: "#fffbeb", icon: <Clock size={14} />,          desc: "Đang chờ xử lý thanh toán" },
     ESCROWED:         { label: "Đơn hàng đã được tạo", color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Đơn hàng của bạn đã được tạo, đang chờ seller xác nhận" },
     ACCEPTED:         { label: "Seller đã xác nhận",   color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Seller đã nhận đơn, đang chuẩn bị giao hàng" },
+    SHIPPED:          { label: "Đang vận chuyển",      color: "#0ea5e9", bg: "#f0f9ff", icon: <Truck size={14} />,          desc: "Seller đã gửi hàng cho đơn vị vận chuyển" },
     DELIVERED:        { label: "Đang giao hàng",       color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Hàng đã được giao, vui lòng xác nhận khi nhận được" },
     COMPLETED:        { label: "Hoàn thành",           color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về tay seller" },
     CANCELLED:        { label: "Đã hủy",               color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Đơn hàng đã bị hủy, tiền đã hoàn về ví bạn" },
@@ -99,12 +100,13 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
 
 // Thứ tự timeline chuẩn theo flow
 const TIMELINE_ORDER: OrderStatus[] = [
-    "ESCROWED", "ACCEPTED", "DELIVERED", "COMPLETED",
+    "ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "COMPLETED",
 ];
 
 const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNode }[] = [
     { status: "ESCROWED",  label: "Đơn đã tạo",         icon: <Package size={16} /> },
     { status: "ACCEPTED",  label: "Seller xác nhận",     icon: <CheckCircle size={16} /> },
+    { status: "SHIPPED",   label: "Đã gửi hàng",         icon: <Truck size={16} /> },
     { status: "DELIVERED", label: "Đã giao hàng",        icon: <Truck size={16} /> },
     { status: "COMPLETED", label: "Hoàn thành",          icon: <CheckCircle size={16} /> },
 ];
@@ -112,7 +114,7 @@ const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNod
 function getStepIndex(status: OrderStatus): number {
     const idx = TIMELINE_ORDER.indexOf(status);
     if (status === "CANCELLED" || status === "REFUNDED") return -1; // special
-    if (status === "RETURN_REQUESTED" || status === "DISPUTED") return 2; // stays at DELIVERED step
+    if (status === "RETURN_REQUESTED" || status === "DISPUTED") return 3; // stays at DELIVERED step
     return idx;
 }
 

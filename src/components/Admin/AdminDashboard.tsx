@@ -94,15 +94,15 @@ export default function AdminDashboard() {
 
 
   const roleChartData = userStats
-    ? Object.entries(userStats.byRole).map(([role, count]) => ({
+    ? Object.entries(userStats.byRole ?? {}).map(([role, count]) => ({
         name: ROLE_LABEL[role] ?? role,
         value: count,
       }))
     : [];
 
 
-  const orderStatusData = orderStats && Object.keys(orderStats.byStatus).length > 0
-    ? Object.entries(orderStats.byStatus).map(([status, count]) => ({
+  const orderStatusData = orderStats && Object.keys(orderStats.byStatus ?? {}).length > 0
+    ? Object.entries(orderStats.byStatus ?? {}).map(([status, count]) => ({
         name: status,
         count,
       }))
@@ -153,7 +153,7 @@ export default function AdminDashboard() {
                 </span>
                 <span className="flex-1 text-sm font-medium text-gray-700">{label}</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {loading ? "—" : (userStats?.byRole[role] ?? 0)}
+                  {loading ? "—" : (userStats?.byRole?.[role] ?? 0)}
                 </span>
               </div>
             ))}

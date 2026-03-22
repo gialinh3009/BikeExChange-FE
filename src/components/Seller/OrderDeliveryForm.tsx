@@ -36,6 +36,42 @@ const SHIPPING_CARRIERS = [
   { value: "OTHER", label: "Khác" },
 ];
 
+const TRACKING_HINTS: Record<string, string> = {
+  GHN: "GHN + 8-20 ký tự chữ/số (VD: GHN12345678)",
+  GHTK: "GHTK + 6-20 ký tự hoặc S + 8-20 số (VD: GHTK123456 hoặc S12345678)",
+  VTP: "VTP + 6-20 ký tự chữ/số (VD: VTP123456)",
+  "J&T": "JT/JNT + 8-20 ký tự chữ/số (VD: JT12345678)",
+};
+
+function validateTrackingCodeByCarrier(carrier: string, trackingCode: string): string | null {
+  const normalizedCarrier = String(carrier || "").trim().toUpperCase();
+  const normalizedCode = String(trackingCode || "").trim().toUpperCase();
+
+  if (!normalizedCarrier || normalizedCarrier === "OTHER") {
+    return null;
+  }
+
+  if (!normalizedCode) {
+    return `Vui lòng nhập mã vận đơn cho ${normalizedCarrier}`;
+  }
+
+  const patterns: Record<string, RegExp> = {
+    GHN: /^GHN[0-9A-Z]{8,20}$/,
+    GHTK: /^(GHTK[0-9A-Z]{6,20}|S[0-9]{8,20})$/,
+    VTP: /^VTP[0-9A-Z]{6,20}$/,
+    "J&T": /^(JT[0-9A-Z]{8,20}|JNT[0-9A-Z]{8,20})$/,
+  };
+
+  const pattern = patterns[normalizedCarrier];
+  if (!pattern) return null;
+
+  if (!pattern.test(normalizedCode)) {
+    return `Mã vận đơn không đúng định dạng của ${normalizedCarrier}.`;
+  }
+
+  return null;
+}
+
 export default function OrderDeliveryForm({
   isOpen,
   order,
@@ -66,8 +102,10 @@ export default function OrderDeliveryForm({
       setError("Vui lòng chọn đơn vị vận chuyển");
       return;
     }
-    if (!form.trackingCode.trim()) {
-      setError("Vui lòng nhập mã vận đơn");
+
+    const trackingError = validateTrackingCodeByCarrier(form.shippingCarrier, form.trackingCode);
+    if (trackingError) {
+      setError(trackingError);
       return;
     }
 
@@ -82,7 +120,7 @@ export default function OrderDeliveryForm({
         },
         body: JSON.stringify({
           shippingCarrier: form.shippingCarrier,
-          trackingCode: form.trackingCode,
+          trackingCode: form.trackingCode || null,
           shippingNote: form.shippingNote || null,
         }),
       });
@@ -216,7 +254,7 @@ export default function OrderDeliveryForm({
           {/* Tracking code */}
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
-              Mã vận đơn <span style={{ color: "#ef4444" }}>*</span>
+              Mã vận đơn {form.shippingCarrier && form.shippingCarrier !== "OTHER" ? <span style={{ color: "#ef4444" }}>*</span> : "(tuỳ chọn)"}
             </label>
             <input
               type="text"
@@ -235,7 +273,9 @@ export default function OrderDeliveryForm({
                 transition: "all .2s",
               }}
             />
-            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Mã vận đơn để buyer theo dõi hàng</p>
+            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+              {TRACKING_HINTS[form.shippingCarrier] || "Mã vận đơn để buyer theo dõi hàng"}
+            </p>
           </div>
 
           {/* Shipping note */}
