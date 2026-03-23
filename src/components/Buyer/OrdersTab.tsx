@@ -15,6 +15,7 @@ import {
     Clock,
     Truck,
     AlertTriangle,
+    ShieldCheck,
 } from "lucide-react";
 import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import {
@@ -119,7 +120,7 @@ const STATUS_META: Record<
         icon: <Truck size={13} />
     },
     COMPLETED: {
-        label: "Hoàn thành",
+        label: "Đã hoàn thành",
         color: "#10b981",
         bg: "#f0fdf4",
         icon: <CheckCircle size={13} />
@@ -156,7 +157,7 @@ const STATUS_FILTERS = [
     { label: "Đã xác nhận", value: "ACCEPTED" },
     { label: "Đang vận chuyển", value: "SHIPPED" },
     { label: "Đã giao", value: "DELIVERED" },
-    { label: "Hoàn thành", value: "COMPLETED" },
+    { label: "Đã hoàn thành", value: "COMPLETED" },
     { label: "Đã hủy", value: "CANCELLED" },
     { label: "Hoàn hàng", value: "RETURN_REQUESTED" }
 ];
@@ -465,9 +466,36 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
                                 </div>
                             </div>
 
-                            <p style={{ fontSize: 16, fontWeight: 800, color: "#2563eb", marginBottom: 14 }}>
-                                {fmtMoney(order.amountPoints)}
-                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+                                <p style={{ fontSize: 16, fontWeight: 800, color: "#2563eb", margin: 0 }}>
+                                    {fmtMoney(order.amountPoints)}
+                                </p>
+                                {/* Badge thanh toán */}
+                                {order.status === "REFUNDED" ? (
+                                    <span style={{
+                                        display: "inline-flex", alignItems: "center", gap: 5,
+                                        padding: "4px 10px", borderRadius: 20,
+                                        background: "#f0fdf4", color: "#059669",
+                                        border: "1px solid #a7f3d0",
+                                        fontSize: 12, fontWeight: 700
+                                    }}>
+                                        <RotateCcw size={12} /> Đã hoàn tiền
+                                    </span>
+                                ) : !["PENDING_PAYMENT", "CANCELLED"].includes(order.status) ? (
+                                    <span style={{
+                                        display: "inline-flex", alignItems: "center", gap: 5,
+                                        padding: "4px 10px", borderRadius: 20,
+                                        background: "#f0fdf4", color: "#059669",
+                                        border: "1px solid #a7f3d0",
+                                        fontSize: 12, fontWeight: 700
+                                    }}>
+                                        <ShieldCheck size={12} />
+                                        {order.status === "COMPLETED"
+                                            ? "Đã thanh toán"
+                                            : "Đã thanh toán trả trước"}
+                                    </span>
+                                ) : null}
+                            </div>
 
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
 

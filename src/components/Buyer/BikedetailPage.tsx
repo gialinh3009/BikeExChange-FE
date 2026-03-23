@@ -8,6 +8,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getBikeDetailAPI } from "../../services/Buyer/Bikeservice";
 import { getUserProfileAPI } from "../../services/Buyer/Userservice";
 import { createOrderAPI } from "../../services/Buyer/Orderservice";
+import { getWalletAPI } from "../../services/Buyer/walletService";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
 import { addToWishlistAPI, removeFromWishlistAPI } from "../../services/Buyer/wishlistService";
 import { WishlistAuthModal } from "./WishlistModals.jsx";
@@ -88,6 +89,9 @@ export default function BikedetailPage() {
     const [imgError, setImgError]   = useState<Record<number, boolean>>({});
     const [showConfirm, setShowConfirm] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [showInsufficientFunds, setShowInsufficientFunds] = useState(false);
+    const [walletBalance, setWalletBalance] = useState<number | null>(null);
+    const [walletLoading, setWalletLoading] = useState(false);
 
     const user  = (() => { try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; } })();
     const token = localStorage.getItem("token") ?? "";
@@ -148,7 +152,13 @@ export default function BikedetailPage() {
                 setShowSuccess(true);
             }, 300);
         } catch (e) {
-            alert(String(e instanceof Error ? e.message : e));
+            const msg = String(e instanceof Error ? e.message : e).toLowerCase();
+            setShowConfirm(false);
+            if (msg.includes("not enough") || msg.includes("insufficient") || msg.includes("points") || msg.includes("balance") || msg.includes("tiền") || msg.includes("ví")) {
+                setShowInsufficientFunds(true);
+            } else {
+                alert(String(e instanceof Error ? e.message : e));
+            }
         } finally {
             setOrdering(false);
         }
@@ -239,15 +249,118 @@ export default function BikedetailPage() {
             {/* ── Header navigation ── */}
             <Header />
 
-            {/* Modal xác nhận mua hàng */}
-            {showConfirm && (
-                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.18)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <div style={{ background: "white", borderRadius: 16, padding: 32, minWidth: 340, boxShadow: "0 4px 24px rgba(0,0,0,.12)", textAlign: "center" }}>
-                        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 16 }}>Xác nhận mua hàng</h3>
-                        <p style={{ color: "#475569", fontSize: 15, marginBottom: 24 }}>Bạn có chắc chắn muốn mua xe này?</p>
-                        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-                            <button style={{ padding: "10px 24px", background: "#2563eb", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }} onClick={handleBuyNow}>Xác nhận</button>
-                            <button style={{ padding: "10px 24px", background: "#f1f5f9", color: "#2563eb", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer" }} onClick={() => setShowConfirm(false)}>Hủy</button>
+            {/* Modal xác nhận mua hàng — chi tiết */}
+            {showConfirm && bike && (
+                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+                    <div style={{ background: "white", borderRadius: 24, width: "100%", maxWidth: 680, boxShadow: "0 12px 60px rgba(0,0,0,.25)", overflow: "hidden", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
+                        {/* Header */}
+                        <div style={{ background: "linear-gradient(135deg,#1e40af,#2563eb)", padding: "26px 36px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                            <Zap size={22} fill="white" color="white" />
+                            <h3 style={{ fontWeight: 800, fontSize: 20, color: "white", margin: 0 }}>Xác nhận mua hàng</h3>
+                        </div>
+
+                        <div style={{ padding: "28px 36px", display: "flex", flexDirection: "column", gap: 20, overflowY: "auto" }}>
+                            {/* Thông tin xe */}
+                            <div style={{ display: "flex", gap: 18, alignItems: "flex-start", background: "#f8faff", borderRadius: 16, padding: "20px", border: "1px solid #e2e8f0" }}>
+                                {(() => {
+                                    const imgs = (bike.media ?? []).filter(m => m.type === "IMAGE").sort((a, b) => a.sortOrder - b.sortOrder);
+                                    return imgs[0]?.url ? (
+                                        <img src={imgs[0].url} alt={bike.title} style={{ width: 116, height: 90, objectFit: "cover", borderRadius: 12, flexShrink: 0, border: "1px solid #e2e8f0" }} />
+                                    ) : (
+                                        <div style={{ width: 116, height: 90, borderRadius: 12, background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                            <ImageIcon size={30} color="#94a3b8" />
+                                        </div>
+                                    );
+                                })()}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontWeight: 800, fontSize: 18, color: "#0f172a", marginBottom: 8, lineHeight: 1.3 }}>{bike.title}</p>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 12px", marginBottom: 8 }}>
+                                        {bike.brand && <span style={{ fontSize: 14, color: "#64748b" }}>{bike.brand}</span>}
+                                        {bike.model && <span style={{ fontSize: 14, color: "#64748b" }}>· {bike.model}</span>}
+                                        {bike.year  && <span style={{ fontSize: 14, color: "#64748b" }}>· {bike.year}</span>}
+                                        {bike.condition && (
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: conditionColor[bike.condition] ?? "#64748b" }}>
+                                                {conditionLabel[bike.condition] ?? bike.condition}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {bike.location && bike.location !== "Not specified" && (
+                                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                            <MapPin size={13} color="#94a3b8" />
+                                            <span style={{ fontSize: 13, color: "#94a3b8" }}>{bike.location}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Hồ sơ người bán */}
+                            {seller && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 14, background: "#f0fdf4", borderRadius: 16, padding: "16px 20px", border: "1px solid #bbf7d0" }}>
+                                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg,#16a34a,#22c55e)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "white", flexShrink: 0 }}>
+                                        {seller.fullName?.[0]?.toUpperCase() ?? <User size={18} color="white" />}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <p style={{ fontWeight: 700, fontSize: 15, color: "#15803d", marginBottom: 3 }}>Người bán: {seller.fullName}</p>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                            <Star size={13} color="#f59e0b" fill="#f59e0b" />
+                                            <span style={{ fontSize: 13, color: "#64748b" }}>{seller.rating} · {seller.totalBikesSold} xe đã bán</span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        style={{ padding: "8px 18px", background: "white", color: "#16a34a", border: "1.5px solid #16a34a", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}
+                                        onClick={() => { setShowConfirm(false); navigate(`/sellers/${seller.id}`); }}
+                                    >
+                                        Xem hồ sơ
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Bảng thanh toán */}
+                            <div style={{ border: "1px solid #e2e8f0", borderRadius: 16, overflow: "hidden" }}>
+                                <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span style={{ fontSize: 15, color: "#64748b" }}>Giá xe</span>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{fmtPrice(bike.pricePoints)}</span>
+                                </div>
+                                <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: "#fffbeb" }}>
+                                    <div style={{ flex: 1, paddingRight: 16 }}>
+                                        <span style={{ fontSize: 15, fontWeight: 700, color: "#92400e" }}>Thanh toán trả trước</span>
+                                        <p style={{ fontSize: 13, color: "#a16207", margin: "5px 0 0", lineHeight: 1.6 }}>
+                                            Số tiền này sẽ được <strong>tạm giữ</strong> cho đến khi bạn xác nhận đã nhận xe thành công
+                                        </p>
+                                    </div>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: "#d97706", flexShrink: 0 }}>{fmtPrice(bike.pricePoints)}</span>
+                                </div>
+                                <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span style={{ fontSize: 15, color: "#64748b" }}>Số dư hiện tại</span>
+                                    <span style={{ fontSize: 16, fontWeight: 700, color: walletBalance !== null && walletBalance >= bike.pricePoints ? "#10b981" : "#ef4444" }}>
+                                        {walletBalance !== null ? fmtPrice(walletBalance) : "—"}
+                                    </span>
+                                </div>
+                                <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8faff" }}>
+                                    <span style={{ fontSize: 15, fontWeight: 600, color: "#475569" }}>Số dư sau giao dịch</span>
+                                    <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>
+                                        {walletBalance !== null ? fmtPrice(Math.max(0, walletBalance - bike.pricePoints)) : "—"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Nút hành động */}
+                            <div style={{ display: "flex", gap: 14, paddingTop: 4 }}>
+                                <button
+                                    style={{ flex: 1, padding: "15px 0", background: "#f1f5f9", color: "#475569", border: "none", borderRadius: 12, fontWeight: 600, fontSize: 16, cursor: "pointer" }}
+                                    onClick={() => setShowConfirm(false)}
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    style={{ flex: 2, padding: "15px 0", background: ordering ? "#93c5fd" : "#2563eb", color: "white", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: ordering ? "not-allowed" : "pointer", boxShadow: "0 2px 14px rgba(37,99,235,.32)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                                    disabled={ordering}
+                                    onClick={handleBuyNow}
+                                >
+                                    <Zap size={16} fill="white" color="white" />
+                                    {ordering ? "Đang xử lý..." : "Xác nhận mua hàng"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -262,6 +375,35 @@ export default function BikedetailPage() {
                             onClick={() => { setShowSuccess(false); navigate("/buyer"); }}>
                             Xác nhận
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* Modal không đủ tiền trong ví */}
+            {showInsufficientFunds && (
+                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", minWidth: 360, maxWidth: 440, boxShadow: "0 8px 40px rgba(0,0,0,.18)", textAlign: "center" }}>
+                        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#fff7ed", border: "2px solid #fed7aa", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px", fontSize: 28 }}>
+                            💰
+                        </div>
+                        <h3 style={{ fontWeight: 800, fontSize: 20, color: "#0f172a", marginBottom: 10 }}>Số dư ví không đủ</h3>
+                        <p style={{ color: "#64748b", fontSize: 15, lineHeight: 1.65, marginBottom: 28 }}>
+                            Bạn không có đủ tiền trong ví để thực hiện giao dịch này.<br />
+                            Vui lòng nạp thêm tiền vào ví và thử lại.
+                        </p>
+                        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                            <button
+                                style={{ padding: "11px 22px", background: "#f1f5f9", color: "#475569", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                                onClick={() => setShowInsufficientFunds(false)}
+                            >
+                                Quay lại
+                            </button>
+                            <button
+                                style={{ padding: "11px 22px", background: "#2563eb", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 2px 10px rgba(37,99,235,.3)" }}
+                                onClick={() => { setShowInsufficientFunds(false); navigate("/buyer", { state: { tab: "wallet", walletTab: "deposit" } }); }}
+                            >
+                                Chuyển đến ví
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -390,12 +532,21 @@ export default function BikedetailPage() {
                         <div style={{ display: "flex", gap: 10 }}>
                             <button
                                 className="btn-primary"
-                                onClick={() => setShowConfirm(true)}
-                                disabled={ordering || !isPurchasable}
-                                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 0", background: ordering || !isPurchasable ? "#93c5fd" : "#2563eb", color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: ordering || !isPurchasable ? "not-allowed" : "pointer", transition: "background .15s", boxShadow: "0 2px 12px rgba(37,99,235,.25)" }}
+                                onClick={async () => {
+                                    if (!user?.id) { navigate("/login"); return; }
+                                    setWalletLoading(true);
+                                    try {
+                                        const w = await getWalletAPI();
+                                        setWalletBalance(w.availablePoints ?? w.balance ?? 0);
+                                    } catch { setWalletBalance(null); }
+                                    finally { setWalletLoading(false); }
+                                    setShowConfirm(true);
+                                }}
+                                disabled={ordering || !isPurchasable || walletLoading}
+                                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px 0", background: ordering || !isPurchasable || walletLoading ? "#93c5fd" : "#2563eb", color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: ordering || !isPurchasable || walletLoading ? "not-allowed" : "pointer", transition: "background .15s", boxShadow: "0 2px 12px rgba(37,99,235,.25)" }}
                             >
                                 <Zap size={15} fill="white" color="white" />
-                                {ordering ? "Đang xử lý..." : !isPurchasable ? "Không khả dụng" : "Mua ngay"}
+                                {ordering ? "Đang xử lý..." : walletLoading ? "Đang tải..." : !isPurchasable ? "Không khả dụng" : "Mua ngay"}
                             </button>
                             <button className="icon-btn" onClick={handleWishlist} style={{ width: 48, flexShrink: 0, borderRadius: 10, border: `1.5px solid ${wished ? "#fecdd3" : "#e8ecf4"}`, background: wished ? "#fff0f3" : "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
                                 <Heart size={18} color={wished ? "#e11d48" : "#94a3b8"} fill={wished ? "#e11d48" : "none"} />

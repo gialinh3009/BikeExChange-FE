@@ -30,7 +30,7 @@ export default function UpgradeToSellerModal({
     const [shopDescription, setShopDescription] = useState("");
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [acceptBusinessResponsibility, setAcceptBusinessResponsibility] = useState(false);
-    const [confirmPhrase, setConfirmPhrase] = useState("");
+    const [confirmPhrase] = useState("XAC NHAN NANG CAP SELLER");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [walletPoints, setWalletPoints] = useState<number | null>(null);
@@ -59,18 +59,20 @@ export default function UpgradeToSellerModal({
     const handleSubmit = async () => {
         setError("");
         if (!userId) { setError("Lỗi: Không thể lấy ID người dùng"); return; }
-        if (!shopName.trim()) { setError("Tên shop là bắt buộc"); return; }
-        if (shopName.trim().length < 3) { setError("Tên shop phải tối thiểu 3 ký tự"); return; }
-        if (!shopDescription.trim()) { setError("Mô tả shop là bắt buộc"); return; }
-        if (shopDescription.trim().length < 20) { setError("Mô tả shop phải tối thiểu 20 ký tự"); return; }
         if (!agreeToTerms) { setError("Bạn phải đồng ý với điều khoản"); return; }
         if (!acceptBusinessResponsibility) { setError("Bạn phải cam kết trách nhiệm kinh doanh"); return; }
-        if (confirmPhrase.trim().toUpperCase() !== "XAC NHAN NANG CAP SELLER") {
-            setError("Bạn cần nhập chính xác: XAC NHAN NANG CAP SELLER");
-            return;
-        }
         if (walletPoints !== null && walletPoints < upgradeCost) {
             setError(`Ví không đủ số dư. Cần ${fmtVND(upgradeCost)}, hiện có ${fmtVND(walletPoints)}.`);
+            return;
+        }
+
+        // Soft-check trước khi gọi API (BE bắt buộc ≥ 3 / ≥ 20 ký tự)
+        if (shopName.trim().length < 3) {
+            setError("Tên shop cần ít nhất 3 ký tự để tiếp tục.");
+            return;
+        }
+        if (shopDescription.trim().length < 20) {
+            setError(`Mô tả shop cần ít nhất 20 ký tự (hiện có ${shopDescription.trim().length}).`);
             return;
         }
 
@@ -100,15 +102,19 @@ export default function UpgradeToSellerModal({
             setShopDescription("");
             setAgreeToTerms(false);
             setAcceptBusinessResponsibility(false);
-            setConfirmPhrase("");
             onClose();
 
             // Redirect sang SellerPage
             window.location.href = "/seller";
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Có lỗi xảy ra";
-            if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("balance")) {
-                setError(`Ví không đủ số dư để nâng cấp. Vui lòng nạp thêm tiền vào ví.`);
+            const lower = msg.toLowerCase();
+            if (lower.includes("insufficient") || lower.includes("balance")) {
+                setError("Ví không đủ số dư để nâng cấp. Vui lòng nạp thêm tiền vào ví.");
+            } else if (lower.includes("shop name") && (lower.includes("between") || lower.includes("character"))) {
+                setError("Tên shop cần ít nhất 3 ký tự.");
+            } else if (lower.includes("shop description") && (lower.includes("between") || lower.includes("character"))) {
+                setError("Mô tả shop cần ít nhất 20 ký tự.");
             } else {
                 setError(msg);
             }
@@ -122,11 +128,8 @@ export default function UpgradeToSellerModal({
     const isFormDisabled = loading || walletLoading;
     const canSubmit =
         !isFormDisabled &&
-        shopName.trim().length >= 3 &&
-        shopDescription.trim().length >= 20 &&
         agreeToTerms &&
         acceptBusinessResponsibility &&
-        confirmPhrase.trim().toUpperCase() === "XAC NHAN NANG CAP SELLER" &&
         hasEnoughPoints;
 
     return (
@@ -183,90 +186,132 @@ export default function UpgradeToSellerModal({
                     </span>
                 </div>
 
-                {/* Cost Info */}
-                <div style={{
-                    background: walletLoading ? "#f8fafc" : hasEnoughPoints ? "#f0fdf4" : "#fff7ed",
-                    border: `1.5px solid ${walletLoading ? "#e8ecf4" : hasEnoughPoints ? "#bbf7d0" : "#fed7aa"}`,
-                    borderRadius: 12, padding: "12px 16px", marginBottom: 16,
-                    display: "flex", alignItems: "center", gap: 10,
-                }}>
-                    <AlertCircle size={15} color={walletLoading ? "#94a3b8" : hasEnoughPoints ? "#16a34a" : "#ea580c"} style={{ flexShrink: 0 }} />
-                    <div style={{ fontSize: 13, color: walletLoading ? "#64748b" : hasEnoughPoints ? "#15803d" : "#9a3412", lineHeight: 1.5 }}>
-                        {walletLoading ? "Đang kiểm tra số dư..." : hasEnoughPoints ? (
-                            <><strong>{fmtVND(upgradeCost)}</strong> sẽ được trừ · Còn lại: <strong>{fmtVND((walletPoints ?? 0) - upgradeCost)}</strong></>
-                        ) : (
-                            <>Không đủ số dư. Cần <strong>{fmtVND(upgradeCost)}</strong>, hiện có <strong>{fmtVND(walletPoints ?? 0)}</strong>.</>
-                        )}
+                {/* Chi phí nâng cấp — bảng rõ ràng */}
+                <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 14, overflow: "hidden", marginBottom: 18 }}>
+                    {/* Tiêu đề bảng */}
+                    <div style={{ padding: "10px 16px", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", letterSpacing: "0.4px" }}>CHI PHÍ NÂNG CẤP</span>
                     </div>
-                </div>
-
-                <div style={{
-                    background: "#f8fafc",
-                    border: "1.5px solid #e2e8f0",
-                    borderRadius: 12,
-                    padding: "12px 14px",
-                    marginBottom: 16,
-                }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
-                        Lưu ý trước khi nâng cấp
+                    {/* Phí nâng cấp */}
+                    <div style={{ padding: "13px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Phí nâng cấp lên Người Bán</span>
+                            <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0", lineHeight: 1.5 }}>
+                                Khoản phí một lần để kích hoạt tài khoản người bán
+                            </p>
+                        </div>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", flexShrink: 0, marginLeft: 12 }}>
+                            {fmtVND(upgradeCost)}
+                        </span>
                     </div>
-                    <ul style={{ margin: 0, paddingLeft: 18, color: "#475569", fontSize: 12.5, lineHeight: 1.6 }}>
-                        <li>Phí nâng cấp sẽ bị trừ trực tiếp từ ví ngay khi xác nhận thành công.</li>
-                        <li>Cần nhập đúng câu: <strong>XAC NHAN NANG CAP SELLER</strong>.</li>
-                        <li>Bạn phải đồng ý điều khoản và cam kết trách nhiệm kinh doanh.</li>
-                    </ul>
+                    {/* Số dư hiện tại */}
+                    <div style={{ padding: "13px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 14, color: "#64748b" }}>Số dư hiện tại</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: walletLoading ? "#94a3b8" : hasEnoughPoints ? "#10b981" : "#ef4444" }}>
+                            {walletLoading ? "Đang tải..." : fmtVND(walletPoints ?? 0)}
+                        </span>
+                    </div>
+                    {/* Số dư sau khi nâng cấp */}
+                    <div style={{ padding: "13px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: hasEnoughPoints ? "#f0fdf4" : "#fff7ed" }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: "#475569" }}>Số dư sau khi nâng cấp</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: hasEnoughPoints ? "#16a34a" : "#ef4444" }}>
+                            {walletLoading ? "—" : hasEnoughPoints
+                                ? fmtVND((walletPoints ?? 0) - upgradeCost)
+                                : <span style={{ fontSize: 13 }}>Không đủ số dư</span>
+                            }
+                        </span>
+                    </div>
+                    {/* Cảnh báo nếu không đủ tiền */}
+                    {!walletLoading && !hasEnoughPoints && (
+                        <div style={{ padding: "10px 16px", background: "#fff7ed", borderTop: "1px solid #fed7aa", display: "flex", alignItems: "center", gap: 8 }}>
+                            <AlertCircle size={14} color="#ea580c" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, color: "#9a3412", lineHeight: 1.5 }}>
+                                Cần thêm <strong>{fmtVND(upgradeCost - (walletPoints ?? 0))}</strong> để nâng cấp. Vui lòng nạp thêm vào ví.
+                            </span>
+                        </div>
+                    )}
                 </div>
 
 
 
                 {/* Form */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                    {/* Tên shop */}
                     <div>
                         <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", letterSpacing: "0.5px", display: "block", marginBottom: 6 }}>
-                            TÊN SHOP
+                            TÊN SHOP <span style={{ color: "#ef4444" }}>*</span>
                         </label>
                         <input
                             className="modal-input"
-                            placeholder="Nhập tên shop của bạn"
+                            placeholder="Nhập tên shop của bạn (tối thiểu 3 ký tự)"
                             value={shopName}
                             maxLength={100}
                             disabled={isFormDisabled}
                             onChange={(e) => { setShopName(e.target.value); if (error) setError(""); }}
+                            style={{
+                                borderColor: shopName.length > 0
+                                    ? shopName.trim().length < 3 ? "#fca5a5" : "#86efac"
+                                    : undefined,
+                            }}
                         />
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{shopName.length}/100</div>
+                        <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            {shopName.length > 0 ? (
+                                shopName.trim().length < 3 ? (
+                                    <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600 }}>
+                                        ✗ Cần thêm {3 - shopName.trim().length} ký tự nữa (tối thiểu 3)
+                                    </span>
+                                ) : (
+                                    <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>✓ Đạt yêu cầu</span>
+                                )
+                            ) : (
+                                <span style={{ fontSize: 11, color: "#94a3b8" }}>Tối thiểu 3 ký tự</span>
+                            )}
+                            <span style={{ fontSize: 11, color: "#94a3b8" }}>{shopName.length}/100</span>
+                        </div>
                     </div>
 
+                    {/* Mô tả shop */}
                     <div>
                         <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", letterSpacing: "0.5px", display: "block", marginBottom: 6 }}>
-                            MÔ TẢ SHOP
+                            MÔ TẢ SHOP <span style={{ color: "#ef4444" }}>*</span>
                         </label>
                         <textarea
                             className="modal-input"
-                            placeholder="Mô tả ngắn về shop của bạn"
+                            placeholder="Mô tả ngắn về shop của bạn (tối thiểu 20 ký tự)"
                             value={shopDescription}
                             maxLength={500}
                             rows={4}
                             disabled={isFormDisabled}
                             onChange={(e) => { setShopDescription(e.target.value); if (error) setError(""); }}
-                            style={{ resize: "vertical", padding: "11px 14px" }}
+                            style={{
+                                resize: "vertical", padding: "11px 14px",
+                                borderColor: shopDescription.length > 0
+                                    ? shopDescription.trim().length < 20 ? "#fca5a5" : "#86efac"
+                                    : undefined,
+                            }}
                         />
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{shopDescription.length}/500</div>
-                    </div>
-
-                    <div>
-                        <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", letterSpacing: "0.5px", display: "block", marginBottom: 6 }}>
-                            NHẬP CÂU XÁC NHẬN
-                        </label>
-                        <input
-                            className="modal-input"
-                            placeholder="XAC NHAN NANG CAP SELLER"
-                            value={confirmPhrase}
-                            maxLength={50}
-                            disabled={isFormDisabled}
-                            onChange={(e) => { setConfirmPhrase(e.target.value); if (error) setError(""); }}
-                        />
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                            Bắt buộc nhập đúng: <strong>XAC NHAN NANG CAP SELLER</strong>
+                        {/* Progress bar */}
+                        <div style={{ marginTop: 6, marginBottom: 2, height: 4, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
+                            <div style={{
+                                height: "100%", borderRadius: 4,
+                                width: `${Math.min(100, (shopDescription.trim().length / 20) * 100)}%`,
+                                background: shopDescription.trim().length >= 20 ? "#10b981" : shopDescription.trim().length >= 10 ? "#f59e0b" : "#ef4444",
+                                transition: "width .2s, background .2s",
+                            }} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            {shopDescription.length > 0 ? (
+                                shopDescription.trim().length < 20 ? (
+                                    <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600 }}>
+                                        ✗ Cần thêm {20 - shopDescription.trim().length} ký tự nữa (tối thiểu 20)
+                                    </span>
+                                ) : (
+                                    <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>✓ Đạt yêu cầu</span>
+                                )
+                            ) : (
+                                <span style={{ fontSize: 11, color: "#94a3b8" }}>Tối thiểu 20 ký tự</span>
+                            )}
+                            <span style={{ fontSize: 11, color: "#94a3b8" }}>{shopDescription.length}/500</span>
                         </div>
                     </div>
 
@@ -311,6 +356,25 @@ export default function UpgradeToSellerModal({
                         </label>
                     </div>
                 </div>
+
+                {/* Checklist điều kiện khi chưa đủ */}
+                {!canSubmit && !error && !isFormDisabled && (
+                    <div style={{ background: "#f8faff", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6 }}>Cần hoàn thành để nâng cấp:</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {[
+                                { done: agreeToTerms,                 label: "Đồng ý điều khoản dịch vụ" },
+                                { done: acceptBusinessResponsibility, label: "Cam kết trách nhiệm kinh doanh" },
+                                { done: hasEnoughPoints,              label: "Số dư ví đủ để nâng cấp" },
+                            ].map((item, i) => (
+                                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ fontSize: 13, color: item.done ? "#10b981" : "#ef4444" }}>{item.done ? "✓" : "✗"}</span>
+                                    <span style={{ fontSize: 12, color: item.done ? "#64748b" : "#ef4444", fontWeight: item.done ? 400 : 500 }}>{item.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Error */}
                 {error && (

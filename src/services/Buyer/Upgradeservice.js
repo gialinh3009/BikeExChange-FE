@@ -21,22 +21,6 @@ export async function upgradeToSellerAPI(userId, payload) {
         throw new Error("User ID is required");
     }
 
-    if (!payload.shopName || !payload.shopName.trim()) {
-        throw new Error("Tên shop là bắt buộc");
-    }
-
-    if (!payload.shopDescription || !payload.shopDescription.trim()) {
-        throw new Error("Mô tả shop là bắt buộc");
-    }
-
-    if (payload.shopName.trim().length < 3 || payload.shopName.trim().length > 100) {
-        throw new Error("Tên shop phải từ 3 đến 100 ký tự");
-    }
-
-    if (payload.shopDescription.trim().length < 20 || payload.shopDescription.trim().length > 500) {
-        throw new Error("Mô tả shop phải từ 20 đến 500 ký tự");
-    }
-
     if (!payload.agreeToTerms) {
         throw new Error("Bạn phải đồng ý với điều khoản");
     }

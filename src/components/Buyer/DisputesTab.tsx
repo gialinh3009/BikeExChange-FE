@@ -212,7 +212,7 @@ export default function DisputesTab() {
                                 </div>
                                 <div>
                                     <p style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 3 }}>Trạng thái đơn</p>
-                                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{dispute.orderStatus === "REFUNDED" ? "Đã hoàn tiền" : dispute.orderStatus === "COMPLETED" ? "Hoàn thành" : dispute.orderStatus === "DISPUTED" ? "Tranh chấp" : dispute.orderStatus}</p>
+                                    <p style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{dispute.orderStatus === "REFUNDED" ? "Đã hoàn tiền" : dispute.orderStatus === "COMPLETED" ? "Đã hoàn thành" : dispute.orderStatus === "DISPUTED" ? "Tranh chấp" : dispute.orderStatus}</p>
                                 </div>
                             </div>
 

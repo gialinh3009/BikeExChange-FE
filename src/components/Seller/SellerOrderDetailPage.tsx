@@ -123,7 +123,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
     ACCEPTED:         { label: "Đã xác nhận",          color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Bạn đã xác nhận, chuẩn bị giao hàng" },
     SHIPPED:          { label: "Đang vận chuyển",      color: "#0ea5e9", bg: "#f0f9ff", icon: <Truck size={14} />,          desc: "Bạn đã gửi hàng cho đơn vị vận chuyển" },
     DELIVERED:        { label: "Đã giao hàng",         color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Bạn đã giao hàng, chờ buyer xác nhận" },
-    COMPLETED:        { label: "Hoàn thành",           color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về ví bạn" },
+    COMPLETED:        { label: "Đã hoàn thành",        color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về ví bạn" },
     CANCELLED:        { label: "Đã hủy",               color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Đơn hàng đã bị hủy" },
     REFUNDED:         { label: "Đã hoàn tiền",         color: "#10b981", bg: "#f0fdf4", icon: <RotateCcw size={14} />,      desc: "Tiền đã hoàn về buyer" },
     RETURN_REQUESTED: { label: "Yêu cầu hoàn hàng",   color: "#f59e0b", bg: "#fffbeb", icon: <RotateCcw size={14} />,      desc: "Buyer yêu cầu hoàn hàng, chờ bạn xác nhận" },
@@ -135,7 +135,7 @@ const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNod
     { status: "ACCEPTED",  label: "Seller xác nhận",    icon: <CheckCircle size={16} /> },
     { status: "SHIPPED",   label: "Đã gửi hàng",        icon: <Truck size={16} /> },
     { status: "DELIVERED", label: "Đã giao hàng",       icon: <Truck size={16} /> },
-    { status: "COMPLETED", label: "Hoàn thành",         icon: <CheckCircle size={16} /> },
+    { status: "COMPLETED", label: "Đã hoàn thành",      icon: <CheckCircle size={16} /> },
 ];
 
 function getStepIndex(status: OrderStatus): number {

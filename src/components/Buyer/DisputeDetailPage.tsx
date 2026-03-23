@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from "react";
 import {
     ChevronLeft, AlertTriangle, Clock, CheckCircle,
-    FileText, User, DollarSign, Calendar, RefreshCw,
+    FileText, User, DollarSign, Calendar, RefreshCw, XCircle,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getDisputeDetailAPI, getDisputeByOrderIdAPI } from "../../services/disputeService";
@@ -344,61 +344,6 @@ export default function DisputeDetailPage() {
                     </div>
                 )}
 
-                {/* ── Timeline ── */}
-                {detail.timeline && detail.timeline.length > 0 && (() => {
-                    const TIMELINE_LABELS: Record<string, string> = {
-                        ESCROWED: "Đơn hàng đã được tạo",
-                        ACCEPTED: "Seller đã xác nhận",
-                        DELIVERED: "Đang giao hàng",
-                        COMPLETED: "Hoàn thành",
-                        CANCELLED: "Đã hủy",
-                        REFUNDED: "Đã hoàn tiền",
-                        RETURN_REQUESTED: "Yêu cầu hoàn hàng",
-                        DISPUTED: "Mở đơn tranh chấp",
-                    };
-                    const TIMELINE_COLORS: Record<string, string> = {
-                        ESCROWED: "#3b82f6",
-                        ACCEPTED: "#8b5cf6",
-                        DELIVERED: "#f59e0b",
-                        COMPLETED: "#10b981",
-                        CANCELLED: "#ef4444",
-                        REFUNDED: "#10b981",
-                        RETURN_REQUESTED: "#f59e0b",
-                        DISPUTED: "#ef4444",
-                    };
-                    return (
-                        <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #e8ecf4", overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,.05)" }}>
-                            <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
-                                <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Trạng thái của đơn hàng</p>
-                            </div>
-
-                            <div style={{ padding: "16px 20px" }}>
-                                {detail.timeline!.map((evt, i) => {
-                                    const color = TIMELINE_COLORS[evt.status] ?? "#64748b";
-                                    const label = TIMELINE_LABELS[evt.status] ?? evt.status;
-                                    const isLast = i === detail.timeline!.length - 1;
-                                    return (
-                                        <div key={i} style={{ display: "flex", gap: 12 }}>
-                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                <div style={{ width: 30, height: 30, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", color: "white", flexShrink: 0 }}>
-                                                    {evt.status === "DISPUTED" ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
-                                                </div>
-                                                {!isLast && (
-                                                    <div style={{ width: 2, flex: 1, minHeight: 16, background: "#e8ecf4", marginTop: 4 }} />
-                                                )}
-                                            </div>
-                                            <div style={{ paddingBottom: isLast ? 0 : 12 }}>
-                                                <p style={{ fontSize: 13, fontWeight: 600, color, marginBottom: 1, lineHeight: "30px" }}>{label}</p>
-                                                {evt.note && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 1 }}>{evt.note}</p>}
-                                                <p style={{ fontSize: 11, color: "#94a3b8" }}>{fmtDateTime(evt.timestamp)}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })()}
             </div>
         </div>
     );

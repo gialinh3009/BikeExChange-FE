@@ -45,6 +45,7 @@ export default function ProfilePage() {
     const [saving,  setSaving]    = useState(false);
     const [toast,   setToast]     = useState<{ type: "success" | "error"; msg: string } | null>(null);
     const [confirmSave, setConfirmSave] = useState(false);
+    const [formErr,     setFormErr]     = useState("");
     const [form,    setForm]      = useState<EditForm>({ fullName: "", phone: "", address: "" });
     // Địa chỉ cascade
     const [provinces,   setProvinces]   = useState<{ code: number; name: string }[]>([]);
@@ -135,6 +136,23 @@ export default function ProfilePage() {
 
 
     const handleSave = () => {
+        setFormErr("");
+        if (!form.fullName.trim()) {
+            setFormErr("Họ và tên không được để trống.");
+            return;
+        }
+        if (!form.phone.trim()) {
+            setFormErr("Số điện thoại không được để trống.");
+            return;
+        }
+        if (!province || !district || !ward) {
+            setFormErr("Vui lòng chọn đầy đủ Tỉnh / Huyện / Xã.");
+            return;
+        }
+        if (!detail.trim()) {
+            setFormErr("Vui lòng nhập số nhà, tên đường.");
+            return;
+        }
         setConfirmSave(true);
     };
 
@@ -186,6 +204,7 @@ export default function ProfilePage() {
         if (profile) {
             setForm({ fullName: profile.fullName ?? "", phone: profile.phone ?? "", address: profile.address ?? "" });
         }
+        setFormErr("");
         setEditing(false);
     };
 
@@ -531,6 +550,19 @@ export default function ProfilePage() {
                                     }}>
                                         <AlertCircle size={13} color="#d97706"/>
                                         Chỉ có thể chỉnh sửa: Họ tên, Số điện thoại, Địa chỉ
+                                    </div>
+                                )}
+
+                                {/* Lỗi validation trước khi lưu */}
+                                {editing && formErr && (
+                                    <div style={{
+                                        padding: "10px 14px", background: "#fff1f2",
+                                        border: "1.5px solid #fecdd3", borderRadius: 9,
+                                        fontSize: 13, color: "#e11d48",
+                                        display: "flex", alignItems: "center", gap: 8,
+                                    }}>
+                                        <AlertCircle size={14} color="#e11d48" style={{ flexShrink: 0 }}/>
+                                        {formErr}
                                     </div>
                                 )}
                             </div>
