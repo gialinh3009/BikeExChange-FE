@@ -8,8 +8,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, CheckCircle, Truck, Clock, AlertCircle, RefreshCw, RotateCcw } from "lucide-react";
-import { confirmDeliveryAPI, confirmReturnAPI, getSellerSalesHistoryAPI } from "../../services/orderService";
+import { Package, CheckCircle, Truck, Clock, AlertCircle, RefreshCw, RotateCcw, X } from "lucide-react";
+import { confirmDeliveryAPI, confirmReturnAPI, getSellerSalesHistoryAPI, sellerCancelOrderAPI } from "../../services/orderService";
 import OrderApprovalModal from "./OrderApprovalModal";
 import OrderDeliveryForm from "./OrderDeliveryForm";
 
@@ -164,6 +164,19 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
     setActionOrderId(orderId);
     try {
       await confirmReturnAPI(orderId, token);
+      await fetchOrders();
+    } catch (e) {
+      alert(String(e instanceof Error ? e.message : e));
+    } finally {
+      setActionOrderId(null);
+    }
+  };
+
+  const handleSellerCancel = async (orderId: number) => {
+    if (!confirm("Bạn chắc chắn muốn hủy đơn hàng này? Tiền ký quỹ sẽ được hoàn lại cho người mua.")) return;
+    setActionOrderId(orderId);
+    try {
+      await sellerCancelOrderAPI(orderId, token);
       await fetchOrders();
     } catch (e) {
       alert(String(e instanceof Error ? e.message : e));
@@ -343,24 +356,49 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
                   {/* Right: Action button */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 140 }}>
                     {order.status === "ESCROWED" && (
-                      <button
-                        onClick={() => setApprovalModal({ open: true, order })}
-                        style={{
-                          padding: "10px 14px",
-                          background: "#2563eb",
-                          color: "white",
-                          border: "none",
-                          borderRadius: 8,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          transition: "opacity .2s",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-                        onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-                      >
-                        ✓ Xác nhận
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setApprovalModal({ open: true, order })}
+                          style={{
+                            padding: "10px 14px",
+                            background: "#2563eb",
+                            color: "white",
+                            border: "none",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            transition: "opacity .2s",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+                          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                        >
+                          ✓ Xác nhận
+                        </button>
+                        <button
+                          onClick={() => void handleSellerCancel(order.id)}
+                          disabled={actionOrderId === order.id}
+                          style={{
+                            padding: "10px 14px",
+                            background: actionOrderId === order.id ? "#94a3b8" : "#ef4444",
+                            color: "white",
+                            border: "none",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: actionOrderId === order.id ? "not-allowed" : "pointer",
+                            transition: "opacity .2s",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                          onMouseEnter={(e) => !actionOrderId && (e.currentTarget.style.opacity = "0.85")}
+                          onMouseLeave={(e) => !actionOrderId && (e.currentTarget.style.opacity = "1")}
+                        >
+                          <X size={13} /> {actionOrderId === order.id ? "Đang xử lý..." : "Hủy"}
+                        </button>
+                      </>
                     )}
 
                     {order.status === "ACCEPTED" && (
