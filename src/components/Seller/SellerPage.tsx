@@ -11,6 +11,7 @@ import WalletTab from "./WalletTab";
 import SellerOrdersTab from "./SellerOrdersTab";
 import SellerDisputesTab from "./SellerDisputesTab";
 import SellerSalesHistoryTab from "./SellerSalesHistoryTab";
+import SellerTransactionHistoryTab from "./SellerTransactionHistoryTab";
 import BikeDetailModal from "./BikeDetailModal";
 import EditBikeModal from "./EditBikeModal";
 import DeleteBikeModal from "./DeleteBikeModal";
@@ -38,7 +39,7 @@ type BikeBrowseItem = {
 
 type BikeItem = BikeBrowseItem;
 
-type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders" | "disputes" | "history";
+type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders" | "disputes" | "history" | "transactions";
 
 type InspectionDetail = {
     inspection?: unknown;
@@ -308,6 +309,7 @@ export default function SellerPage() {
                             { key: "inspection", label: "Kiểm định", icon: "✓" },
                             { key: "orders", label: "Đơn hàng", icon: "📦" },
                             { key: "history", label: "Lịch sử bán hàng", icon: "📊" },
+                            { key: "transactions", label: "Giao dịch", icon: "💳" },
                             { key: "disputes", label: "Tranh chấp", icon: "⚠️" },
                             { key: "wallet", label: "Ví", icon: "💰" },
                         ].map((t) => (
@@ -388,6 +390,11 @@ export default function SellerPage() {
                 {/* HISTORY TAB */}
                 {tab === "history" && (
                     <SellerSalesHistoryTab token={token} />
+                )}
+
+                {/* TRANSACTIONS TAB */}
+                {tab === "transactions" && (
+                    <SellerTransactionHistoryTab token={token} />
                 )}
 
                 {/* WALLET TAB */}
