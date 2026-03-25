@@ -35,3 +35,28 @@ export async function getWalletTransactionsAPI(token) {
   }
   return data.data ?? data;
 }
+
+// GET /wallet/combos — danh sách gói combo tin đăng
+export async function getCombosAPI(token) {
+  const res = await fetch(`${BASE_URL}/wallet/combos`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách combo thất bại.");
+  }
+  return data.data ?? data;
+}
+
+// POST /wallet/buy-combo/{comboId} — mua gói combo tin đăng
+export async function buyComboAPI(comboId, token) {
+  const res = await fetch(`${BASE_URL}/wallet/buy-combo/${comboId}`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Mua combo thất bại.");
+  }
+  return data.data ?? data;
+}

@@ -55,9 +55,11 @@ type PageResponse<T> = {
 type WalletLike = {
     availablePoints?: number;
     frozenPoints?: number;
+    remainingFreePosts?: number;
     data?: {
         availablePoints?: number;
         frozenPoints?: number;
+        remainingFreePosts?: number;
     };
 };
 

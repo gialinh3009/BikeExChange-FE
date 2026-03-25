@@ -1,13 +1,22 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getWalletAPI, getWalletTransactionsAPI } from "../../services/Seller/walletService";
+import { getWalletAPI, getWalletTransactionsAPI, getCombosAPI, buyComboAPI } from "../../services/Seller/walletService";
 import { getBikeDetailAPI } from "../../services/bikeService";
 import { BASE_URL } from "../../config/apiConfig";
 
 type WalletLike = {
     availablePoints?: number;
     frozenPoints?: number;
-    data?: { availablePoints?: number; frozenPoints?: number };
+    remainingFreePosts?: number;
+    data?: { availablePoints?: number; frozenPoints?: number; remainingFreePosts?: number };
+};
+
+type Combo = {
+    id: number;
+    name: string;
+    pointsCost: number;
+    postLimit: number;
+    isActive: boolean;
 };
 
 type Transaction = {
@@ -66,6 +75,13 @@ export default function WalletTab({ token }: WalletTabProps) {
     const [transLoading, setTransLoading] = useState(false);
     const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
 
+    // Combo state
+    const [combos, setCombos] = useState<Combo[]>([]);
+    const [combosLoading, setCombosLoading] = useState(false);
+    const [buyingComboId, setBuyingComboId] = useState<number | null>(null);
+    const [comboError, setComboError] = useState<string | null>(null);
+    const [comboSuccess, setComboSuccess] = useState<string | null>(null);
+
     const refreshWallet = async () => {
         try {
             setWalletLoading(true);
@@ -74,9 +90,37 @@ export default function WalletTab({ token }: WalletTabProps) {
             setWallet(w as WalletLike);
         } catch (e) {
             setWalletError((e as Error).message || "Không thể tải ví.");
-            setWallet({ availablePoints: 0, frozenPoints: 0 });
+            setWallet({ availablePoints: 0, frozenPoints: 0, remainingFreePosts: 0 });
         } finally {
             setWalletLoading(false);
+        }
+    };
+
+    const refreshCombos = useCallback(async () => {
+        try {
+            setCombosLoading(true);
+            const data = await getCombosAPI(token);
+            setCombos(Array.isArray(data) ? data : []);
+        } catch {
+            setCombos([]);
+        } finally {
+            setCombosLoading(false);
+        }
+    }, [token]);
+
+    const handleBuyCombo = async (combo: Combo) => {
+        setComboError(null);
+        setComboSuccess(null);
+        setBuyingComboId(combo.id);
+        try {
+            await buyComboAPI(combo.id, token);
+            setComboSuccess(`Mua thành công gói "${combo.name}"! Đã thêm ${combo.postLimit} lượt đăng vào tài khoản.`);
+            await refreshWallet();
+            await refreshCombos();
+        } catch (e) {
+            setComboError((e as Error).message || "Mua combo thất bại.");
+        } finally {
+            setBuyingComboId(null);
         }
     };
 
@@ -166,11 +210,13 @@ export default function WalletTab({ token }: WalletTabProps) {
     useEffect(() => {
         void refreshWallet();
         void refreshTransactions();
+        void refreshCombos();
     }, [token]);
 
     const availablePoints = wallet?.availablePoints ?? wallet?.data?.availablePoints ?? 0;
     const frozenPoints = wallet?.frozenPoints ?? wallet?.data?.frozenPoints ?? 0;
     const totalPoints = availablePoints + frozenPoints;
+    const remainingFreePosts = wallet?.remainingFreePosts ?? wallet?.data?.remainingFreePosts ?? 0;
 
     const isIncome = (trans: Transaction) => {
         const t = String(trans.type || "").toUpperCase();
@@ -212,7 +258,7 @@ export default function WalletTab({ token }: WalletTabProps) {
                     {walletError && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{walletError}</div>}
                     {walletLoading && <div className="text-sm text-gray-500">Đang tải...</div>}
                     {!walletLoading && wallet && (
-                        <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="rounded-2xl border border-gray-200 p-4 bg-gradient-to-br from-emerald-50 to-emerald-100/50">
                                 <div className="text-xs text-emerald-600 font-semibold uppercase tracking-wide mb-1">Tiền khả dụng</div>
                                 <div className="text-3xl font-extrabold text-emerald-900">{availablePoints.toLocaleString("vi-VN")}</div>
@@ -227,6 +273,11 @@ export default function WalletTab({ token }: WalletTabProps) {
                                 <div className="text-xs text-blue-600 font-semibold uppercase tracking-wide mb-1">Tổng tiền</div>
                                 <div className="text-3xl font-extrabold text-blue-900">{totalPoints.toLocaleString("vi-VN")}</div>
                                 <div className="text-xs text-blue-600 mt-1">VND</div>
+                            </div>
+                            <div className="rounded-2xl border border-gray-200 p-4 bg-gradient-to-br from-purple-50 to-purple-100/50">
+                                <div className="text-xs text-purple-600 font-semibold uppercase tracking-wide mb-1">Lượt đăng còn lại</div>
+                                <div className="text-3xl font-extrabold text-purple-900">{remainingFreePosts}</div>
+                                <div className="text-xs text-purple-600 mt-1">bài đăng</div>
                             </div>
                         </div>
                     )}
@@ -263,6 +314,78 @@ export default function WalletTab({ token }: WalletTabProps) {
                             </button>
                         ))}
                     </div>
+                </div>
+            </div>
+
+            {/* Combo Section */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+                    <div>
+                        <h2 className="font-bold text-gray-900 text-lg">Gói combo tin đăng</h2>
+                        <p className="text-sm text-gray-500 mt-0.5">Mua gói để tiết kiệm phí đăng bài</p>
+                    </div>
+                    <button type="button" onClick={() => void refreshCombos()}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+                        Làm mới
+                    </button>
+                </div>
+                <div className="p-6">
+                    {comboSuccess && (
+                        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
+                            <span>✓</span> {comboSuccess}
+                        </div>
+                    )}
+                    {comboError && (
+                        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+                            <span>✕</span> {comboError}
+                        </div>
+                    )}
+                    {combosLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+                            Đang tải gói combo...
+                        </div>
+                    ) : combos.length === 0 ? (
+                        <div className="py-8 text-center text-sm text-gray-500">Hiện chưa có gói combo nào.</div>
+                    ) : (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {combos.map((combo) => {
+                                const canAfford = availablePoints >= combo.pointsCost;
+                                const isBuying = buyingComboId === combo.id;
+                                return (
+                                    <div key={combo.id}
+                                        className="rounded-2xl border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-white p-5 flex flex-col gap-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <div className="font-bold text-gray-900 text-base">🎟 {combo.name}</div>
+                                                <div className="text-xs text-gray-500 mt-0.5">{combo.postLimit} lượt đăng tin</div>
+                                            </div>
+                                            <div className="text-right flex-shrink-0">
+                                                <div className="text-lg font-extrabold text-purple-700">
+                                                    {combo.pointsCost.toLocaleString("vi-VN")}
+                                                </div>
+                                                <div className="text-xs text-purple-500">VND</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            ≈ {Math.round(combo.pointsCost / combo.postLimit).toLocaleString("vi-VN")} VND / bài
+                                        </div>
+                                        <button
+                                            onClick={() => void handleBuyCombo(combo)}
+                                            disabled={!canAfford || isBuying}
+                                            className={`w-full rounded-xl py-2.5 text-sm font-semibold transition ${
+                                                canAfford && !isBuying
+                                                    ? "bg-purple-600 hover:bg-purple-700 text-white"
+                                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                            }`}
+                                        >
+                                            {isBuying ? "Đang xử lý..." : canAfford ? "Mua ngay" : "Không đủ tiền"}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
