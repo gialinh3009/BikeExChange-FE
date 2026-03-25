@@ -67,6 +67,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   // Modals
   const [approvalModal, setApprovalModal] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
   const [deliveryModal, setDeliveryModal] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
+  const [shippingNotice, setShippingNotice] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
 
   const fetchOrders = useCallback(async () => {
     console.log("🔄 Starting fetchOrders, token:", token ? "✓ Present" : "✗ Missing");
@@ -403,7 +404,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
 
                     {order.status === "ACCEPTED" && (
                       <button
-                        onClick={() => setDeliveryModal({ open: true, order })}
+                        onClick={() => setShippingNotice({ open: true, order })}
                         style={{
                           padding: "10px 14px",
                           background: "#10b981",
@@ -518,6 +519,89 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
         onClose={() => setDeliveryModal({ open: false, order: null })}
         onSuccess={handleDeliverySuccess}
       />
+
+      {/* Shipping Notice Modal */}
+      {shippingNotice.open && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+        }}>
+          <div style={{
+            background: "white", borderRadius: 16, maxWidth: 480, width: "90%",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.15)", overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>📦</span>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0f172a" }}>
+                  Lưu ý về phí vận chuyển
+                </h3>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "20px 24px" }}>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, marginBottom: 16 }}>
+                Người bán và người mua vui lòng <strong>chủ động thương lượng phí vận chuyển</strong> trước khi tiến hành giao dịch.
+              </p>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, marginBottom: 12 }}>
+                BikeExchange không tham gia tính toán hoặc thu hộ phí vận chuyển. Nền tảng chỉ hỗ trợ:
+              </p>
+              <ul style={{ margin: "0 0 16px 0", paddingLeft: 20, fontSize: 14, color: "#374151", lineHeight: 2 }}>
+                <li>Cung cấp đơn vị vận chuyển</li>
+                <li>Cung cấp mã vận đơn</li>
+              </ul>
+              <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6, marginBottom: 0 }}>
+                nhằm giúp người dùng dễ dàng theo dõi trạng thái đơn hàng.
+              </p>
+              <div style={{
+                marginTop: 16, padding: "12px 14px", background: "#fef3c7",
+                borderRadius: 10, border: "1px solid #fcd34d",
+              }}>
+                <p style={{ margin: 0, fontSize: 13, color: "#92400e", lineHeight: 1.6 }}>
+                  👉 Vì vậy, hãy thống nhất rõ ràng chi phí vận chuyển giữa hai bên để tránh phát sinh vấn đề không mong muốn.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{
+              display: "flex", gap: 12, padding: "16px 24px 20px",
+              borderTop: "1px solid #e5e7eb",
+            }}>
+              <button
+                onClick={() => setShippingNotice({ open: false, order: null })}
+                style={{
+                  flex: 1, padding: "11px 16px", background: "#f1f5f9",
+                  color: "#374151", border: "none", borderRadius: 9,
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#e2e8f0")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+              >
+                Đã hiểu
+              </button>
+              <button
+                onClick={() => {
+                  const order = shippingNotice.order;
+                  setShippingNotice({ open: false, order: null });
+                  setDeliveryModal({ open: true, order });
+                }}
+                style={{
+                  flex: 1, padding: "11px 16px", background: "#10b981",
+                  color: "white", border: "none", borderRadius: 9,
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#059669")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#10b981")}
+              >
+                🚚 Đã xác nhận với người mua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

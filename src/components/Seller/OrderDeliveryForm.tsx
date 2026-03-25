@@ -1,10 +1,3 @@
-/**
- * OrderDeliveryForm.tsx
- * 
- * Modal form for seller to mark order as delivered
- * Calls: POST /orders/{id}/deliver with shipping info
- */
-
 import { useState, useEffect } from "react";
 import { X, Truck, AlertCircle } from "lucide-react";
 import { BASE_URL } from "../../config/apiConfig";
@@ -29,18 +22,30 @@ interface OrderDeliveryFormProps {
 const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
 const SHIPPING_CARRIERS = [
-  { value: "GHN", label: "Giao Hàng Nhanh (GHN)" },
-  { value: "GHTK", label: "Giao Hàng Tiết Kiệm (GHTK)" },
-  { value: "VTP", label: "Viettel Post (VTP)" },
-  { value: "J&T", label: "J&T Express" },
+  { value: "GHN", label: "GHN (Giao Hàng Nhanh)" },
+  { value: "GHTK", label: "GHTK (Giao Hàng Tiết Kiệm)" },
+  { value: "VTP", label: "Viettel Post" },
+  { value: "VNPOST", label: "VNPost (Bưu điện Việt Nam)" },
+  { value: "JT", label: "J&T Express" },
+  { value: "SPX", label: "Shopee Express (SPX)" },
+  { value: "NV", label: "Ninja Van" },
+  { value: "AHAMOVE", label: "AhaMove" },
+  { value: "LALAMOVE", label: "Lalamove" },
+  { value: "GRAB", label: "GrabExpress" },
   { value: "OTHER", label: "Khác" },
 ];
 
 const TRACKING_HINTS: Record<string, string> = {
-  GHN: "GHN + 8-20 ký tự chữ/số (VD: GHN12345678)",
-  GHTK: "GHTK + 6-20 ký tự hoặc S + 8-20 số (VD: GHTK123456 hoặc S12345678)",
-  VTP: "VTP + 6-20 ký tự chữ/số (VD: VTP123456)",
-  "J&T": "JT/JNT + 8-20 ký tự chữ/số (VD: JT12345678)",
+  GHN: "GHN + 8-13 ký tự số (VD: GHN12345678)",
+  GHTK: "S + 8-20 ký tự số hoặc chuỗi phức tạp (VD: S12345678 hoặc S.MB.A.123456)",
+  VTP: "VTP + 9-12 ký tự số (VD: VTP123456789)",
+  VNPOST: "E/R + 9 ký tự số + VN (VD: E123456789VN)",
+  JT: "JT + 8-12 ký tự số (VD: JT12345678)",
+  SPX: "SPX + 8-15 ký tự chữ/số (VD: SPXVN123456)",
+  NV: "NV + 8-13 ký tự số (VD: NV12345678)",
+  AHAMOVE: "10-13 ký tự chữ/số (VD: AHA123456789)",
+  LALAMOVE: "10-13 ký tự chữ/số (VD: LALA123456789)",
+  GRAB: "10-13 ký tự chữ/số (VD: GRAB123456789)",
 };
 
 function validateTrackingCodeByCarrier(carrier: string, trackingCode: string): string | null {
@@ -56,17 +61,23 @@ function validateTrackingCodeByCarrier(carrier: string, trackingCode: string): s
   }
 
   const patterns: Record<string, RegExp> = {
-    GHN: /^GHN[0-9A-Z]{8,20}$/,
-    GHTK: /^(GHTK[0-9A-Z]{6,20}|S[0-9]{8,20})$/,
-    VTP: /^VTP[0-9A-Z]{6,20}$/,
-    "J&T": /^(JT[0-9A-Z]{8,20}|JNT[0-9A-Z]{8,20})$/,
+    GHN: /^GHN[0-9]{8,13}$/,
+    GHTK: /^[A-Z0-9\.]{8,25}$/,
+    VTP: /^(VTP|VT)?[0-9]{9,12}$/,
+    VNPOST: /^[A-Z]{1}[0-9]{9}VN$/,
+    JT: /^(JT)?[0-9]{8,12}$/,
+    SPX: /^SPX[A-Z0-9]{8,15}$/,
+    NV: /^[A-Z]{2}[0-9]{8,13}$/,
+    AHAMOVE: /^[A-Z0-9]{10,13}$/,
+    LALAMOVE: /^[A-Z0-9]{10,13}$/,
+    GRAB: /^[A-Z0-9]{10,13}$/,
   };
 
   const pattern = patterns[normalizedCarrier];
   if (!pattern) return null;
 
   if (!pattern.test(normalizedCode)) {
-    return `Mã vận đơn không đúng định dạng của ${normalizedCarrier}.`;
+    return `Mã vận đơn không đúng định dạng của ${normalizedCarrier}. ${TRACKING_HINTS[normalizedCarrier] || ""}`;
   }
 
   return null;
@@ -97,7 +108,6 @@ export default function OrderDeliveryForm({
   const handleDeliver = async () => {
     if (!order) return;
 
-    // Validation
     if (!form.shippingCarrier.trim()) {
       setError("Vui lòng chọn đơn vị vận chuyển");
       return;
@@ -140,49 +150,46 @@ export default function OrderDeliveryForm({
     <div style={{
       position: "fixed",
       inset: 0,
-      background: "rgba(0,0,0,.5)",
+      background: "rgba(0,0,0,0.5)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       zIndex: 1000,
-      fontFamily: "'DM Sans',sans-serif",
     }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
-        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        .modal-content { animation: slideUp .3s ease; }
-        input, select {
-          font-family: inherit;
-          font-size: 13px;
-        }
-        input:focus, select:focus {
-          outline: none;
-          border-color: #2563eb !important;
-          box-shadow: 0 0 0 3px #dbeafe;
-        }
-      `}</style>
-
-      <div
-        className="modal-content"
-        style={{
-          background: "white",
-          borderRadius: 18,
-          border: "1.5px solid #e8ecf4",
-          padding: 28,
-          maxWidth: 480,
-          width: "90%",
-          boxShadow: "0 20px 60px rgba(0,0,0,.15)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-      >
+      <div style={{
+        background: "white",
+        borderRadius: 16,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+        maxWidth: 500,
+        width: "90%",
+        maxHeight: "90vh",
+        overflowY: "auto",
+      }}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", color: "#10b981" }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "20px 24px",
+          borderBottom: "1px solid #e5e7eb",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: "#dcfce7",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#16a34a",
+            }}>
               <Truck size={20} />
             </div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>Đánh dấu đã giao hàng</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1f2937", margin: 0 }}>
+              Đánh dấu đã giao hàng
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -190,7 +197,7 @@ export default function OrderDeliveryForm({
             style={{
               background: "none",
               border: "none",
-              color: "#94a3b8",
+              color: "#9ca3af",
               cursor: loading ? "not-allowed" : "pointer",
               padding: 4,
               display: "flex",
@@ -203,30 +210,40 @@ export default function OrderDeliveryForm({
           </button>
         </div>
 
-        {/* Order summary */}
-        <div style={{ background: "#f8faff", borderRadius: 12, padding: 14, marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
+        {/* Order Info */}
+        <div style={{
+          padding: "20px 24px",
+          background: "#eff6ff",
+          borderBottom: "1px solid #e5e7eb",
+        }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 14 }}>
             <div>
-              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Xe đạp</p>
-              <p style={{ fontWeight: 700, color: "#0f172a" }}>{order.bikeTitle}</p>
+              <p style={{ color: "#6b7280", marginBottom: 4, fontSize: 12 }}>Xe đạp</p>
+              <p style={{ fontWeight: 600, color: "#1f2937" }}>{order.bikeTitle}</p>
             </div>
             <div>
-              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Người mua</p>
-              <p style={{ fontWeight: 700, color: "#0f172a" }}>{order.buyerName}</p>
+              <p style={{ color: "#6b7280", marginBottom: 4, fontSize: 12 }}>Người mua</p>
+              <p style={{ fontWeight: 600, color: "#1f2937" }}>{order.buyerName}</p>
             </div>
             <div>
-              <p style={{ color: "#94a3b8", marginBottom: 4 }}>Số tiền</p>
+              <p style={{ color: "#6b7280", marginBottom: 4, fontSize: 12 }}>Số tiền</p>
               <p style={{ fontWeight: 700, color: "#2563eb" }}>{fmtMoney(order.amountPoints)}</p>
             </div>
           </div>
         </div>
 
         {/* Form */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
-          {/* Shipping carrier */}
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
-              Đơn vị vận chuyển <span style={{ color: "#ef4444" }}>*</span>
+        <div style={{ padding: "24px" }}>
+          {/* Shipping Carrier */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#1f2937",
+              marginBottom: 8,
+            }}>
+              Đơn vị vận chuyển <span style={{ color: "#dc2626" }}>*</span>
             </label>
             <select
               value={form.shippingCarrier}
@@ -235,13 +252,14 @@ export default function OrderDeliveryForm({
               style={{
                 width: "100%",
                 padding: "10px 12px",
-                border: "1.5px solid #e8ecf4",
+                border: "1px solid #d1d5db",
                 borderRadius: 8,
                 background: "white",
-                color: "#0f172a",
+                color: "#1f2937",
+                fontSize: 14,
                 cursor: loading ? "not-allowed" : "pointer",
                 opacity: loading ? 0.6 : 1,
-                transition: "all .2s",
+                fontFamily: "inherit",
               }}
             >
               <option value="">-- Chọn đơn vị vận chuyển --</option>
@@ -251,36 +269,49 @@ export default function OrderDeliveryForm({
             </select>
           </div>
 
-          {/* Tracking code */}
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
-              Mã vận đơn {form.shippingCarrier && form.shippingCarrier !== "OTHER" ? <span style={{ color: "#ef4444" }}>*</span> : "(tuỳ chọn)"}
+          {/* Tracking Code */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#1f2937",
+              marginBottom: 8,
+            }}>
+              Mã vận đơn {form.shippingCarrier && form.shippingCarrier !== "OTHER" ? <span style={{ color: "#dc2626" }}>*</span> : <span style={{ color: "#9ca3af", fontWeight: 400 }}>(tuỳ chọn)</span>}
             </label>
             <input
               type="text"
-              placeholder="VD: 123456789"
+              placeholder="VD: GHN12345678"
               value={form.trackingCode}
               onChange={(e) => setForm(p => ({ ...p, trackingCode: e.target.value }))}
               disabled={loading}
               style={{
                 width: "100%",
                 padding: "10px 12px",
-                border: "1.5px solid #e8ecf4",
+                border: "1px solid #d1d5db",
                 borderRadius: 8,
                 background: "white",
-                color: "#0f172a",
+                color: "#1f2937",
+                fontSize: 14,
                 opacity: loading ? 0.6 : 1,
-                transition: "all .2s",
+                fontFamily: "inherit",
               }}
             />
-            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>
               {TRACKING_HINTS[form.shippingCarrier] || "Mã vận đơn để buyer theo dõi hàng"}
             </p>
           </div>
 
-          {/* Shipping note */}
-          <div>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+          {/* Shipping Note */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: "block",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#1f2937",
+              marginBottom: 8,
+            }}>
               Ghi chú (tuỳ chọn)
             </label>
             <textarea
@@ -291,56 +322,75 @@ export default function OrderDeliveryForm({
               style={{
                 width: "100%",
                 padding: "10px 12px",
-                border: "1.5px solid #e8ecf4",
+                border: "1px solid #d1d5db",
                 borderRadius: 8,
                 background: "white",
-                color: "#0f172a",
-                fontFamily: "inherit",
-                fontSize: 13,
+                color: "#1f2937",
+                fontSize: 14,
                 minHeight: 80,
                 resize: "vertical",
                 opacity: loading ? 0.6 : 1,
-                transition: "all .2s",
+                fontFamily: "inherit",
               }}
             />
           </div>
-        </div>
 
-        {/* Info message */}
-        <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 10, padding: 12, marginBottom: 20, display: "flex", gap: 10 }}>
-          <AlertCircle size={16} style={{ color: "#d97706", flexShrink: 0, marginTop: 2 }} />
-          <p style={{ fontSize: 12, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
-            Sau khi giao hàng, buyer sẽ có 14 ngày để xác nhận nhận hàng. Tiền sẽ được giải phóng tự động nếu buyer không xác nhận.
-          </p>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: 12, marginBottom: 20 }}>
-            <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{error}</p>
+          {/* Info Message */}
+          <div style={{
+            background: "#fef3c7",
+            border: "1px solid #fcd34d",
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 20,
+            display: "flex",
+            gap: 10,
+          }}>
+            <AlertCircle size={16} style={{ color: "#d97706", flexShrink: 0, marginTop: 2 }} />
+            <p style={{ fontSize: 12, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
+              Sau khi giao hàng, buyer sẽ có 14 ngày để xác nhận nhận hàng. Tiền sẽ được giải phóng tự động nếu buyer không xác nhận.
+            </p>
           </div>
-        )}
+
+          {/* Error */}
+          {error && (
+            <div style={{
+              background: "#fee2e2",
+              border: "1px solid #fecaca",
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 20,
+            }}>
+              <p style={{ fontSize: 13, color: "#dc2626", margin: 0 }}>{error}</p>
+            </div>
+          )}
+        </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{
+          display: "flex",
+          gap: 12,
+          padding: "20px 24px",
+          borderTop: "1px solid #e5e7eb",
+          background: "#f9fafb",
+        }}>
           <button
             onClick={onClose}
             disabled={loading}
             style={{
               flex: 1,
-              padding: "12px 16px",
-              background: "#f1f5f9",
-              color: "#0f172a",
+              padding: "10px 16px",
+              background: "#e5e7eb",
+              color: "#1f2937",
               border: "none",
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 700,
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
-              transition: "all .2s",
               opacity: loading ? 0.5 : 1,
+              transition: "background 0.2s",
             }}
-            onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "#e2e8f0")}
-            onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "#f1f5f9")}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "#d1d5db")}
+            onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "#e5e7eb")}
           >
             Hủy
           </button>
@@ -349,26 +399,33 @@ export default function OrderDeliveryForm({
             disabled={loading}
             style={{
               flex: 1,
-              padding: "12px 16px",
-              background: loading ? "#cbd5e1" : "#10b981",
+              padding: "10px 16px",
+              background: loading ? "#cbd5e1" : "#16a34a",
               color: "white",
               border: "none",
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 700,
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
-              transition: "all .2s",
+              transition: "background 0.2s",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 6,
+              gap: 8,
             }}
-            onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "#059669")}
-            onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "#10b981")}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.background = "#15803d")}
+            onMouseLeave={(e) => !loading && (e.currentTarget.style.background = "#16a34a")}
           >
             {loading ? (
               <>
-                <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,.3)", borderTopColor: "white", animation: "spin .8s linear infinite" }} />
+                <div style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  borderTopColor: "white",
+                  animation: "spin 0.8s linear infinite",
+                }} />
                 Đang xử lý...
               </>
             ) : (
@@ -382,7 +439,9 @@ export default function OrderDeliveryForm({
       </div>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
       `}</style>
     </div>
   );
