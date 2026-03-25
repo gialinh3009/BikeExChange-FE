@@ -25,8 +25,13 @@ export async function getWalletAPI(token) {
 }
 
 // Get wallet transactions
-export async function getWalletTransactionsAPI(token) {
-  const res = await fetch(`${BASE_URL}/wallet/transactions`, {
+export async function getWalletTransactionsAPI(token, userId) {
+  const params = new URLSearchParams();
+  if (userId != null) params.append("userId", userId);
+  const url = params.toString()
+    ? `${BASE_URL}/wallet/transactions?${params.toString()}`
+    : `${BASE_URL}/wallet/transactions`;
+  const res = await fetch(url, {
     headers: authHeader(token),
   });
   const data = await res.json();
