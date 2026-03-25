@@ -1,4 +1,6 @@
 import { Bike, Clock, ShieldCheck, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getInspectionFeeAPI } from "../../services/settingsService";
 
 type BikeItem = {
     id: number;
@@ -35,6 +37,13 @@ export default function InspectionTab({
     onViewBikeDetail,
     canRequestInspection,
 }: InspectionTabProps) {
+    const [inspectionFee, setInspectionFee] = useState<number | null>(null);
+
+    useEffect(() => {
+        getInspectionFeeAPI()
+            .then(setInspectionFee)
+            .catch(() => setInspectionFee(null));
+    }, []);
     const filteredBikes = bikes.filter((bike) => {
         const status = (bike?.inspectionStatus ?? "").toUpperCase();
         if (inspectionFilter === "approved") {
@@ -54,6 +63,11 @@ export default function InspectionTab({
                         <h2 className="font-bold text-gray-900 text-lg">Kiểm định xe đạp</h2>
                         <p className="text-sm text-gray-500 mt-0.5">
                             Quản lý trạng thái kiểm định của các xe đạp đã đăng bán
+                            {inspectionFee !== null && (
+                                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                    Phí: {inspectionFee.toLocaleString("vi-VN")} VND
+                                </span>
+                            )}
                         </p>
                     </div>
                     <button
