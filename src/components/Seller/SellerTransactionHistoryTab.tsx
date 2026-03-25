@@ -27,6 +27,7 @@ type FilterKey = "all" | "income" | "expense";
 
 interface SellerTransactionHistoryTabProps {
   token: string;
+  userId?: number;
 }
 
 const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} VND`;
@@ -64,7 +65,7 @@ function isIncomeType(type?: string): boolean {
   return t === "EARN" || t === "DEPOSIT" || t === "REFUND" || t === "INCOME";
 }
 
-export default function SellerTransactionHistoryTab({ token }: SellerTransactionHistoryTabProps) {
+export default function SellerTransactionHistoryTab({ token, userId }: SellerTransactionHistoryTabProps) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterKey>("all");
   const [loading, setLoading] = useState(false);
@@ -139,7 +140,7 @@ export default function SellerTransactionHistoryTab({ token }: SellerTransaction
     setLoading(true);
     setError("");
     try {
-      const res = await getWalletTransactionsAPI(token);
+      const res = await getWalletTransactionsAPI(token, userId);
       const raw: RawTransaction[] = Array.isArray(res) ? res : (res?.data || []);
       const enriched = await Promise.all(raw.map(t => enrichTransaction(t)));
       setTransactions(enriched);

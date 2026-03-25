@@ -396,11 +396,11 @@ export default function SellerPage() {
 
                 {/* TRANSACTIONS TAB */}
                 {tab === "transactions" && (
-                    <SellerTransactionHistoryTab token={token} />
+                    <SellerTransactionHistoryTab token={token} userId={user?.id} />
                 )}
 
                 {/* WALLET TAB */}
-                {tab === "wallet" && <WalletTab token={token} />}
+                {tab === "wallet" && <WalletTab token={token} userId={user?.id} />}
             </main>
 
             {/* Bike detail modal */}

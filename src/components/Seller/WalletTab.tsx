@@ -39,6 +39,7 @@ type EnrichedTransaction = Transaction & {
 
 interface WalletTabProps {
     token: string;
+    userId?: number;
 }
 
 // "Buyer confirmed receipt for Order: 98" → 98
@@ -66,7 +67,7 @@ function parseBikeIdFromRef(ref?: string): number | null {
     return null;
 }
 
-export default function WalletTab({ token }: WalletTabProps) {
+export default function WalletTab({ token, userId }: WalletTabProps) {
     const navigate = useNavigate();
     const [walletLoading, setWalletLoading] = useState(false);
     const [walletError, setWalletError] = useState<string | null>(null);
@@ -195,7 +196,7 @@ export default function WalletTab({ token }: WalletTabProps) {
     const refreshTransactions = useCallback(async () => {
         try {
             setTransLoading(true);
-            const res = await getWalletTransactionsAPI(token);
+            const res = await getWalletTransactionsAPI(token, userId);
             const raw: Transaction[] = Array.isArray(res) ? res : (res?.data || []);
             // Enrich all transactions in parallel
             const enriched = await Promise.all(raw.map(t => enrichTransaction(t)));
