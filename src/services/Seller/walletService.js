@@ -7,16 +7,14 @@ function authHeader(token) {
   };
 }
 
-// Get wallet information
+// GET /wallet → { availablePoints, frozenPoints, remainingFreePosts }
 export async function getWalletAPI(token) {
   const res = await fetch(`${BASE_URL}/wallet`, {
     headers: authHeader(token),
   });
-
   if (res.status === 403 || res.status === 404) {
-    return { availablePoints: 0, frozenPoints: 0 };
+    return { availablePoints: 0, frozenPoints: 0, remainingFreePosts: 0 };
   }
-
   const data = await res.json();
   if (!res.ok || data.success === false) {
     throw new Error(data.message || "Lấy thông tin ví thất bại.");
@@ -24,24 +22,27 @@ export async function getWalletAPI(token) {
   return data.data ?? data;
 }
 
-// Get wallet transactions
+// GET /wallet/transactions?userId=X
+// Returns { data: PointTransactionDto[], summary: { totalCount, totalAmount, byType } }
 export async function getWalletTransactionsAPI(token, userId) {
   const params = new URLSearchParams();
-  if (userId != null) params.append("userId", userId);
+  if (userId != null) params.append("userId", String(userId));
   const url = params.toString()
     ? `${BASE_URL}/wallet/transactions?${params.toString()}`
     : `${BASE_URL}/wallet/transactions`;
-  const res = await fetch(url, {
-    headers: authHeader(token),
-  });
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || "Lấy lịch sử giao dịch thất bại.");
+  const res = await fetch(url, { headers: authHeader(token) });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    throw new Error(json.message || "Lấy lịch sử giao dịch thất bại.");
   }
-  return data.data ?? data;
+  // Backend returns { success, data: [...], summary: { totalCount, totalAmount, byType } }
+  return {
+    data: Array.isArray(json.data) ? json.data : [],
+    summary: json.summary ?? { totalCount: 0, totalAmount: 0, byType: {} },
+  };
 }
 
-// GET /wallet/combos — danh sách gói combo tin đăng
+// GET /wallet/combos
 export async function getCombosAPI(token) {
   const res = await fetch(`${BASE_URL}/wallet/combos`, {
     headers: authHeader(token),
@@ -53,7 +54,7 @@ export async function getCombosAPI(token) {
   return data.data ?? data;
 }
 
-// POST /wallet/buy-combo/{comboId} — mua gói combo tin đăng
+// POST /wallet/buy-combo/{comboId}
 export async function buyComboAPI(comboId, token) {
   const res = await fetch(`${BASE_URL}/wallet/buy-combo/${comboId}`, {
     method: "POST",
