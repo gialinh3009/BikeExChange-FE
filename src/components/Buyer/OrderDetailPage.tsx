@@ -54,6 +54,7 @@ interface OrderDetail {
 
 interface HistoryEvent {
     status: OrderStatus;
+    action?: string;
     timestamp: string;
     actor?: string;
     note?: string;
@@ -89,9 +90,10 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
     ESCROWED:         { label: "Đơn hàng đã được tạo", color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Đơn hàng của bạn đã được tạo, đang chờ seller xác nhận" },
     ACCEPTED:         { label: "Seller đã xác nhận",   color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Seller đã nhận đơn, đang chuẩn bị giao hàng" },
     SHIPPED:          { label: "Đang vận chuyển",      color: "#0ea5e9", bg: "#f0f9ff", icon: <Truck size={14} />,          desc: "Seller đã gửi hàng cho đơn vị vận chuyển" },
-    DELIVERED:        { label: "Đang giao hàng",       color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Hàng đã được giao, vui lòng xác nhận khi nhận được" },
+    DELIVERED:        { label: "Đã giao hàng",         color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Seller đã giao hàng, vui lòng xác nhận khi nhận được" },
     COMPLETED:        { label: "Đã hoàn thành",        color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về tay seller" },
-    CANCELLED:        { label: "Đã hủy",               color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Đơn hàng đã bị hủy, tiền đã hoàn về ví bạn" },
+    CANCELLED:        { label: "Đã hủy",                color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,        desc: "Bạn đã hủy đơn hàng, tiền đã hoàn về ví bạn" },
+    SELLER_CANCELLED: { label: "Người bán đã hủy đơn hàng", color: "#ef4444", bg: "#fef2f2", icon: <XCircle size={14} />,   desc: "Người bán đã hủy đơn hàng, tiền đã hoàn về ví bạn" },
     REFUNDED:         { label: "Đã hoàn tiền",         color: "#10b981", bg: "#f0fdf4", icon: <RotateCcw size={14} />,      desc: "Tiền đã được hoàn về ví của bạn" },
     RETURN_REQUESTED: { label: "Yêu cầu hoàn hàng",   color: "#f59e0b", bg: "#fffbeb", icon: <RotateCcw size={14} />,      desc: "Đang chờ seller xác nhận nhận lại hàng" },
     DISPUTED:         { label: "Đang tranh chấp",      color: "#ef4444", bg: "#fef2f2", icon: <AlertTriangle size={14} />,  desc: "Admin đang xử lý tranh chấp giữa hai bên" },
@@ -218,7 +220,11 @@ export default function OrderDetailPage() {
     );
 
     const order    = detail.order;
-    const meta     = STATUS_META[order.status] ?? STATUS_META.UNKNOWN;
+    const isSellerCancelled =
+        order.status === "CANCELLED" &&
+        (detail.timeline ?? []).some((evt) => evt.action === "seller_cancelled");
+    const effectiveStatus = isSellerCancelled ? "SELLER_CANCELLED" : order.status;
+    const meta     = STATUS_META[effectiveStatus] ?? STATUS_META.UNKNOWN;
     const stepIdx  = getStepIndex(order.status);
     const isCancelledOrRefunded = order.status === "CANCELLED" || order.status === "REFUNDED";
 
@@ -358,7 +364,8 @@ export default function OrderDetailPage() {
                                 let firstCompletedShown = false;
                                 const hasMultipleCompleted = timeline.filter(e => e.status === "COMPLETED").length > 1;
                                 return timeline.map((evt, i) => {
-                                    let evtMeta = STATUS_META[evt.status] ?? STATUS_META.UNKNOWN;
+                                    const evtEffectiveStatus = evt.action === "seller_cancelled" ? "SELLER_CANCELLED" : evt.status;
+                                    let evtMeta = STATUS_META[evtEffectiveStatus] ?? STATUS_META[evt.status] ?? STATUS_META.UNKNOWN;
                                     // If there are duplicate COMPLETED events, show the first as "Đã xác nhận nhận hàng"
                                     if (hasMultipleCompleted && evt.status === "COMPLETED" && !firstCompletedShown) {
                                         firstCompletedShown = true;

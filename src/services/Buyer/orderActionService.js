@@ -119,6 +119,7 @@ function normalizeHistoryEvents(rawEvents = []) {
 
             return {
                 status,
+                action: actionRaw || undefined,
                 timestamp: evt?.timestamp || evt?.createdAt || evt?.updatedAt,
                 actor: evt?.performedByName || evt?.actor || (evt?.performedBy != null ? `User #${evt.performedBy}` : undefined),
                 note: note || undefined,

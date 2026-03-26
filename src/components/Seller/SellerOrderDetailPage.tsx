@@ -556,14 +556,14 @@ export default function SellerOrderDetailPage() {
                     );
 
                     if (order.status === "DELIVERED") return (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
-                                Buyer đã nhận hàng. Xác nhận để hoàn tất giao dịch.
-                            </p>
-                            <button className="action-btn" onClick={handleConfirmDelivery} disabled={busy}
-                                    style={{ ...btnBase, background: busy ? "#f1f5f9" : "#10b981", color: "white", border: "none", boxShadow: "0 2px 12px rgba(16,185,129,.25)", opacity: busy ? .6 : 1 }}>
-                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "Xác nhận đã nhận hàng"}
-                            </button>
+                        <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            <Truck size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+                            <div>
+                                <p style={{ fontSize: 14, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Đang chờ buyer xác nhận</p>
+                                <p style={{ fontSize: 13, color: "#b45309", lineHeight: 1.6 }}>
+                                    Hàng đã được giao đến buyer. Giao dịch sẽ tự động hoàn tất sau {order.daysUntilAutoRelease ?? 14} ngày nếu buyer không phản hồi.
+                                </p>
+                            </div>
                         </div>
                     );
 

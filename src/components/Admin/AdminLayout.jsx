@@ -78,14 +78,6 @@ export default function AdminLayout({ user, onLogout }) {
 
                 <button
                   type="button"
-                  onClick={() => navigate("/")}
-                  className="hidden sm:inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 hover:bg-blue-50 px-4 text-sm font-medium"
-                >
-                  Ve trang chu
-                </button>
-
-                <button
-                  type="button"
                   onClick={handleLogout}
                   className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-700 text-white hover:bg-blue-800 px-4 text-sm font-semibold"
                 >

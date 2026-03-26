@@ -90,6 +90,7 @@ export default function BikedetailPage() {
     const [showConfirm, setShowConfirm] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [showInsufficientFunds, setShowInsufficientFunds] = useState(false);
+    const [showSelfPurchase, setShowSelfPurchase] = useState(false);
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
     const [walletLoading, setWalletLoading] = useState(false);
 
@@ -141,7 +142,7 @@ export default function BikedetailPage() {
     /* Buy now */
     const handleBuyNow = async () => {
         if (!user?.id) { navigate("/login"); return; }
-        if (user.id === bike?.sellerId) { alert("Bạn không thể mua xe của chính mình"); return; }
+        if (user.id === bike?.sellerId) { setShowSelfPurchase(true); return; }
         if (!isPurchasable) { alert("Xe này hiện không còn sẵn để mua."); return; }
         setOrdering(true);
         try {
@@ -379,6 +380,27 @@ export default function BikedetailPage() {
                 </div>
             )}
             {/* Modal không đủ tiền trong ví */}
+            {showSelfPurchase && (
+                <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", minWidth: 360, maxWidth: 440, boxShadow: "0 8px 40px rgba(0,0,0,.18)", textAlign: "center" }}>
+                        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#fff7ed", border: "2px solid #fed7aa", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px", fontSize: 28 }}>
+                            🚫
+                        </div>
+                        <h3 style={{ fontWeight: 800, fontSize: 20, color: "#0f172a", marginBottom: 10 }}>Không thể mua xe của chính mình</h3>
+                        <p style={{ color: "#64748b", fontSize: 15, lineHeight: 1.65, marginBottom: 28 }}>
+                            Bạn là người đăng bán xe này.<br />
+                            Người bán không thể tự mua xe của mình.
+                        </p>
+                        <button
+                            style={{ padding: "11px 32px", background: "#f1f5f9", color: "#475569", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                            onClick={() => setShowSelfPurchase(false)}
+                        >
+                            Quay lại
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {showInsufficientFunds && (
                 <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <div style={{ background: "white", borderRadius: 20, padding: "36px 32px", minWidth: 360, maxWidth: 440, boxShadow: "0 8px 40px rgba(0,0,0,.18)", textAlign: "center" }}>
@@ -534,6 +556,7 @@ export default function BikedetailPage() {
                                 className="btn-primary"
                                 onClick={async () => {
                                     if (!user?.id) { navigate("/login"); return; }
+                                    if (user.id === bike?.sellerId) { setShowSelfPurchase(true); return; }
                                     setWalletLoading(true);
                                     try {
                                         const w = await getWalletAPI();

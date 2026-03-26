@@ -172,6 +172,7 @@ export default function UpgradeToSellerModal({
             <div className="modal-content" style={{
                 background: "white", borderRadius: 20, padding: "32px 28px",
                 maxWidth: 520, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,.2)",
+                maxHeight: "90vh", overflowY: "auto",
             }}>
                 {/* Header */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
@@ -217,7 +218,7 @@ export default function UpgradeToSellerModal({
                             </p>
                         </div>
                         <span style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", flexShrink: 0, marginLeft: 12 }}>
-                            {fmtVND(upgradeCost)}
+                            {upgradeCost !== null ? fmtVND(upgradeCost) : "Đang tải..."}
                         </span>
                     </div>
                     {/* Số dư hiện tại */}
@@ -232,7 +233,7 @@ export default function UpgradeToSellerModal({
                         <span style={{ fontSize: 14, fontWeight: 600, color: "#475569" }}>Số dư sau khi nâng cấp</span>
                         <span style={{ fontSize: 15, fontWeight: 800, color: hasEnoughPoints ? "#16a34a" : "#ef4444" }}>
                             {walletLoading ? "—" : hasEnoughPoints
-                                ? fmtVND((walletPoints ?? 0) - upgradeCost)
+                                ? fmtVND((walletPoints ?? 0) - (upgradeCost ?? 0))
                                 : <span style={{ fontSize: 13 }}>Không đủ số dư</span>
                             }
                         </span>
@@ -242,7 +243,7 @@ export default function UpgradeToSellerModal({
                         <div style={{ padding: "10px 16px", background: "#fff7ed", borderTop: "1px solid #fed7aa", display: "flex", alignItems: "center", gap: 8 }}>
                             <AlertCircle size={14} color="#ea580c" style={{ flexShrink: 0 }} />
                             <span style={{ fontSize: 12, color: "#9a3412", lineHeight: 1.5 }}>
-                                Cần thêm <strong>{fmtVND(upgradeCost - (walletPoints ?? 0))}</strong> để nâng cấp. Vui lòng nạp thêm vào ví.
+                                Cần thêm <strong>{fmtVND((upgradeCost ?? 0) - (walletPoints ?? 0))}</strong> để nâng cấp. Vui lòng nạp thêm vào ví.
                             </span>
                         </div>
                     )}
