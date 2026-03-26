@@ -1,15 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bike, LogOut } from "lucide-react";
+import { Bike, ChevronDown, Coins, LogOut } from "lucide-react";
 import { listSellerBikesAPI } from "../../services/Seller/bikeManagementService";
 import { requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/Seller/inspectionService";
 import { getWalletAPI } from "../../services/Seller/walletService";
+import {
+    getBikePostFeeAPI,
+    getCommissionRateAPI,
+    getInspectionFeeAPI,
+    getSellerUpgradeFeeAPI,
+} from "../../services/settingsService";
 import PostsTab from "./PostsTab";
 import InspectionTab from "./InspectionTab";
 import CreateBikeTab from "./CreateBikeTab";
 import WalletTab from "./WalletTab";
 import SellerOrdersTab from "./SellerOrdersTab";
 import SellerDisputesTab from "./SellerDisputesTab";
+import SellerSalesHistoryTab from "./SellerSalesHistoryTab";
+import SellerTransactionHistoryTab from "./SellerTransactionHistoryTab";
 import BikeDetailModal from "./BikeDetailModal";
 import EditBikeModal from "./EditBikeModal";
 import DeleteBikeModal from "./DeleteBikeModal";
@@ -37,7 +45,7 @@ type BikeBrowseItem = {
 
 type BikeItem = BikeBrowseItem;
 
-type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders" | "disputes";
+type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders" | "disputes" | "history" | "transactions";
 
 type InspectionDetail = {
     inspection?: unknown;
@@ -53,10 +61,19 @@ type PageResponse<T> = {
 type WalletLike = {
     availablePoints?: number;
     frozenPoints?: number;
+    remainingFreePosts?: number;
     data?: {
         availablePoints?: number;
         frozenPoints?: number;
+        remainingFreePosts?: number;
     };
+};
+
+type FeeRules = {
+    bikePostFee: number | null;
+    inspectionFee: number | null;
+    commissionRate: number | null;
+    sellerUpgradeFee: number | null;
 };
 
 function getToken() {
@@ -69,6 +86,7 @@ export default function SellerPage() {
     })();
 
     const token = getToken();
+    const feeRef = useRef<HTMLDivElement | null>(null);
 
     const [tab, setTab] = useState<TabKey>("posts");
     const [bikeDetail, setBikeDetail] = useState<BikeBrowseItem | null>(null);
@@ -105,6 +123,16 @@ export default function SellerPage() {
 
     // Wallet
     const [wallet, setWallet] = useState<WalletLike | null>(null);
+    const [inspectionFee, setInspectionFee] = useState<number | null>(null);
+    const [feeOpen, setFeeOpen] = useState(false);
+    const [feeLoading, setFeeLoading] = useState(false);
+    const [feeError, setFeeError] = useState<string | null>(null);
+    const [feeRules, setFeeRules] = useState<FeeRules>({
+        bikePostFee: null,
+        inspectionFee: null,
+        commissionRate: null,
+        sellerUpgradeFee: null,
+    });
 
     const refreshWallet = async () => {
         try {
@@ -113,6 +141,54 @@ export default function SellerPage() {
         } catch (e) {
             console.error("Error loading wallet:", e);
             setWallet({ availablePoints: 0, frozenPoints: 0 });
+        }
+    };
+
+    const refreshInspectionFee = async () => {
+        try {
+            const fee = await getInspectionFeeAPI();
+            setInspectionFee(Number.isFinite(Number(fee)) ? Number(fee) : null);
+        } catch {
+            setInspectionFee(null);
+        }
+    };
+
+    const refreshFeeRules = async () => {
+        try {
+            setFeeLoading(true);
+            setFeeError(null);
+            const [bikePostFeeValue, inspectionFeeValue, commissionRateValue, sellerUpgradeFeeValue] = await Promise.all([
+                getBikePostFeeAPI(),
+                getInspectionFeeAPI(),
+                getCommissionRateAPI(),
+                getSellerUpgradeFeeAPI(),
+            ]);
+            setFeeRules({
+                bikePostFee: Number.isFinite(Number(bikePostFeeValue)) ? Number(bikePostFeeValue) : null,
+                inspectionFee: Number.isFinite(Number(inspectionFeeValue)) ? Number(inspectionFeeValue) : null,
+                commissionRate: Number.isFinite(Number(commissionRateValue)) ? Number(commissionRateValue) : null,
+                sellerUpgradeFee: Number.isFinite(Number(sellerUpgradeFeeValue)) ? Number(sellerUpgradeFeeValue) : null,
+            });
+        } catch {
+            setFeeError("Không thể tải biểu lệ phí. Vui lòng thử lại.");
+        } finally {
+            setFeeLoading(false);
+        }
+    };
+
+    const formatVND = (value: number | null) =>
+        value !== null ? `${value.toLocaleString("vi-VN")} VND` : "Chưa cấu hình";
+
+    const toggleFeeOpen = () => {
+        const next = !feeOpen;
+        setFeeOpen(next);
+        const notLoadedYet =
+            feeRules.bikePostFee === null &&
+            feeRules.inspectionFee === null &&
+            feeRules.commissionRate === null &&
+            feeRules.sellerUpgradeFee === null;
+        if (next && notLoadedYet && !feeLoading) {
+            void refreshFeeRules();
         }
     };
 
@@ -171,7 +247,18 @@ export default function SellerPage() {
     useEffect(() => {
         void refreshBikes();
         void refreshWallet();
+        void refreshInspectionFee();
     }, [token]);
+
+    useEffect(() => {
+        const onMouseDown = (event: MouseEvent) => {
+            if (feeRef.current && !feeRef.current.contains(event.target as Node)) {
+                setFeeOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", onMouseDown);
+        return () => document.removeEventListener("mousedown", onMouseDown);
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem("token");
@@ -251,7 +338,11 @@ export default function SellerPage() {
                 },
                 token
             );
-            setRequestSuccess("Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ 200.000 VND từ ví của bạn.");
+            setRequestSuccess(
+                inspectionFee !== null
+                    ? `Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ ${inspectionFee.toLocaleString("vi-VN")} VND từ ví của bạn.`
+                    : "Đã gửi yêu cầu kiểm định. Hệ thống sẽ trừ phí kiểm định hiện hành từ ví của bạn."
+            );
             void refreshBikes();
             void refreshWallet();
         } catch (e) {
@@ -276,6 +367,58 @@ export default function SellerPage() {
                         </div>
                     </Link>
                     <div className="flex items-center gap-6">
+                        <div className="relative" ref={feeRef}>
+                            <button
+                                onClick={toggleFeeOpen}
+                                className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                    feeOpen ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                                }`}
+                            >
+                                <Coins size={14} />
+                                Quy định phí
+                                <ChevronDown size={14} className={`transition-transform ${feeOpen ? "rotate-180" : ""}`} />
+                            </button>
+
+                            {feeOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                                    <div className="px-4 py-2 border-b border-gray-100">
+                                        <p className="text-sm font-semibold text-gray-900">Quy định các khoản thu</p>
+                                        <p className="mt-0.5 text-xs text-gray-500">Áp dụng theo cấu hình hiện hành của hệ thống</p>
+                                    </div>
+
+                                    <div className="px-4 py-3">
+                                        {feeLoading ? (
+                                            <p className="text-xs text-gray-400">Đang tải dữ liệu...</p>
+                                        ) : feeError ? (
+                                            <div className="space-y-2">
+                                                <p className="text-xs text-red-500">{feeError}</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void refreshFeeRules()}
+                                                    className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    Thử lại
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2.5 text-xs">
+                                                <FeeRow label="Phí đăng 1 bài" value={formatVND(feeRules.bikePostFee)} />
+                                                <FeeRow label="Phí kiểm định" value={formatVND(feeRules.inspectionFee)} />
+                                                <FeeRow label="Phí nâng cấp Seller" value={formatVND(feeRules.sellerUpgradeFee)} />
+                                                <FeeRow
+                                                    label="Hoa hồng giao dịch"
+                                                    value={
+                                                        feeRules.commissionRate !== null
+                                                            ? `${Number(feeRules.commissionRate || 0).toFixed(0)}%`
+                                                            : "Chưa cấu hình"
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <div className="text-right">
                             <div className="text-sm font-medium text-gray-900">{user?.email ?? "Người bán"}</div>
                             <div className="text-xs text-gray-500">Tài khoản bán hàng</div>
@@ -306,6 +449,8 @@ export default function SellerPage() {
                             { key: "create", label: "Đăng tin bán xe", icon: "➕" },
                             { key: "inspection", label: "Kiểm định", icon: "✓" },
                             { key: "orders", label: "Đơn hàng", icon: "📦" },
+                            { key: "history", label: "Lịch sử bán hàng", icon: "📊" },
+                            { key: "transactions", label: "Giao dịch", icon: "💳" },
                             { key: "disputes", label: "Tranh chấp", icon: "⚠️" },
                             { key: "wallet", label: "Ví", icon: "💰" },
                         ].map((t) => (
@@ -383,8 +528,18 @@ export default function SellerPage() {
                     />
                 )}
 
+                {/* HISTORY TAB */}
+                {tab === "history" && (
+                    <SellerSalesHistoryTab token={token} />
+                )}
+
+                {/* TRANSACTIONS TAB */}
+                {tab === "transactions" && (
+                    <SellerTransactionHistoryTab token={token} userId={user?.id} />
+                )}
+
                 {/* WALLET TAB */}
-                {tab === "wallet" && <WalletTab token={token} />}
+                {tab === "wallet" && <WalletTab token={token} userId={user?.id} />}
             </main>
 
             {/* Bike detail modal */}
@@ -438,6 +593,15 @@ export default function SellerPage() {
                     setRequestBike(null);
                 }}
             />
+        </div>
+    );
+}
+
+function FeeRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-2">
+            <span className="text-gray-600">{label}</span>
+            <span className="font-semibold text-gray-900">{value}</span>
         </div>
     );
 }

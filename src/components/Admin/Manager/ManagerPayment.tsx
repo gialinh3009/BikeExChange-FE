@@ -50,7 +50,7 @@ export default function ManagerPayment() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [commissionRatePercent, setCommissionRatePercent] = useState("2");
-  const [sellerUpgradeFee, setSellerUpgradeFee] = useState("50000");
+  const [sellerUpgradeFee, setSellerUpgradeFee] = useState("");
   const [returnWindowDays, setReturnWindowDays] = useState("14");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingPaymentUpdate | null>(null);
@@ -63,11 +63,11 @@ export default function ManagerPayment() {
       const data = await getOrderRulesAPI();
       setRules({
         commissionRate: Number(data?.commissionRate ?? 0),
-        sellerUpgradeFee: Number(data?.sellerUpgradeFee ?? 50000),
+        sellerUpgradeFee: Number(data?.sellerUpgradeFee ?? 0),
         returnWindowDays: Number(data?.returnWindowDays ?? 0),
       });
       setCommissionRatePercent(String(((Number(data?.commissionRate ?? 0)) * 100).toFixed(2)));
-      setSellerUpgradeFee(fmtNumber(Number(data?.sellerUpgradeFee ?? 50000)));
+      setSellerUpgradeFee(fmtNumber(Number(data?.sellerUpgradeFee ?? 0)));
       setReturnWindowDays(String(Number(data?.returnWindowDays ?? 14)));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Không thể tải cấu hình thanh toán.");

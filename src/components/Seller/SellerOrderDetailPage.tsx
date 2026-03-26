@@ -62,13 +62,31 @@ interface OrderHistoryDetail {
     timeline?: HistoryEvent[];
 }
 
+const SHIPPING_CARRIERS = [
+    { value: "GHN", label: "GHN (Giao Hàng Nhanh)" },
+    { value: "GHTK", label: "GHTK (Giao Hàng Tiết Kiệm)" },
+    { value: "VTP", label: "Viettel Post" },
+    { value: "VNPOST", label: "VNPost (Bưu điện Việt Nam)" },
+    { value: "JT", label: "J&T Express" },
+    { value: "SPX", label: "Shopee Express (SPX)" },
+    { value: "NV", label: "Ninja Van" },
+    { value: "AHAMOVE", label: "AhaMove" },
+    { value: "LALAMOVE", label: "Lalamove" },
+    { value: "GRAB", label: "GrabExpress" },
+    { value: "OTHER", label: "Khác" },
+];
+
 const TRACKING_HINTS: Record<string, string> = {
-    GHN: "GHN + 8-20 ký tự chữ/số (VD: GHN12345678)",
-    GHTK: "GHTK + 6-20 ký tự hoặc S + 8-20 số (VD: GHTK123456 hoặc S12345678)",
-    VTP: "VTP + 6-20 ký tự chữ/số (VD: VTP123456)",
-    "J&T": "JT/JNT + 8-20 ký tự chữ/số (VD: JT12345678)",
-    JNT: "JT/JNT + 8-20 ký tự chữ/số (VD: JNT12345678)",
-    JT: "JT/JNT + 8-20 ký tự chữ/số (VD: JT12345678)",
+    GHN: "GHN + 8-13 ký tự số (VD: GHN12345678)",
+    GHTK: "S + 8-20 ký tự số hoặc chuỗi phức tạp (VD: S12345678 hoặc S.MB.A.123456)",
+    VTP: "VTP + 9-12 ký tự số (VD: VTP123456789)",
+    VNPOST: "E/R + 9 ký tự số + VN (VD: E123456789VN)",
+    JT: "JT + 8-12 ký tự số (VD: JT12345678)",
+    SPX: "SPX + 8-15 ký tự chữ/số (VD: SPXVN123456)",
+    NV: "NV + 8-13 ký tự số (VD: NV12345678)",
+    AHAMOVE: "10-13 ký tự chữ/số (VD: AHA123456789)",
+    LALAMOVE: "10-13 ký tự chữ/số (VD: LALA123456789)",
+    GRAB: "10-13 ký tự chữ/số (VD: GRAB123456789)",
 };
 
 function validateTrackingCodeByCarrier(carrier: string, trackingCode: string): string | null {
@@ -84,28 +102,34 @@ function validateTrackingCodeByCarrier(carrier: string, trackingCode: string): s
     }
 
     const patterns: Record<string, RegExp> = {
-        GHN: /^GHN[0-9A-Z]{8,20}$/,
-        GHTK: /^(GHTK[0-9A-Z]{6,20}|S[0-9]{8,20})$/,
-        VTP: /^VTP[0-9A-Z]{6,20}$/,
-        "J&T": /^(JT[0-9A-Z]{8,20}|JNT[0-9A-Z]{8,20})$/,
+        GHN: /^GHN[0-9]{8,13}$/,
+        GHTK: /^[A-Z0-9\.]{8,25}$/,
+        VTP: /^(VTP|VT)?[0-9]{9,12}$/,
+        VNPOST: /^[A-Z]{1}[0-9]{9}VN$/,
+        JT: /^(JT)?[0-9]{8,12}$/,
+        SPX: /^SPX[A-Z0-9]{8,15}$/,
+        NV: /^[A-Z]{2}[0-9]{8,13}$/,
+        AHAMOVE: /^[A-Z0-9]{10,13}$/,
+        LALAMOVE: /^[A-Z0-9]{10,13}$/,
+        GRAB: /^[A-Z0-9]{10,13}$/,
     };
 
     const pattern = patterns[normalizedCarrier];
     if (!pattern) return null;
 
     if (!pattern.test(normalizedCode)) {
-        return `Mã vận đơn không đúng định dạng của ${normalizedCarrier}.`;
+        return `Mã vận đơn không đúng định dạng của ${normalizedCarrier}. ${TRACKING_HINTS[normalizedCarrier] || ""}`;
     }
 
     return null;
 }
 
-function getTrackingHintByCarrier(carrier: string): string {
-    const normalizedCarrier = String(carrier || "").trim().toUpperCase();
-    if (!normalizedCarrier) {
-        return "Mã vận đơn theo từng đơn vị vận chuyển (GHN/GHTK/VTP/J&T).";
-    }
-    return TRACKING_HINTS[normalizedCarrier] || "Mã vận đơn theo định dạng của đơn vị vận chuyển đã chọn.";
+function getStepIndex(status: OrderStatus): number {
+    const TIMELINE_ORDER: OrderStatus[] = ["ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "COMPLETED"];
+    const idx = TIMELINE_ORDER.indexOf(status);
+    if (status === "CANCELLED" || status === "REFUNDED") return -1;
+    if (status === "RETURN_REQUESTED" || status === "DISPUTED") return 3;
+    return idx;
 }
 
 const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
@@ -119,8 +143,8 @@ const fmtDateTime = (iso?: string) => {
 };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode; desc: string }> = {
-    ESCROWED:         { label: "Chờ xác nhận",         color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Buyer đã tạo đơn, đang chờ bạn xác nhận" },
-    ACCEPTED:         { label: "Đã xác nhận",          color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Bạn đã xác nhận, chuẩn bị giao hàng" },
+    ESCROWED:         { label: "Đơn hàng đã được tạo", color: "#3b82f6", bg: "#eff6ff", icon: <Clock size={14} />,          desc: "Buyer đã tạo đơn, đang chờ bạn xác nhận" },
+    ACCEPTED:         { label: "Seller đã xác nhận",   color: "#8b5cf6", bg: "#f5f3ff", icon: <CheckCircle size={14} />,    desc: "Bạn đã xác nhận, chuẩn bị giao hàng" },
     SHIPPED:          { label: "Đang vận chuyển",      color: "#0ea5e9", bg: "#f0f9ff", icon: <Truck size={14} />,          desc: "Bạn đã gửi hàng cho đơn vị vận chuyển" },
     DELIVERED:        { label: "Đã giao hàng",         color: "#f59e0b", bg: "#fffbeb", icon: <Truck size={14} />,          desc: "Bạn đã giao hàng, chờ buyer xác nhận" },
     COMPLETED:        { label: "Đã hoàn thành",        color: "#10b981", bg: "#f0fdf4", icon: <CheckCircle size={14} />,    desc: "Giao dịch hoàn tất, tiền đã về ví bạn" },
@@ -128,6 +152,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ic
     REFUNDED:         { label: "Đã hoàn tiền",         color: "#10b981", bg: "#f0fdf4", icon: <RotateCcw size={14} />,      desc: "Tiền đã hoàn về buyer" },
     RETURN_REQUESTED: { label: "Yêu cầu hoàn hàng",   color: "#f59e0b", bg: "#fffbeb", icon: <RotateCcw size={14} />,      desc: "Buyer yêu cầu hoàn hàng, chờ bạn xác nhận" },
     DISPUTED:         { label: "Đang tranh chấp",      color: "#ef4444", bg: "#fef2f2", icon: <AlertTriangle size={14} />,  desc: "Admin đang xử lý tranh chấp" },
+    UNKNOWN:          { label: "Cập nhật trạng thái",  color: "#64748b", bg: "#f8fafc", icon: <Clock size={14} />,          desc: "Hệ thống vừa cập nhật trạng thái đơn hàng" },
 };
 
 const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNode }[] = [
@@ -138,12 +163,19 @@ const TIMELINE_STEPS: { status: OrderStatus; label: string; icon: React.ReactNod
     { status: "COMPLETED", label: "Đã hoàn thành",      icon: <CheckCircle size={16} /> },
 ];
 
-function getStepIndex(status: OrderStatus): number {
-    const TIMELINE_ORDER: OrderStatus[] = ["ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "COMPLETED"];
-    const idx = TIMELINE_ORDER.indexOf(status);
-    if (status === "CANCELLED" || status === "REFUNDED") return -1;
-    if (status === "RETURN_REQUESTED" || status === "DISPUTED") return 3;
-    return idx;
+interface NotificationState {
+    type: "success" | "error" | "warning" | "info";
+    title: string;
+    message: string;
+    visible: boolean;
+}
+
+interface ConfirmDialogState {
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
 }
 
 export default function SellerOrderDetailPage() {
@@ -157,6 +189,8 @@ export default function SellerOrderDetailPage() {
     const [error, setError] = useState("");
     const [actionBusy, setAction] = useState<string | null>(null);
     const [deliveryForm, setDeliveryForm] = useState({ shippingCarrier: "", trackingCode: "", shippingNote: "" });
+    const [notification, setNotification] = useState<NotificationState>({ type: "info", title: "", message: "", visible: false });
+    const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({ visible: false, title: "", message: "", onConfirm: () => {}, onCancel: () => {} });
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -175,20 +209,56 @@ export default function SellerOrderDetailPage() {
         }
     }, [orderId, token]);
 
+    const showNotification = (type: "success" | "error" | "warning" | "info", title: string, message: string) => {
+        setNotification({ type, title, message, visible: true });
+        setTimeout(() => setNotification(prev => ({ ...prev, visible: false })), 4000);
+    };
+
+    const showConfirmDialog = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
+        setConfirmDialog({
+            visible: true,
+            title,
+            message,
+            onConfirm: () => {
+                setConfirmDialog(prev => ({ ...prev, visible: false }));
+                onConfirm();
+            },
+            onCancel: () => {
+                setConfirmDialog(prev => ({ ...prev, visible: false }));
+                onCancel?.();
+            },
+        });
+    };
+
     useEffect(() => {
         void fetchDetail();
     }, [fetchDetail]);
 
     const doAction = async (actionKey: string, fn: () => Promise<unknown>, confirmMsg?: string) => {
-        if (confirmMsg && !confirm(confirmMsg)) return;
-        setAction(actionKey);
-        try {
-            await fn();
-            await fetchDetail();
-        } catch (e) {
-            alert(String(e instanceof Error ? e.message : e));
-        } finally {
-            setAction(null);
+        if (confirmMsg) {
+            showConfirmDialog("Xác nhận", confirmMsg, async () => {
+                setAction(actionKey);
+                try {
+                    await fn();
+                    await fetchDetail();
+                    showNotification("success", "Thành công", "Cập nhật đơn hàng thành công");
+                } catch (e) {
+                    showNotification("error", "Lỗi", String(e instanceof Error ? e.message : e));
+                } finally {
+                    setAction(null);
+                }
+            });
+        } else {
+            setAction(actionKey);
+            try {
+                await fn();
+                await fetchDetail();
+                showNotification("success", "Thành công", "Cập nhật đơn hàng thành công");
+            } catch (e) {
+                showNotification("error", "Lỗi", String(e instanceof Error ? e.message : e));
+            } finally {
+                setAction(null);
+            }
         }
     };
 
@@ -199,13 +269,25 @@ export default function SellerOrderDetailPage() {
 
     const handleDeliver = () => {
         if (!deliveryForm.shippingCarrier) {
-            alert("Vui lòng nhập đơn vị vận chuyển");
+            showNotification("error", "Lỗi", "Vui lòng chọn đơn vị vận chuyển");
             return;
         }
 
         const trackingError = validateTrackingCodeByCarrier(deliveryForm.shippingCarrier, deliveryForm.trackingCode);
         if (trackingError) {
-            alert(trackingError);
+            showNotification("error", "Lỗi", trackingError);
+            return;
+        }
+
+        if (!deliveryForm.shippingNote.trim()) {
+            showConfirmDialog(
+                "Xác nhận ghi chú",
+                `Bạn chắc chắn không có ghi chú gì cho ${detail?.order.buyerName}? Xác nhận hoặc Hủy để điền thêm ghi chú.`,
+                () => {
+                    if (!orderId) return;
+                    void doAction("deliver", () => deliverOrderAPI(orderId, deliveryForm, token));
+                }
+            );
             return;
         }
 
@@ -366,26 +448,35 @@ export default function SellerOrderDetailPage() {
                             <p style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>Trạng thái của đơn hàng</p>
                         </div>
                         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-                            {detail.timeline.map((evt, i) => {
-                                const evtMeta = STATUS_META[evt.status] ?? STATUS_META.ESCROWED;
-                                const isLast = i === detail.timeline!.length - 1;
-                                return (
-                                    <div key={i} style={{ display: "flex", gap: 12 }}>
-                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                            <div style={{ width: 32, height: 32, borderRadius: "50%", background: evtMeta.bg, color: evtMeta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                                {evtMeta.icon}
+                            {(() => {
+                                const timeline = detail.timeline!;
+                                let firstCompletedShown = false;
+                                const hasMultipleCompleted = timeline.filter(e => e.status === "COMPLETED").length > 1;
+                                return timeline.map((evt, i) => {
+                                    let evtMeta = STATUS_META[evt.status] ?? STATUS_META.UNKNOWN;
+                                    if (hasMultipleCompleted && evt.status === "COMPLETED" && !firstCompletedShown) {
+                                        firstCompletedShown = true;
+                                        evtMeta = { ...evtMeta, label: "Đã xác nhận nhận hàng", color: "#3b82f6", bg: "#eff6ff" };
+                                    }
+                                    const isLast = i === timeline.length - 1;
+                                    return (
+                                        <div key={i} style={{ display: "flex", gap: 12 }}>
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                <div style={{ width: 32, height: 32, borderRadius: "50%", background: evtMeta.bg, color: evtMeta.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                                    {evtMeta.icon}
+                                                </div>
+                                                {!isLast && <div style={{ width: 2, flex: 1, background: "#f1f5f9", marginTop: 4 }} />}
                                             </div>
-                                            {!isLast && <div style={{ width: 2, flex: 1, background: "#f1f5f9", marginTop: 4 }} />}
+                                            <div style={{ paddingBottom: isLast ? 0 : 4 }}>
+                                                <p style={{ fontWeight: 700, color: evtMeta.color, fontSize: 13, marginBottom: 2 }}>{evtMeta.label}</p>
+                                                {evt.note && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>{evt.note}</p>}
+                                                {evt.actor && <p style={{ fontSize: 11, color: "#94a3b8" }}>bởi {evt.actor}</p>}
+                                                <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmtDateTime(evt.timestamp)}</p>
+                                            </div>
                                         </div>
-                                        <div style={{ paddingBottom: isLast ? 0 : 4 }}>
-                                            <p style={{ fontWeight: 700, color: evtMeta.color, fontSize: 13, marginBottom: 2 }}>{evtMeta.label}</p>
-                                            {evt.note && <p style={{ fontSize: 12, color: "#64748b", marginBottom: 2 }}>{evt.note}</p>}
-                                            {evt.actor && <p style={{ fontSize: 11, color: "#94a3b8" }}>bởi {evt.actor}</p>}
-                                            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmtDateTime(evt.timestamp)}</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                });
+                            })()}
                         </div>
                     </div>
                 )}
@@ -414,13 +505,16 @@ export default function SellerOrderDetailPage() {
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
                                 Nhập thông tin vận chuyển và xác nhận đã gửi hàng.
                             </p>
-                            <input
-                                type="text"
-                                placeholder="Đơn vị vận chuyển (VD: GHN, GHTK)"
+                            <select
                                 value={deliveryForm.shippingCarrier}
                                 onChange={(e) => setDeliveryForm(prev => ({ ...prev, shippingCarrier: e.target.value }))}
-                                style={{ padding: "10px 14px", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, fontFamily: "inherit" }}
-                            />
+                                style={{ padding: "10px 14px", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, fontFamily: "inherit", background: "white", color: "#1f2937", cursor: "pointer" }}
+                            >
+                                <option value="">-- Chọn đơn vị vận chuyển --</option>
+                                {SHIPPING_CARRIERS.map(c => (
+                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                            </select>
                             <input
                                 type="text"
                                 placeholder="Mã vận đơn (VD: GHN12345678)"
@@ -429,7 +523,7 @@ export default function SellerOrderDetailPage() {
                                 style={{ padding: "10px 14px", border: "1.5px solid #e8ecf4", borderRadius: 8, fontSize: 13, fontFamily: "inherit" }}
                             />
                             <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                                {getTrackingHintByCarrier(deliveryForm.shippingCarrier)}
+                                {TRACKING_HINTS[deliveryForm.shippingCarrier] || "Mã vận đơn theo từng đơn vị vận chuyển"}
                             </p>
                             <input
                                 type="text"
@@ -461,6 +555,18 @@ export default function SellerOrderDetailPage() {
                         </div>
                     );
 
+                    if (order.status === "DELIVERED") return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
+                                Buyer đã nhận hàng. Xác nhận để hoàn tất giao dịch.
+                            </p>
+                            <button className="action-btn" onClick={handleConfirmDelivery} disabled={busy}
+                                    style={{ ...btnBase, background: busy ? "#f1f5f9" : "#10b981", color: "white", border: "none", boxShadow: "0 2px 12px rgba(16,185,129,.25)", opacity: busy ? .6 : 1 }}>
+                                <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "Xác nhận đã nhận hàng"}
+                            </button>
+                        </div>
+                    );
+
                     if (order.status === "RETURN_REQUESTED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>
@@ -476,6 +582,155 @@ export default function SellerOrderDetailPage() {
                     return null;
                 })()}
             </div>
+
+            {/* Notification */}
+            {notification.visible && (
+                <div style={{
+                    position: "fixed",
+                    top: 20,
+                    right: 20,
+                    background: "white",
+                    borderRadius: 12,
+                    border: `2px solid ${
+                        notification.type === "success" ? "#10b981" :
+                        notification.type === "error" ? "#ef4444" :
+                        notification.type === "warning" ? "#f59e0b" : "#3b82f6"
+                    }`,
+                    padding: 16,
+                    maxWidth: 400,
+                    boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
+                    zIndex: 2000,
+                    animation: "slideIn 0.3s ease",
+                }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        <div style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            background: notification.type === "success" ? "#d1fae5" :
+                                       notification.type === "error" ? "#fee2e2" :
+                                       notification.type === "warning" ? "#fef3c7" : "#dbeafe",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: notification.type === "success" ? "#10b981" :
+                                   notification.type === "error" ? "#ef4444" :
+                                   notification.type === "warning" ? "#f59e0b" : "#3b82f6",
+                            fontSize: 14,
+                            fontWeight: "bold",
+                            flexShrink: 0,
+                        }}>
+                            {notification.type === "success" ? "✓" :
+                             notification.type === "error" ? "✕" :
+                             notification.type === "warning" ? "!" : "ℹ"}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontWeight: 700, color: "#0f172a", fontSize: 14, marginBottom: 4 }}>
+                                {notification.title}
+                            </p>
+                            <p style={{ margin: 0, color: "#64748b", fontSize: 13, lineHeight: 1.4 }}>
+                                {notification.message}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: "#94a3b8",
+                                cursor: "pointer",
+                                fontSize: 18,
+                                padding: 0,
+                                flexShrink: 0,
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirm Dialog */}
+            {confirmDialog.visible && (
+                <div style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(0,0,0,0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 3000,
+                }}>
+                    <div style={{
+                        background: "white",
+                        borderRadius: 16,
+                        border: "1px solid #e5e7eb",
+                        padding: 28,
+                        maxWidth: 420,
+                        width: "90%",
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+                        animation: "slideUp 0.3s ease",
+                    }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
+                            {confirmDialog.title}
+                        </h3>
+                        <p style={{ margin: "0 0 24px 0", fontSize: 14, color: "#64748b", lineHeight: 1.6 }}>
+                            {confirmDialog.message}
+                        </p>
+                        <div style={{ display: "flex", gap: 12 }}>
+                            <button
+                                onClick={confirmDialog.onCancel}
+                                style={{
+                                    flex: 1,
+                                    padding: "10px 16px",
+                                    background: "#f1f5f9",
+                                    color: "#0f172a",
+                                    border: "none",
+                                    borderRadius: 8,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "background 0.2s",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "#e2e8f0")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={confirmDialog.onConfirm}
+                                style={{
+                                    flex: 1,
+                                    padding: "10px 16px",
+                                    background: "#2563eb",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: 8,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "background 0.2s",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "#1d4ed8")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "#2563eb")}
+                            >
+                                Xác nhận
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideIn {
+                    from { opacity: 0; transform: translateX(20px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 }

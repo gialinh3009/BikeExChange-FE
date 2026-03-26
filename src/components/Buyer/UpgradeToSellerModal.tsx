@@ -35,14 +35,26 @@ export default function UpgradeToSellerModal({
     const [error, setError] = useState("");
     const [walletPoints, setWalletPoints] = useState<number | null>(null);
     const [walletLoading, setWalletLoading] = useState(false);
-    const [upgradeCost, setUpgradeCost] = useState<number>(50000);
+    const [upgradeCost, setUpgradeCost] = useState<number | null>(null);
 
     // Fetch wallet khi modal mở
     useEffect(() => {
         if (!isOpen) return;
+        setError("");
         getSellerUpgradeFeeAPI()
-            .then((fee) => setUpgradeCost(Number(fee) || 50000))
-            .catch(() => setUpgradeCost(50000));
+            .then((fee) => {
+                const parsed = Number(fee);
+                if (Number.isFinite(parsed) && parsed >= 0) {
+                    setUpgradeCost(parsed);
+                } else {
+                    setUpgradeCost(null);
+                    setError("Không thể tải phí nâng cấp hiện hành.");
+                }
+            })
+            .catch(() => {
+                setUpgradeCost(null);
+                setError("Không thể tải phí nâng cấp hiện hành.");
+            });
 
         setWalletLoading(true);
         getWalletAPI()
@@ -54,13 +66,17 @@ export default function UpgradeToSellerModal({
             .finally(() => setWalletLoading(false));
     }, [isOpen]);
 
-    const hasEnoughPoints = walletPoints !== null && walletPoints >= upgradeCost;
+    const hasEnoughPoints = walletPoints !== null && upgradeCost !== null && walletPoints >= upgradeCost;
 
     const handleSubmit = async () => {
         setError("");
         if (!userId) { setError("Lỗi: Không thể lấy ID người dùng"); return; }
         if (!agreeToTerms) { setError("Bạn phải đồng ý với điều khoản"); return; }
         if (!acceptBusinessResponsibility) { setError("Bạn phải cam kết trách nhiệm kinh doanh"); return; }
+        if (upgradeCost === null) {
+            setError("Không thể tải phí nâng cấp hiện hành. Vui lòng thử lại.");
+            return;
+        }
         if (walletPoints !== null && walletPoints < upgradeCost) {
             setError(`Ví không đủ số dư. Cần ${fmtVND(upgradeCost)}, hiện có ${fmtVND(walletPoints)}.`);
             return;
