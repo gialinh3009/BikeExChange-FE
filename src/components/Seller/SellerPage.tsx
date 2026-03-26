@@ -7,7 +7,7 @@ import { getWalletAPI } from "../../services/Seller/walletService";
 import PostsTab from "./PostsTab";
 import InspectionTab from "./InspectionTab";
 import CreateBikeTab from "./CreateBikeTab";
-// import WalletTab from "./WalletTab";
+import WalletTab from "./WalletTab";
 import SellerOrdersTab from "./SellerOrdersTab";
 import SellerDisputesTab from "./SellerDisputesTab";
 import SellerSalesHistoryTab from "./SellerSalesHistoryTab";
@@ -400,7 +400,7 @@ export default function SellerPage() {
                 )}
 
                 {/* WALLET TAB */}
-                {/* {tab === "wallet" && <WalletTab token={token} userId={user?.id} />} */}
+                {tab === "wallet" && <WalletTab token={token} userId={user?.id} />}
             </main>
 
             {/* Bike detail modal */}
