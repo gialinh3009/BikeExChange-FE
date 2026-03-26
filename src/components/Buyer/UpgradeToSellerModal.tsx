@@ -35,14 +35,26 @@ export default function UpgradeToSellerModal({
     const [error, setError] = useState("");
     const [walletPoints, setWalletPoints] = useState<number | null>(null);
     const [walletLoading, setWalletLoading] = useState(false);
-    const [upgradeCost, setUpgradeCost] = useState<number>(50000);
+    const [upgradeCost, setUpgradeCost] = useState<number | null>(null);
 
     // Fetch wallet khi modal mở
     useEffect(() => {
         if (!isOpen) return;
+        setError("");
         getSellerUpgradeFeeAPI()
-            .then((fee) => setUpgradeCost(Number(fee) || 50000))
-            .catch(() => setUpgradeCost(50000));
+            .then((fee) => {
+                const parsed = Number(fee);
+                if (Number.isFinite(parsed) && parsed >= 0) {
+                    setUpgradeCost(parsed);
+                } else {
+                    setUpgradeCost(null);
+                    setError("Không thể tải phí nâng cấp hiện hành.");
+                }
+            })
+            .catch(() => {
+                setUpgradeCost(null);
+                setError("Không thể tải phí nâng cấp hiện hành.");
+            });
 
         setWalletLoading(true);
         getWalletAPI()
@@ -54,7 +66,7 @@ export default function UpgradeToSellerModal({
             .finally(() => setWalletLoading(false));
     }, [isOpen]);
 
-    const hasEnoughPoints = walletPoints !== null && walletPoints >= upgradeCost;
+    const hasEnoughPoints = walletPoints !== null && upgradeCost !== null && walletPoints >= upgradeCost;
 
     const handleSubmit = async () => {
         setError("");
@@ -67,6 +79,10 @@ export default function UpgradeToSellerModal({
         if (!acceptBusinessResponsibility) { setError("Bạn phải cam kết trách nhiệm kinh doanh"); return; }
         if (confirmPhrase.trim().toUpperCase() !== "XAC NHAN NANG CAP SELLER") {
             setError("Bạn cần nhập chính xác: XAC NHAN NANG CAP SELLER");
+            return;
+        }
+        if (upgradeCost === null) {
+            setError("Không thể tải phí nâng cấp hiện hành. Vui lòng thử lại.");
             return;
         }
         if (walletPoints !== null && walletPoints < upgradeCost) {
@@ -192,7 +208,9 @@ export default function UpgradeToSellerModal({
                 }}>
                     <AlertCircle size={15} color={walletLoading ? "#94a3b8" : hasEnoughPoints ? "#16a34a" : "#ea580c"} style={{ flexShrink: 0 }} />
                     <div style={{ fontSize: 13, color: walletLoading ? "#64748b" : hasEnoughPoints ? "#15803d" : "#9a3412", lineHeight: 1.5 }}>
-                        {walletLoading ? "Đang kiểm tra số dư..." : hasEnoughPoints ? (
+                        {walletLoading ? "Đang kiểm tra số dư..." : upgradeCost === null ? (
+                            <>Đang tải phí nâng cấp hiện hành...</>
+                        ) : hasEnoughPoints ? (
                             <><strong>{fmtVND(upgradeCost)}</strong> sẽ được trừ · Còn lại: <strong>{fmtVND((walletPoints ?? 0) - upgradeCost)}</strong></>
                         ) : (
                             <>Không đủ số dư. Cần <strong>{fmtVND(upgradeCost)}</strong>, hiện có <strong>{fmtVND(walletPoints ?? 0)}</strong>.</>

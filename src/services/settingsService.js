@@ -35,7 +35,7 @@ export async function getReturnWindowDaysAPI() {
   return Number(await fetchSetting("return-window-days"));
 }
 
-/** Tỷ lệ hoa hồng (0.0 – 1.0, ví dụ 0.1 = 10%) */
+/** Tỷ lệ hoa hồng dạng phần trăm (0 - 100) */
 export async function getCommissionRateAPI() {
   return Number(await fetchSetting("commission-rate"));
 }

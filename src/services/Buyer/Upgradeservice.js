@@ -82,5 +82,5 @@ export async function getSellerUpgradeFeeAPI() {
         throw new Error(data.message || "Không thể tải phí nâng cấp seller.");
     }
 
-    return Number(data?.data?.sellerUpgradeFee ?? 50000);
+    return Number(data?.data?.sellerUpgradeFee);
 }

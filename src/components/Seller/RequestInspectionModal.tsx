@@ -1,6 +1,6 @@
+import { useEffect, useState } from "react";
 import { X, AlertCircle, CheckCircle } from "lucide-react";
-
-const INSPECTION_FEE = 200000; // 200,000 VND
+import { getInspectionFeeAPI } from "../../services/settingsService";
 
 type BikeBrowseItem = {
     id: number;
@@ -41,6 +41,25 @@ export default function RequestInspectionModal({
     onSubmit,
     onClose,
 }: RequestInspectionModalProps) {
+    const [inspectionFee, setInspectionFee] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let mounted = true;
+        getInspectionFeeAPI()
+            .then((fee) => {
+                if (mounted && Number.isFinite(Number(fee)) && Number(fee) >= 0) {
+                    setInspectionFee(Number(fee));
+                }
+            })
+            .catch(() => {
+                if (mounted) setInspectionFee(null);
+            });
+        return () => {
+            mounted = false;
+        };
+    }, [isOpen]);
+
     if (!isOpen || !bike) return null;
 
     return (
@@ -73,7 +92,7 @@ export default function RequestInspectionModal({
                                 <div className="text-xs text-amber-700 mt-1">Sẽ được trừ từ ví của bạn khi gửi yêu cầu</div>
                             </div>
                             <div className="text-lg font-bold text-amber-900">
-                                {INSPECTION_FEE.toLocaleString("vi-VN")} VND
+                                {inspectionFee !== null ? `${inspectionFee.toLocaleString("vi-VN")} VND` : "Đang cập nhật"}
                             </div>
                         </div>
                     </div>

@@ -18,6 +18,7 @@ import ManagerOrder from "../components/Admin/Manager/ManagerOrder";
 import ManagerTransactions from "../components/Admin/Manager/ManagerTransactions";
 import ManagerBike from "../components/Admin/Manager/ManagerBike";
 import AdminOrderRule from "../components/Admin/Manager/AdminOrderRule";
+import ManagerCombo from "../components/Admin/Manager/ManagerCombo";
 import Login from "../components/home/Login";
 import Register from "../components/home/Register";
 import GuestLayout from "../components/home/Layout";
@@ -147,6 +148,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="withdrawals" element={<ManagementWithdrawal />} />
           <Route path="inspection-status" element={<ManagerInspectionStatus/>} />
           <Route path="order-rules" element={<AdminOrderRule />} />
+          <Route path="combos" element={<ManagerCombo />} />
         </Route>
       </Route>
 

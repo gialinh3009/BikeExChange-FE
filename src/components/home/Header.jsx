@@ -2,11 +2,18 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bike, Menu, X, Search, Heart, User, ChevronDown,
-  Tag, SlidersHorizontal,
+  Tag, SlidersHorizontal, Coins,
 } from "lucide-react";
 import { getCategoriesAPI } from "../../services/Buyer/Categoryservice";
 import { getBrandsAPI } from "../../services/home/brandService";
 import { getWishlistAPI } from "../../services/Buyer/wishlistService";
+import {
+  getBikePostFeeAPI,
+  getCommissionRateAPI,
+  getInspectionFeeAPI,
+  getReturnWindowDaysAPI,
+  getSellerUpgradeFeeAPI,
+} from "../../services/settingsService";
 
 function categoryIcon(name = "") {
   const n = name.toLowerCase();
@@ -28,6 +35,7 @@ export default function Header() {
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [catOpen,     setCatOpen]     = useState(false);
   const [brandOpen,   setBrandOpen]   = useState(false);
+  const [feeOpen,     setFeeOpen]     = useState(false);
   const [catSearch,   setCatSearch]   = useState("");
   const [brandSearch, setBrandSearch] = useState("");
 
@@ -36,9 +44,15 @@ export default function Header() {
 
   const [sticky,      setSticky]      = useState(false);  // sticky filter bar visible
   const [wishCount,   setWishCount]   = useState(0);
+  const [feeLoading,  setFeeLoading]  = useState(false);
+  const [feeError,    setFeeError]    = useState("");
+  const [feeRules,    setFeeRules]    = useState(null);
 
   const catRef   = useRef(null);
   const brandRef = useRef(null);
+  const feeRef   = useRef(null);
+
+  const formatVND = (value) => `${Number(value || 0).toLocaleString("vi-VN")} VND`;
 
   useEffect(() => {
     setKeyword(searchParams.get("q") || "");
@@ -76,10 +90,40 @@ export default function Header() {
     const handler = (e) => {
       if (catRef.current && !catRef.current.contains(e.target)) setCatOpen(false);
       if (brandRef.current && !brandRef.current.contains(e.target)) setBrandOpen(false);
+      if (feeRef.current && !feeRef.current.contains(e.target)) setFeeOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const loadFeeRules = async () => {
+    setFeeLoading(true);
+    setFeeError("");
+    try {
+      const [bikePostFee, inspectionFee, sellerUpgradeFee, commissionRate, returnWindowDays] = await Promise.all([
+        getBikePostFeeAPI(),
+        getInspectionFeeAPI(),
+        getSellerUpgradeFeeAPI(),
+        getCommissionRateAPI(),
+        getReturnWindowDaysAPI(),
+      ]);
+      setFeeRules({ bikePostFee, inspectionFee, sellerUpgradeFee, commissionRate, returnWindowDays });
+    } catch (err) {
+      setFeeError(err?.message || "Không tải được quy định phí.");
+    } finally {
+      setFeeLoading(false);
+    }
+  };
+
+  const toggleFeeOpen = () => {
+    const next = !feeOpen;
+    setFeeOpen(next);
+    setCatOpen(false);
+    setBrandOpen(false);
+    if (next && !feeRules && !feeLoading) {
+      void loadFeeRules();
+    }
+  };
 
   /* ── helpers ── */
   const scrollToAllBikes = () => {
@@ -250,6 +294,56 @@ export default function Header() {
                           {String(brand.id) === activeBrandId && <span className="text-xs">✓</span>}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Quy định phí dropdown ── */}
+              <div className="relative" ref={feeRef}>
+                <button
+                  onClick={toggleFeeOpen}
+                  className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    feeOpen ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                  }`}
+                >
+                  <Coins size={14} />
+                  Quy định phí
+                  <ChevronDown size={14} className={`transition-transform ${feeOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {feeOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-900">Quy định các khoản thu</p>
+                      <p className="mt-0.5 text-xs text-gray-500">Áp dụng theo cấu hình hiện hành của hệ thống</p>
+                    </div>
+
+                    <div className="px-4 py-3">
+                      {feeLoading ? (
+                        <p className="text-xs text-gray-400">Đang tải dữ liệu...</p>
+                      ) : feeError ? (
+                        <div className="space-y-2">
+                          <p className="text-xs text-red-500">{feeError}</p>
+                          <button
+                            type="button"
+                            onClick={() => void loadFeeRules()}
+                            className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                          >
+                            Thử lại
+                          </button>
+                        </div>
+                      ) : feeRules ? (
+                        <div className="space-y-2.5 text-xs">
+                          <FeeRow label="Phí đăng 1 bài" value={formatVND(feeRules.bikePostFee)} />
+                          <FeeRow label="Phí kiểm định" value={formatVND(feeRules.inspectionFee)} />
+                          <FeeRow label="Phí nâng cấp Seller" value={formatVND(feeRules.sellerUpgradeFee)} />
+                          <FeeRow label="Hoa hồng giao dịch" value={`${Number(feeRules.commissionRate || 0).toFixed(0)}%`} />
+                          <FeeRow label="Thời gian hoàn trả" value={`${Number(feeRules.returnWindowDays || 0)} ngày`} />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500">Chưa có dữ liệu.</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -452,5 +546,14 @@ export default function Header() {
         </div>
       )}
     </>
+  );
+}
+
+function FeeRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-2">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-semibold text-gray-900">{value}</span>
+    </div>
   );
 }
