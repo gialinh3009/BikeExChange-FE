@@ -18,12 +18,17 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Settings,
 } from "lucide-react";
+
+
 
 
 function clsx(...arr) {
   return arr.filter(Boolean).join(" ");
 }
+
+
 
 
 const IconWrap = ({ icon: Icon, active }) => (
@@ -38,6 +43,8 @@ const IconWrap = ({ icon: Icon, active }) => (
 );
 
 
+
+
 export default function AdminSidebar({
   isOpen = false,
   onClose,
@@ -47,6 +54,8 @@ export default function AdminSidebar({
 }) {
   const location = useLocation();
   const [openGroup, setOpenGroup] = useState(null);
+
+
 
 
   const navActive = useMemo(
@@ -129,12 +138,22 @@ export default function AdminSidebar({
         key: "components",
         icon: Cpu,
       },
+      {
+        to: "/admin/order-rules",
+        label: "Quản Lý Cấu Hình Đơn",
+        key: "order-rules",
+        icon: Settings,
+      },
     ],
     [],
   );
 
 
+
+
   const nav = useMemo(() => [...navActive], [navActive]);
+
+
 
 
   React.useEffect(() => {
@@ -145,6 +164,8 @@ export default function AdminSidebar({
     );
     if (matchedGroup) setOpenGroup(matchedGroup.key);
   }, [location.pathname, nav]);
+
+
 
 
   const SidebarContent = (
@@ -161,6 +182,8 @@ export default function AdminSidebar({
         </div>
 
 
+
+
         {!collapsed && (
           <div className="min-w-0">
             <div className="font-semibold text-gray-900 leading-tight">
@@ -169,6 +192,8 @@ export default function AdminSidebar({
             <div className="text-xs text-gray-500 truncate">Admin Console</div>
           </div>
         )}
+
+
 
 
         <button
@@ -188,6 +213,8 @@ export default function AdminSidebar({
         </button>
 
 
+
+
         <button
           onClick={onClose}
           className="ml-auto md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 hover:bg-blue-50 h-9 w-9 shrink-0"
@@ -197,6 +224,8 @@ export default function AdminSidebar({
           <X size={16} className="text-gray-600" />
         </button>
       </div>
+
+
 
 
       {/* Nav */}
@@ -231,7 +260,11 @@ export default function AdminSidebar({
         </div>
 
 
+
+
       </nav>
+
+
 
 
       {/* Footer actions */}
@@ -252,12 +285,16 @@ export default function AdminSidebar({
   );
 
 
+
+
   return (
     <>
       {/* Desktop */}
       <div className="hidden md:block h-screen sticky top-0">
         {SidebarContent}
       </div>
+
+
 
 
       {/* Mobile Drawer */}
@@ -272,6 +309,12 @@ export default function AdminSidebar({
     </>
   );
 }
+
+
+
+
+
+
 
 
 
