@@ -60,7 +60,7 @@ export default function ManagerInspected() {
 
   const COLUMNS = [
     "ID", "Xe", "Chủ xe", "Kiểm định viên",
-    "Phí (điểm)", "Ngày hẹn", "Bắt đầu", "Hoàn thành", "Ngày tạo",
+    "Phí (VNĐ)", "Ngày hẹn", "Bắt đầu", "Hoàn thành", "Ngày tạo",
   ];
 
   return (

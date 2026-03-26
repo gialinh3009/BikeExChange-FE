@@ -335,7 +335,7 @@ export default function ManagerBike() {
                   <th className="px-5 py-3 font-medium">Xe đạp</th>
                   <th className="px-5 py-3 font-medium">Thương hiệu</th>
                   <th className="px-5 py-3 font-medium">Loại / Năm</th>
-                  <th className="px-5 py-3 font-medium">Giá (điểm)</th>
+                  <th className="px-5 py-3 font-medium">Giá (VNĐ)</th>
                   <th className="px-5 py-3 font-medium">Trạng thái</th>
                   <th className="px-5 py-3 font-medium">Kiểm định</th>
                   <th className="px-5 py-3 font-medium">Ngày tạo</th>
