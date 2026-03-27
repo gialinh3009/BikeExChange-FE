@@ -1,10 +1,55 @@
-import { X, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, ShieldCheck, Clock, AlertCircle, XCircle, CheckCircle2, FileText } from "lucide-react";
 
-type InspectionDetail = {
-    inspection?: any;
-    report?: any;
-    history?: any;
-};
+// ── Types matching backend DTOs ──────────────────────────────────────────────
+
+export type InspectionStatus = "REQUESTED" | "ASSIGNED" | "IN_PROGRESS" | "INSPECTED" | "APPROVED" | "REJECTED";
+
+interface InspectionData {
+    id: number;
+    bikeId: number;
+    bikeTitle: string;
+    ownerId: number;
+    ownerName: string;
+    inspectorId?: number;
+    inspectorName?: string;
+    status: InspectionStatus;
+    feePoints: number;
+    preferredDate?: string;
+    preferredTimeSlot?: string;
+    address?: string;
+    contactPhone?: string;
+    notes?: string;
+    createdAt: string;
+    startedAt?: string;
+    completedAt?: string;
+}
+
+interface ReportData {
+    id: number;
+    requestId: number;
+    frameCondition?: string;
+    groupsetCondition?: string;
+    wheelCondition?: string;
+    overallScore?: number;
+    adminDecision?: InspectionStatus;
+    comments?: string;
+    createdAt: string;
+    medias?: { url: string; type: string; sortOrder: number }[];
+}
+
+interface HistoryEvent {
+    id: number;
+    action: string;
+    performedBy?: number;
+    metadata?: string;
+    timestamp: string;
+}
+
+export interface InspectionDetail {
+    inspection?: InspectionData;
+    report?: ReportData;
+    history?: HistoryEvent[];
+}
 
 interface InspectionReportModalProps {
     isOpen: boolean;
@@ -14,94 +59,92 @@ interface InspectionReportModalProps {
     onClose: () => void;
 }
 
-function formatDate(dateString?: string) {
-    if (!dateString) return "N/A";
-    try {
-        return new Date(dateString).toLocaleString("vi-VN");
-    } catch {
-        return dateString;
-    }
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const fmtDate = (s?: string) => {
+    if (!s) return "—";
+    try { return new Date(s).toLocaleString("vi-VN"); } catch { return s; }
+};
+
+const fmtMoney = (n?: number | null) =>
+    n != null ? `${Number(n).toLocaleString("vi-VN")} VND` : "—";
+
+// ── Status config for 4 states ────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ReactNode; desc: string }> = {
+    NONE: {
+        label: "Chưa kiểm định",
+        color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb",
+        icon: <FileText size={18} />,
+        desc: "Xe chưa được gửi yêu cầu kiểm định.",
+    },
+    REQUESTED: {
+        label: "Đang chờ xử lý",
+        color: "#d97706", bg: "#fffbeb", border: "#fde68a",
+        icon: <Clock size={18} />,
+        desc: "Yêu cầu kiểm định đã được gửi, đang chờ phân công inspector.",
+    },
+    ASSIGNED: {
+        label: "Đã phân công inspector",
+        color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe",
+        icon: <Clock size={18} />,
+        desc: "Inspector đã được phân công, sẽ liên hệ với bạn sớm.",
+    },
+    IN_PROGRESS: {
+        label: "Đang kiểm định",
+        color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe",
+        icon: <Clock size={18} />,
+        desc: "Inspector đang tiến hành kiểm định xe của bạn.",
+    },
+    INSPECTED: {
+        label: "Đã kiểm tra xong",
+        color: "#0891b2", bg: "#ecfeff", border: "#a5f3fc",
+        icon: <Clock size={18} />,
+        desc: "Inspector đã hoàn thành kiểm tra, đang chờ admin phê duyệt.",
+    },
+    APPROVED: {
+        label: "Đã kiểm định — Đạt",
+        color: "#059669", bg: "#f0fdf4", border: "#bbf7d0",
+        icon: <CheckCircle2 size={18} />,
+        desc: "Xe đã được kiểm định và xác nhận đạt chất lượng.",
+    },
+    REJECTED: {
+        label: "Từ chối kiểm định",
+        color: "#dc2626", bg: "#fef2f2", border: "#fecaca",
+        icon: <XCircle size={18} />,
+        desc: "Yêu cầu kiểm định đã bị từ chối. Bạn có thể gửi lại yêu cầu mới.",
+    },
+};
+
+function getStatusConfig(status?: string) {
+    if (!status) return STATUS_CONFIG.NONE;
+    return STATUS_CONFIG[status.toUpperCase()] ?? STATUS_CONFIG.NONE;
 }
 
-function renderInspectionInfo(inspection: any) {
-    if (!inspection) return null;
-    
+// ── Score badge ───────────────────────────────────────────────────────────────
+
+function ScoreBadge({ score }: { score?: number }) {
+    if (score == null) return <span className="text-sm text-gray-400">—</span>;
+    const color = score >= 8 ? "#059669" : score >= 5 ? "#d97706" : "#dc2626";
     return (
-        <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">ID</p>
-                    <p className="text-sm font-medium text-gray-900">#{inspection.id}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">Trạng thái</p>
-                    <p className="text-sm font-medium text-gray-900">{inspection.status || "N/A"}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">Xe đạp</p>
-                    <p className="text-sm font-medium text-gray-900">{inspection.bikeTitle || "N/A"}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">Chủ xe</p>
-                    <p className="text-sm font-medium text-gray-900">{inspection.ownerName || "N/A"}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">Kiểm định viên</p>
-                    <p className="text-sm font-medium text-gray-900">{inspection.inspectorName || "N/A"}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">Phí kiểm định</p>
-                    <p className="text-sm font-medium text-gray-900">{inspection.feePoints || 0} VND</p>
-                </div>
-                <div className="col-span-2">
-                    <p className="text-xs text-gray-500 font-semibold">Ngày tạo</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(inspection.createdAt)}</p>
-                </div>
-                {inspection.preferredDate && (
-                    <div className="col-span-2">
-                        <p className="text-xs text-gray-500 font-semibold">Ngày ưu tiên</p>
-                        <p className="text-sm font-medium text-gray-900">{inspection.preferredDate}</p>
-                    </div>
-                )}
-                {inspection.address && (
-                    <div className="col-span-2">
-                        <p className="text-xs text-gray-500 font-semibold">Địa chỉ</p>
-                        <p className="text-sm font-medium text-gray-900">{inspection.address}</p>
-                    </div>
-                )}
-            </div>
+        <span style={{ color, fontWeight: 700, fontSize: 20 }}>
+            {score}<span style={{ fontSize: 13, color: "#6b7280", fontWeight: 500 }}>/10</span>
+        </span>
+    );
+}
+
+// ── Row helper ────────────────────────────────────────────────────────────────
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-100 last:border-0">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{label}</span>
+            <span className="text-sm font-medium text-gray-900 text-right">{value ?? "—"}</span>
         </div>
     );
 }
 
-function renderReportInfo(report: any) {
-    if (!report) return null;
-    
-    return (
-        <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">ID</p>
-                    <p className="text-sm font-medium text-gray-900">#{report.id}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500 font-semibold">Kết quả</p>
-                    <p className={`text-sm font-medium ${report.result ? "text-emerald-600" : "text-red-600"}`}>
-                        {report.result ? "✓ Đạt" : "✗ Không đạt"}
-                    </p>
-                </div>
-                <div className="col-span-2">
-                    <p className="text-xs text-gray-500 font-semibold">Ghi chú</p>
-                    <p className="text-sm font-medium text-gray-900">{report.notes || "Không có ghi chú"}</p>
-                </div>
-                <div className="col-span-2">
-                    <p className="text-xs text-gray-500 font-semibold">Ngày báo cáo</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(report.createdAt)}</p>
-                </div>
-            </div>
-        </div>
-    );
-}
+// ── Main modal ────────────────────────────────────────────────────────────────
 
 export default function InspectionReportModal({
     isOpen,
@@ -112,97 +155,171 @@ export default function InspectionReportModal({
 }: InspectionReportModalProps) {
     if (!isOpen) return null;
 
+    const inspection = detail?.inspection;
+    const report = detail?.report;
+    const history = detail?.history ?? [];
+    const cfg = getStatusConfig(inspection?.status);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex-shrink-0">
                     <div className="flex items-center gap-2">
-                        <ShieldCheck size={20} className="text-emerald-600" />
-                        <h2 className="font-bold text-gray-900">Báo cáo kiểm định</h2>
+                        <ShieldCheck size={20} className="text-blue-600" />
+                        <h2 className="font-bold text-gray-900 text-base">Báo cáo kiểm định</h2>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-1 hover:bg-gray-100 rounded-lg transition"
-                    >
-                        <X size={20} className="text-gray-500" />
+                    <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
+                        <X size={18} className="text-gray-500" />
                     </button>
                 </div>
 
-                <div className="p-6">
+                {/* Body */}
+                <div className="overflow-y-auto flex-1 p-6 space-y-5">
+
+                    {/* Loading */}
                     {isLoading && (
-                        <div className="text-center py-8">
-                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            <p className="text-sm text-gray-500 mt-2">Đang tải báo cáo...</p>
+                        <div className="flex flex-col items-center justify-center py-12 gap-3">
+                            <div className="w-8 h-8 border-3 border-gray-200 border-t-blue-600 rounded-full animate-spin" style={{ borderWidth: 3 }} />
+                            <p className="text-sm text-gray-500">Đang tải thông tin kiểm định...</p>
                         </div>
                     )}
 
-                    {error && (
-                        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex gap-2">
-                            <AlertCircle size={18} className="flex-shrink-0" />
-                            {error}
+                    {/* Error */}
+                    {!isLoading && error && (
+                        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2">
+                            <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-red-700">{error}</p>
                         </div>
                     )}
 
+                    {/* Content */}
                     {!isLoading && !error && detail && (
-                        <div className="space-y-6">
-                            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
-                                <CheckCircle2 size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <>
+                            {/* Status banner */}
+                            <div
+                                className="rounded-xl border px-4 py-3 flex items-start gap-3"
+                                style={{ background: cfg.bg, borderColor: cfg.border }}
+                            >
+                                <span style={{ color: cfg.color, flexShrink: 0, marginTop: 1 }}>{cfg.icon}</span>
                                 <div>
-                                    <div className="font-semibold text-emerald-900">Xe đã được kiểm định</div>
-                                    <p className="text-sm text-emerald-700 mt-1">
-                                        Xe của bạn đã hoàn thành quá trình kiểm định và được xác nhận chất lượng.
-                                    </p>
+                                    <p className="font-semibold text-sm" style={{ color: cfg.color }}>{cfg.label}</p>
+                                    <p className="text-xs mt-0.5" style={{ color: cfg.color, opacity: 0.85 }}>{cfg.desc}</p>
                                 </div>
                             </div>
 
-                            {detail.inspection && (
+                            {/* Inspection info */}
+                            {inspection && (
                                 <div>
-                                    <h3 className="font-semibold text-gray-900 mb-3">Thông tin kiểm định</h3>
-                                    <div className="bg-gray-50 rounded-xl p-4">
-                                        {renderInspectionInfo(detail.inspection)}
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Thông tin kiểm định</p>
+                                    <div className="bg-gray-50 rounded-xl px-4 py-1">
+                                        <InfoRow label="Mã yêu cầu" value={`#${inspection.id}`} />
+                                        <InfoRow label="Xe đạp" value={inspection.bikeTitle} />
+                                        <InfoRow label="Chủ xe" value={inspection.ownerName} />
+                                        <InfoRow
+                                            label="Inspector"
+                                            value={inspection.inspectorName ?? <span className="text-gray-400 italic">Chưa phân công</span>}
+                                        />
+                                        <InfoRow label="Phí kiểm định" value={fmtMoney(inspection.feePoints)} />
+                                        <InfoRow label="Ngày yêu cầu" value={fmtDate(inspection.createdAt)} />
+                                        {inspection.preferredDate && (
+                                            <InfoRow label="Ngày ưu tiên" value={inspection.preferredDate} />
+                                        )}
+                                        {inspection.preferredTimeSlot && (
+                                            <InfoRow label="Khung giờ" value={inspection.preferredTimeSlot} />
+                                        )}
+                                        {inspection.address && (
+                                            <InfoRow label="Địa chỉ" value={inspection.address} />
+                                        )}
+                                        {inspection.contactPhone && (
+                                            <InfoRow label="Số điện thoại" value={inspection.contactPhone} />
+                                        )}
+                                        {inspection.notes && (
+                                            <InfoRow label="Ghi chú" value={inspection.notes} />
+                                        )}
+                                        {inspection.completedAt && (
+                                            <InfoRow label="Hoàn thành lúc" value={fmtDate(inspection.completedAt)} />
+                                        )}
                                     </div>
                                 </div>
                             )}
 
-                            {detail.report && (
+                            {/* Report info — only shown when inspector submitted report */}
+                            {report && (
                                 <div>
-                                    <h3 className="font-semibold text-gray-900 mb-3">Báo cáo chi tiết</h3>
-                                    <div className="bg-gray-50 rounded-xl p-4">
-                                        {renderReportInfo(detail.report)}
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Kết quả kiểm định</p>
+                                    <div className="bg-gray-50 rounded-xl px-4 py-1">
+                                        <InfoRow label="Điểm tổng thể" value={<ScoreBadge score={report.overallScore} />} />
+                                        <InfoRow label="Khung xe" value={report.frameCondition} />
+                                        <InfoRow label="Bộ truyền động" value={report.groupsetCondition} />
+                                        <InfoRow label="Bánh xe" value={report.wheelCondition} />
+                                        {report.adminDecision && (
+                                            <InfoRow
+                                                label="Quyết định admin"
+                                                value={
+                                                    <span style={{ color: report.adminDecision === "APPROVED" ? "#059669" : "#dc2626", fontWeight: 700 }}>
+                                                        {report.adminDecision === "APPROVED" ? "✓ Đạt" : "✗ Không đạt"}
+                                                    </span>
+                                                }
+                                            />
+                                        )}
+                                        {report.comments && (
+                                            <InfoRow label="Nhận xét" value={report.comments} />
+                                        )}
+                                        <InfoRow label="Ngày báo cáo" value={fmtDate(report.createdAt)} />
                                     </div>
+
+                                    {/* Report images */}
+                                    {report.medias && report.medias.length > 0 && (
+                                        <div className="mt-3 grid grid-cols-3 gap-2">
+                                            {report.medias
+                                                .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                                                .map((m, i) => (
+                                                    <a key={i} href={m.url} target="_blank" rel="noopener noreferrer">
+                                                        <img
+                                                            src={m.url}
+                                                            alt={`Ảnh kiểm định ${i + 1}`}
+                                                            className="w-full h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90 transition"
+                                                        />
+                                                    </a>
+                                                ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {detail.history && Array.isArray(detail.history) && detail.history.length > 0 && (
+                            {/* History */}
+                            {history.length > 0 && (
                                 <div>
-                                    <h3 className="font-semibold text-gray-900 mb-3">Lịch sử hoạt động</h3>
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Lịch sử hoạt động</p>
                                     <div className="space-y-2">
-                                        {detail.history.map((event: any, idx: number) => (
-                                            <div key={idx} className="bg-gray-50 rounded-lg p-3 text-sm">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-medium text-gray-900">{event.action || event.entityType}</span>
-                                                    <span className="text-xs text-gray-500">{formatDate(event.timestamp)}</span>
-                                                </div>
-                                                {event.note && <p className="text-gray-600 mt-1">{event.note}</p>}
+                                        {history.map((evt, i) => (
+                                            <div key={evt.id ?? i} className="flex items-start justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2.5">
+                                                <span className="text-sm font-medium text-gray-800">{evt.action}</span>
+                                                <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">{fmtDate(evt.timestamp)}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
 
+                    {/* No data */}
                     {!isLoading && !error && !detail && (
-                        <div className="text-center py-8">
-                            <p className="text-sm text-gray-500">Không có dữ liệu báo cáo</p>
+                        <div className="text-center py-10">
+                            <ShieldCheck size={40} className="text-gray-300 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500">Không có dữ liệu kiểm định</p>
                         </div>
                     )}
                 </div>
 
-                <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
+                {/* Footer */}
+                <div className="border-t border-gray-100 px-6 py-4 flex justify-end flex-shrink-0">
                     <button
                         onClick={onClose}
-                        className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
                     >
                         Đóng
                     </button>
