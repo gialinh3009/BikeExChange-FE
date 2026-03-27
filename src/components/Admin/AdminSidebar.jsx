@@ -128,7 +128,7 @@ export default function AdminSidebar({
       },
       {
         to: "/admin/order-rules",
-        label: "Quản Lý Cấu Hình Đơn",
+        label: "Quản Lý Cấu Hình Đơn Hàng",
         key: "order-rules",
         icon: Settings,
       },

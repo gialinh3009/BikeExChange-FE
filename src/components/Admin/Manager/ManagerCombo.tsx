@@ -444,8 +444,21 @@ export default function ManagerCombo() {
                 inputMode="numeric"
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
+              {/* Giá đăng lẻ 1 bài */}
+              <div className="mt-2 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-100 via-yellow-100 to-amber-100 border border-amber-200 text-amber-700 font-semibold text-xs shadow">
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#F59E42" opacity="0.15"/><path d="M12 7v5l3 3" stroke="#F59E42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="10" stroke="#F59E42" strokeWidth="2"/></svg>
+                  Giá đăng lẻ: <span className="font-bold text-amber-700">{singlePostPrice ? singlePostPrice.toLocaleString("vi-VN") : "-"} VND</span>
+                </span>
+              </div>
+              {/* Lỗi combo phải rẻ hơn lẻ */}
               {comboPriceError && (
-                <div className="mt-1 text-xs text-red-600 font-medium">{comboPriceError}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-100 via-orange-100 to-red-100 border border-orange-300 text-orange-700 font-semibold text-xs shadow animate-pulse">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#F59E42" opacity="0.15"/><path d="M12 8v4" stroke="#F59E42" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16" r="1" fill="#F59E42"/><circle cx="12" cy="12" r="10" stroke="#F59E42" strokeWidth="2"/></svg>
+                    {comboPriceError}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -493,9 +506,6 @@ export default function ManagerCombo() {
             >
               <PackagePlus size={15} /> {editingId == null ? "Tạo combo mới" : "Lưu cập nhật"}
             </button>
-            {comboPriceError && (
-              <span className="text-xs text-red-600 font-medium">{comboPriceError}</span>
-            )}
             {editingId != null && !hasEditChanges && formValid && (
               <span className="text-xs text-slate-500">Chưa có thay đổi để lưu.</span>
             )}
@@ -504,30 +514,32 @@ export default function ManagerCombo() {
 
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm xl:col-span-4">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Preview</h3>
-          <div className="mt-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4">
-            <p className="text-lg font-bold text-slate-900">{form.name.trim() || "Tên gói combo"}</p>
-            <p className="mt-1 text-sm text-slate-600">{Number(form.postLimit) > 0 ? `${Number(form.postLimit)} lượt đăng` : "Nhập số lượt đăng"}</p>
-            <div className="mt-4 flex items-end justify-between">
-              <div>
-                <div className="text-xs text-slate-500">Giá gói</div>
-                <div className="text-xl font-black text-slate-900">
-                  {Number.isFinite(Number(form.pointsCost)) && Number(form.pointsCost) >= 0
-                    ? `${Number(form.pointsCost).toLocaleString("vi-VN")} VND`
-                    : "0 VND"}
-                </div>
-                <div className="mt-1 text-xs font-medium text-indigo-700">
-                  {Number(form.postLimit) > 0 && Number.isFinite(Number(form.pointsCost)) && Number(form.pointsCost) >= 0
-                    ? `~ ${Math.round(Number(form.pointsCost) / Number(form.postLimit)).toLocaleString("vi-VN")} VND / bài`
-                    : "Nhập giá và số lượt để tính VND / bài"}
-                </div>
+          <div className="mt-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6 flex flex-col items-center">
+            <p className="text-2xl font-extrabold text-slate-900 mb-1 text-center drop-shadow-sm">{form.name.trim() || "Tên gói combo"}</p>
+            <p className="text-base text-slate-600 mb-2 text-center">{Number(form.postLimit) > 0 ? `${Number(form.postLimit)} lượt đăng` : "Nhập số lượt đăng"}</p>
+            <div className="w-full flex flex-col items-center mb-2">
+              <div className="text-xs text-slate-500 mb-1">Giá gói</div>
+              <div className="text-3xl font-black text-gradient bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-500 bg-clip-text text-transparent drop-shadow-lg">
+                {Number.isFinite(Number(form.pointsCost)) && Number(form.pointsCost) >= 0
+                  ? `${Number(form.pointsCost).toLocaleString("vi-VN")} VND`
+                  : "0 VND"}
               </div>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${form.active ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"}`}>
-                {formatActive(form.active)}
-              </span>
             </div>
+            <div className="w-full flex flex-col items-center mt-2">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 border border-indigo-200 shadow font-bold text-indigo-700 text-lg animate-fade-in">
+                <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#6366F1" opacity="0.15"/><path d="M12 7v5l3 3" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="10" stroke="#7C3AED" strokeWidth="2"/></svg>
+                {Number(form.postLimit) > 0 && Number.isFinite(Number(form.pointsCost)) && Number(form.pointsCost) >= 0
+                  ? <span><span className="font-extrabold text-purple-700 text-xl">{Math.round(Number(form.pointsCost) / Number(form.postLimit)).toLocaleString("vi-VN")}</span> <span className="text-base font-semibold text-indigo-700">VND / bài</span></span>
+                  : <span className="text-base text-gray-400">Nhập giá và số lượt để tính VND / bài</span>}
+              </div>
+              <div className="mt-1 text-xs text-gray-500 italic">Giá trung bình mỗi bài đăng</div>
+            </div>
+            <span className={`mt-4 rounded-full px-4 py-1 text-sm font-semibold shadow ${form.active ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"}`}>
+              {formatActive(form.active)}
+            </span>
           </div>
 
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 text-center">
             Mọi thao tác đều yêu cầu xác nhận thay đổi trước khi áp dụng.
           </div>
         </div>
