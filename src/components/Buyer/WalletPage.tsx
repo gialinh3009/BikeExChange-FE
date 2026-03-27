@@ -405,7 +405,7 @@ export default function WalletPage({ initialTab = "overview" }: { initialTab?: T
                                 </div>
                             </div>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", flexShrink: 0, marginLeft: 12 }}>
-                                −{fmtPts(o.amountPoints)}
+                                +{fmtPts(o.amountPoints)}
                             </span>
                         </div>
                     ))}
