@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Package } from "lucide-react";
+import { RefreshCw, Package, Bike } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getWalletTransactionsAPI } from "../../services/Seller/walletService";
 import { enrichTransactions, type EnrichedTransaction } from "../../utils/transactionUtils";
+import { batchGetBikeImages } from "../../utils/bikeImageCache";
 
 type FilterKey = "all" | "income" | "expense";
 
@@ -27,6 +28,7 @@ export default function SellerTransactionHistoryTab({ token, userId }: SellerTra
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [transactions, setTransactions] = useState<EnrichedTransaction[]>([]);
+  const [bikeImages, setBikeImages] = useState<Map<number, string>>(new Map());
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -34,7 +36,14 @@ export default function SellerTransactionHistoryTab({ token, userId }: SellerTra
     try {
       const res = await getWalletTransactionsAPI(token, userId);
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
-      setTransactions(await enrichTransactions(raw, token));
+      const enriched = await enrichTransactions(raw, token);
+      setTransactions(enriched);
+
+      // Fetch bike images for transactions that have a bikeId
+      const bikeIds = enriched.map(t => t.resolvedBikeId).filter((id): id is number => !!id);
+      if (bikeIds.length > 0) {
+        batchGetBikeImages(bikeIds, token).then(setBikeImages).catch(() => {});
+      }
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
       setTransactions([]);
@@ -63,75 +72,75 @@ export default function SellerTransactionHistoryTab({ token, userId }: SellerTra
   ];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+    <div>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="font-bold text-gray-900 text-lg">Lịch sử giao dịch</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Xem chi tiết tất cả khoản thu chi</p>
+          <h2 className="text-xl font-bold text-gray-900">Lịch sử giao dịch</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Toàn bộ khoản thu và chi trong ví của bạn</p>
         </div>
         <button onClick={() => void fetchTransactions()} disabled={loading}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition">
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Làm mới
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition shadow-sm">
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
         </button>
       </div>
 
       {/* Stats */}
       {!loading && transactions.length > 0 && (
-        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Tổng giao dịch</p>
-            <p className="text-2xl font-bold text-gray-900">{transactions.length}</p>
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tổng giao dịch</p>
+            <p className="text-3xl font-extrabold text-gray-900">{transactions.length}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Khoản thu</p>
-            <p className="text-lg font-bold text-green-600">+{fmtMoney(totalIncome)}</p>
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">Khoản thu</p>
+            <p className="text-xl font-extrabold text-emerald-700">+{fmtMoney(totalIncome)}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Khoản chi</p>
-            <p className="text-lg font-bold text-red-600">-{fmtMoney(totalExpense)}</p>
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-1">Khoản chi</p>
+            <p className="text-xl font-extrabold text-red-600">-{fmtMoney(totalExpense)}</p>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
         {filterConfig.map(f => (
           <button key={f.key} onClick={() => setFilter(f.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 ${
-              filter === f.key ? "bg-blue-600 text-white" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+              filter === f.key
+                ? "bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-100"
+                : "bg-white border-gray-200 text-gray-600 hover:border-orange-200 hover:text-orange-600"
             }`}>
             {f.label}
-            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${filter === f.key ? "bg-white/30" : "bg-gray-200"}`}>
-              {f.count}
-            </span>
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+              filter === f.key ? "bg-white/30" : "bg-gray-100 text-gray-600"
+            }`}>{f.count}</span>
           </button>
         ))}
       </div>
 
       {/* Loading */}
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-500">
-          <div className="w-5 h-5 border-2 border-gray-200 border-t-blue-600 rounded-full animate-spin" />
-          Đang tải...
+        <div className="flex items-center justify-center gap-3 py-16 text-gray-400">
+          <div className="w-6 h-6 border-2 border-gray-200 border-t-orange-500 rounded-full animate-spin" />
+          <span className="text-sm">Đang tải...</span>
         </div>
       )}
 
       {/* Error */}
       {error && !loading && (
-        <div className="mx-6 my-4 bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-red-700 text-sm font-semibold">Lỗi: {error}</p>
-        </div>
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mb-4">{error}</div>
       )}
 
       {/* Empty */}
       {!loading && !error && filtered.length === 0 && (
-        <div className="px-6 py-12 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-            <Package size={32} className="text-gray-400" />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+            <Package size={36} className="text-gray-300" />
           </div>
-          <p className="text-gray-900 font-semibold text-sm mb-1">Không có giao dịch</p>
-          <p className="text-gray-500 text-xs">
+          <p className="text-gray-700 font-semibold mb-1">Không có giao dịch</p>
+          <p className="text-gray-400 text-sm">
             {filter === "income" ? "Chưa có khoản thu nào" : filter === "expense" ? "Chưa có khoản chi nào" : "Chưa có lịch sử giao dịch"}
           </p>
         </div>
@@ -139,42 +148,52 @@ export default function SellerTransactionHistoryTab({ token, userId }: SellerTra
 
       {/* List */}
       {!loading && filtered.length > 0 && (
-        <div className="divide-y divide-gray-100">
+        <div className="space-y-2">
           {filtered.map((trans, idx) => {
             const isOrderLink      = !!trans.resolvedOrderId;
             const isPostLink       = trans.linkType === "post"       && !!trans.resolvedBikeId;
             const isInspectionLink = trans.linkType === "inspection" && !!trans.resolvedBikeId;
             const isClickable      = isOrderLink || isPostLink || isInspectionLink;
-
             const handleClick = () => {
-              if (isOrderLink)      navigate(`/seller/orders/${trans.resolvedOrderId}`);
+              if (isOrderLink)           navigate(`/seller/orders/${trans.resolvedOrderId}`);
               else if (isPostLink)       navigate(`/bikes/${trans.resolvedBikeId}`);
               else if (isInspectionLink) navigate(`/seller?tab=inspection`);
             };
-
-            const linkLabel = isOrderLink      ? "→ Xem đơn hàng"
-                            : isPostLink       ? "→ Xem bài đăng"
-                            : isInspectionLink ? "→ Xem kiểm định"
-                            : null;
+            const linkLabel = isOrderLink ? "Xem đơn hàng" : isPostLink ? "Xem bài đăng" : isInspectionLink ? "Xem kiểm định" : null;
+            const imgUrl = trans.resolvedBikeId ? bikeImages.get(trans.resolvedBikeId) : undefined;
 
             return (
               <div key={trans.id || idx} onClick={isClickable ? handleClick : undefined}
-                className={`p-4 flex items-center justify-between transition ${isClickable ? "hover:bg-blue-50 cursor-pointer" : "hover:bg-gray-50"}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${trans.income ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                    {trans.income ? "↑" : "↓"}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
-                      {trans.resolvedLabel}
-                      {linkLabel && <span className="text-xs text-blue-500 font-normal">{linkLabel}</span>}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">{fmtDateTime(trans.createdAt)}</p>
-                  </div>
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${
+                  isClickable
+                    ? "hover:border-orange-200 hover:bg-orange-50 cursor-pointer border-gray-100 bg-white shadow-sm"
+                    : "border-gray-100 bg-white shadow-sm hover:shadow-md"
+                }`}>
+                {/* Image / icon */}
+                <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200">
+                  {imgUrl ? (
+                    <img src={imgUrl} alt={trans.resolvedLabel} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className={`w-full h-full flex items-center justify-center ${trans.income ? "bg-emerald-50" : "bg-red-50"}`}>
+                      {trans.resolvedBikeId
+                        ? <Bike size={16} className={trans.income ? "text-emerald-500" : "text-red-500"} />
+                        : <span className={`text-sm font-bold ${trans.income ? "text-emerald-600" : "text-red-600"}`}>{trans.income ? "+" : "-"}</span>
+                      }
+                    </div>
+                  )}
                 </div>
-                <p className={`text-sm font-bold flex-shrink-0 ml-4 ${trans.income ? "text-green-600" : "text-red-600"}`}>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {trans.resolvedLabel}
+                    {linkLabel && <span className="ml-1.5 text-xs text-orange-500 font-normal">→ {linkLabel}</span>}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{fmtDateTime(trans.createdAt)}</p>
+                </div>
+                {/* Amount */}
+                <span className={`text-sm font-extrabold flex-shrink-0 ${trans.income ? "text-emerald-600" : "text-red-600"}`}>
                   {trans.income ? "+" : "-"}{fmtMoney(Math.abs(trans.amount || 0))}
-                </p>
+                </span>
               </div>
             );
           })}

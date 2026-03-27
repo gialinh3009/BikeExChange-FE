@@ -105,36 +105,25 @@ export default function SellerDisputesTab({ token }: SellerDisputesTabProps) {
     }
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div>
             {/* Header */}
-            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h2 className="font-bold text-gray-900 text-lg">Tranh chấp</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">Quản lý tất cả tranh chấp của bạn ({disputes.length})</p>
+                    <h2 className="text-xl font-bold text-gray-900">Tranh chấp</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">Các đơn hàng đang có khiếu nại — admin sẽ xem xét và đưa ra quyết định ({disputes.length})</p>
                 </div>
-                <button
-                    onClick={() => fetchDisputes()}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                >
-                    <RefreshCw size={16} />
-                    Làm mới
+                <button onClick={() => fetchDisputes()}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 transition shadow-sm">
+                    <RefreshCw size={14} /> Làm mới
                 </button>
             </div>
 
             {/* Disputes list */}
-            <div className="divide-y divide-gray-100">
+            <div className="space-y-3">
                 {disputes.map((dispute) => (
-                    <div
-                        key={dispute.orderId}
-                        className="dispute-card"
-                        style={{
-                            background: "white",
-                            border: "1.5px solid #e8ecf4",
-                            borderRadius: 12,
-                            padding: "14px 16px",
-                            transition: "background .15s",
-                        }}
-                    >
+                    <div key={dispute.orderId}
+                        className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-orange-100 transition-all overflow-hidden p-4">
+
                         <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
                             <div
                                 style={{

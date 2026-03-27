@@ -25,13 +25,32 @@ export async function listBikesAPI({ page = 0, size = 20 } = {}, token) {
   return data.data ?? data;
 }
 
-// List seller's bikes
-export async function listSellerBikesAPI({ page = 0, size = 100 } = {}, token) {
+// List seller's own bikes using seller_id param — returns ALL statuses
+export async function listSellerBikesAPI({ page = 0, size = 200 } = {}, token) {
   if (!token) {
     throw new Error("Token không tồn tại. Vui lòng đăng nhập lại.");
   }
 
-  const res = await fetch(`${BASE_URL}/bikes?page=${page}&size=${size}&status=ACTIVE,DRAFT,VERIFIED,RESERVED,SOLD`, {
+  // Decode sellerId from JWT token
+  let sellerId = null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    sellerId = payload.sub || payload.userId || payload.id || null;
+    // Also try from localStorage user
+    if (!sellerId) {
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      sellerId = user?.id ?? null;
+    }
+  } catch {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    sellerId = user?.id ?? null;
+  }
+
+  // Build URL: use seller_id param so BE filters server-side, get all statuses
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (sellerId) params.append("seller_id", String(sellerId));
+
+  const res = await fetch(`${BASE_URL}/bikes?${params.toString()}`, {
     headers: authHeader(token),
   });
 
@@ -43,7 +62,7 @@ export async function listSellerBikesAPI({ page = 0, size = 100 } = {}, token) {
   if (!res.ok || data.success === false) {
     throw new Error(data.message || "Lấy danh sách xe thất bại.");
   }
-  
+
   return data.data ?? data;
 }
 

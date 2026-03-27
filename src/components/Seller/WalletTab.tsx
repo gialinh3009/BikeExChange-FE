@@ -1,7 +1,8 @@
-﻿import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { RefreshCw, Clock, Package, ArrowDownLeft, ArrowUpRight, CheckCircle, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
 import { getWalletAPI, getWalletTransactionsAPI, getCombosAPI, buyComboAPI } from "../../services/Seller/walletService";
+import { getSellerSalesHistoryAPI } from "../../services/orderService";
 import { enrichTransactions, isIncomeType, type EnrichedTransaction } from "../../utils/transactionUtils";
 
 type WalletData = {
@@ -18,24 +19,73 @@ type Combo = {
     isActive: boolean;
 };
 
+type EscrowedOrder = {
+    id: number;
+    bikeTitle: string;
+    amountPoints: number;
+    status: string;
+};
+
 interface WalletTabProps {
     token: string;
     userId?: number;
 }
 
+const HOLDING_STATUSES = ["ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "RETURN_REQUESTED", "DISPUTED"];
+
+const HOLDING_STATUS_LABEL: Record<string, string> = {
+    ESCROWED: "Chờ seller xác nhận",
+    ACCEPTED: "Seller đã xác nhận",
+    SHIPPED: "Đang vận chuyển",
+    DELIVERED: "Đã giao hàng, chờ xác nhận",
+    RETURN_REQUESTED: "Đang yêu cầu hoàn hàng",
+    DISPUTED: "Đang tranh chấp",
+};
+
+const fmtVnd = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
+
 const fmtDate = (iso?: string) => {
     if (!iso) return "N/A";
-    return new Date(iso).toLocaleString("vi-VN", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-    });
+    const dt = new Date(iso);
+    return dt.toLocaleDateString("vi-VN") + " " + dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 };
+
+const TX_LABEL: Record<string, { label: string; sub?: string }> = {
+    DEPOSIT:          { label: "Nạp tiền",              sub: "Nạp tiền vào ví" },
+    WITHDRAW:         { label: "Rút tiền",               sub: "Rút tiền về ngân hàng" },
+    WITHDRAW_REQUEST: { label: "Yêu cầu rút tiền",       sub: "Chờ admin xét duyệt" },
+    ESCROW_HOLD:      { label: "Tạm giữ tiền",           sub: "Khóa tiền khi đặt mua xe" },
+    ESCROW_RELEASE:   { label: "Hoàn tiền tạm giữ",      sub: "Đơn hủy — tiền trả về ví" },
+    ESCROW:           { label: "Tạm giữ tiền",           sub: "Khóa tiền khi đặt mua xe" },
+    EARN:             { label: "Nhận tiền bán xe",       sub: "Giao dịch hoàn tất" },
+    EARN_ESCROW:      { label: "Nhận tiền bán xe",       sub: "Giao dịch hoàn tất" },
+    REFUND:           { label: "Hoàn tiền",              sub: "Tiền được hoàn về ví" },
+    REFUND_BUYER:     { label: "Hoàn tiền mua",          sub: "Yêu cầu hoàn hàng được duyệt" },
+    DISPUTE_REFUND:   { label: "Hoàn tiền tranh chấp",   sub: "Admin đã giải quyết tranh chấp" },
+    SPEND:            { label: "Chi tiền",               sub: undefined },
+    ADMIN_ADJUST:     { label: "Điều chỉnh bởi Admin",   sub: undefined },
+};
+
+const getTxInfo = (trans: EnrichedTransaction): { label: string; sub: string } => {
+    const meta = TX_LABEL[String(trans.type || "").toUpperCase()];
+    return {
+        label: trans.resolvedLabel || meta?.label || trans.type || "Giao dịch",
+        sub: trans.remarks || meta?.sub || "",
+    };
+};
+
+const statusIcon  = (s?: string) => s === "SUCCESS" ? CheckCircle : s === "FAILED" ? XCircle : Clock;
+const statusColor = (s?: string) => s === "SUCCESS" ? "#16a34a" : s === "FAILED" ? "#e11d48" : "#d97706";
+const statusLabel = (s?: string) => s === "SUCCESS" ? "Thành công" : s === "FAILED" ? "Thất bại" : "Chờ";
 
 export default function WalletTab({ token, userId }: WalletTabProps) {
     const navigate = useNavigate();
     const [wallet, setWallet] = useState<WalletData>({ availablePoints: 0, frozenPoints: 0, remainingFreePosts: 0 });
     const [walletLoading, setWalletLoading] = useState(false);
     const [walletError, setWalletError] = useState<string | null>(null);
+
+    const [escrowedOrders, setEscrowedOrders] = useState<EscrowedOrder[]>([]);
+    const [escrowLoading, setEscrowLoading] = useState(false);
 
     const [transactions, setTransactions] = useState<EnrichedTransaction[]>([]);
     const [transLoading, setTransLoading] = useState(false);
@@ -62,6 +112,35 @@ export default function WalletTab({ token, userId }: WalletTabProps) {
             setWalletError((e as Error).message || "Không thể tải ví.");
         } finally {
             setWalletLoading(false);
+        }
+    }, [token]);
+
+    const refreshEscrowedOrders = useCallback(async () => {
+        setEscrowLoading(true);
+        try {
+            const data = await getSellerSalesHistoryAPI(undefined, token);
+            const allOrders: any[] = [];
+            if (Array.isArray(data)) allOrders.push(...data);
+            else if (data?.data && Array.isArray(data.data)) allOrders.push(...data.data);
+            else if (data?.content && Array.isArray(data.content)) allOrders.push(...data.content);
+
+            const dedup = new Map<number, EscrowedOrder>();
+            allOrders.forEach((item: any) => {
+                const o = item?.order ?? item;
+                if (!o?.id || !HOLDING_STATUSES.includes(o.status)) return;
+                if (dedup.has(o.id)) return;
+                dedup.set(o.id, {
+                    id: o.id,
+                    bikeTitle: o.bikeTitle || o.bike?.title || `Đơn #${o.id}`,
+                    amountPoints: o.amountPoints || 0,
+                    status: o.status,
+                });
+            });
+            setEscrowedOrders(Array.from(dedup.values()));
+        } catch {
+            setEscrowedOrders([]);
+        } finally {
+            setEscrowLoading(false);
         }
     }, [token]);
 
@@ -94,7 +173,8 @@ export default function WalletTab({ token, userId }: WalletTabProps) {
         void refreshWallet();
         void refreshTransactions();
         void refreshCombos();
-    }, [refreshWallet, refreshTransactions, refreshCombos]);
+        void refreshEscrowedOrders();
+    }, [refreshWallet, refreshTransactions, refreshCombos, refreshEscrowedOrders]);
 
     const handleBuyCombo = async (combo: Combo) => {
         setComboError(null);
@@ -113,125 +193,172 @@ export default function WalletTab({ token, userId }: WalletTabProps) {
     };
 
     const { availablePoints, frozenPoints, remainingFreePosts } = wallet;
+    const realHeld = escrowedOrders.reduce((s, o) => s + (o.amountPoints || 0), 0);
     const totalPoints = availablePoints + frozenPoints;
 
-    const totalIncome = transactions.filter(t => t.income).reduce((s, t) => s + (t.amount || 0), 0);
+    const totalIncome  = transactions.filter(t =>  t.income).reduce((s, t) => s + (t.amount || 0), 0);
     const totalExpense = transactions.filter(t => !t.income).reduce((s, t) => s + (t.amount || 0), 0);
 
     const filteredTransactions = transactions.filter(t => {
-        if (filter === "income") return t.income;
+        if (filter === "income")  return t.income;
         if (filter === "expense") return !t.income;
         return true;
     });
 
     return (
-        <div className="space-y-6">
-            {/* Wallet Summary */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
-                    <div>
-                        <h2 className="font-bold text-gray-900 text-lg">Ví của bạn</h2>
-                        <p className="text-sm text-gray-500 mt-0.5">Quản lý số dư và lịch sử giao dịch</p>
-                    </div>
-                    <button type="button" onClick={() => void refreshWallet()} disabled={walletLoading}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition">
-                        <RefreshCw size={14} className={walletLoading ? "animate-spin" : ""} /> Làm mới
-                    </button>
+        <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
+            <style>{`
+                @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+                .wt-fade { animation: fadeIn .25s ease; }
+                .escrow-row:hover { background:#f8faff !important; }
+                .tx-row:hover { background:#f1f5f9 !important; }
+            `}</style>
+
+            {/* ── Header ── */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+                <div>
+                    <h2 style={{ fontSize:20, fontWeight:800, color:"#0f172a", margin:0 }}>Ví của bạn</h2>
+                    <p style={{ color:"#94a3b8", fontSize:13, margin:"4px 0 0" }}>Quản lý số dư và lịch sử giao dịch</p>
                 </div>
-                <div className="p-6">
-                    {walletError && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{walletError}</div>}
-                    {walletLoading
-                        ? <div className="text-sm text-gray-500">Đang tải...</div>
-                        : (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                {[
-                                    { label: "Tiền khả dụng", value: availablePoints, color: "emerald" },
-                                    { label: "Tiền bị khóa",  value: frozenPoints,    color: "amber"   },
-                                    { label: "Tổng tiền",     value: totalPoints,     color: "blue"    },
-                                ].map(({ label, value, color }) => (
-                                    <div key={label} className={`rounded-2xl border border-gray-200 p-4 bg-gradient-to-br from-${color}-50 to-${color}-100/50`}>
-                                        <div className={`text-xs text-${color}-600 font-semibold uppercase tracking-wide mb-1`}>{label}</div>
-                                        <div className={`text-3xl font-extrabold text-${color}-900`}>{value.toLocaleString("vi-VN")}</div>
-                                        <div className={`text-xs text-${color}-600 mt-1`}>VND</div>
-                                    </div>
-                                ))}
-                                <div className="rounded-2xl border border-gray-200 p-4 bg-gradient-to-br from-purple-50 to-purple-100/50">
-                                    <div className="text-xs text-purple-600 font-semibold uppercase tracking-wide mb-1">Lượt đăng còn lại</div>
-                                    <div className="text-3xl font-extrabold text-purple-900">{remainingFreePosts}</div>
-                                    <div className="text-xs text-purple-600 mt-1">bài đăng</div>
+                <button onClick={() => { void refreshWallet(); void refreshEscrowedOrders(); }} disabled={walletLoading}
+                    style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", background:"white", border:"1.5px solid #e8ecf4", borderRadius:9, fontSize:13, color:"#64748b", cursor:"pointer", fontWeight:600 }}>
+                    <RefreshCw size={13} style={walletLoading ? { animation:"spin .8s linear infinite" } : {}} /> Làm mới
+                </button>
+            </div>
+
+            {walletError && (
+                <div style={{ marginBottom:16, padding:"10px 14px", background:"#fff1f2", border:"1px solid #fecdd3", borderRadius:10, color:"#e11d48", fontSize:13 }}>
+                    {walletError}
+                </div>
+            )}
+
+            {/* ── Balance Cards ── */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:12, marginBottom:16 }}>
+                <div style={{ background:"linear-gradient(135deg,#1e3a5f,#1e40af)", borderRadius:16, padding:20, color:"white" }}>
+                    <p style={{ fontSize:11, opacity:.8, fontWeight:600, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:".05em" }}>Tiền khả dụng</p>
+                    <h3 style={{ fontSize:22, fontWeight:800, margin:0 }}>{walletLoading ? "..." : fmtVnd(availablePoints)}</h3>
+                    <p style={{ fontSize:11, opacity:.6, margin:"4px 0 0" }}>VND</p>
+                </div>
+                <div style={{ background:"white", borderRadius:16, padding:20, border:"1.5px solid #fde68a" }}>
+                    <p style={{ fontSize:11, color:"#d97706", fontWeight:600, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:".05em" }}>Tiền bị khóa</p>
+                    <h3 style={{ fontSize:22, fontWeight:800, color:"#92400e", margin:0 }}>{walletLoading ? "..." : fmtVnd(frozenPoints)}</h3>
+                    <p style={{ fontSize:11, color:"#d97706", margin:"4px 0 0" }}>VND</p>
+                </div>
+                <div style={{ background:"white", borderRadius:16, padding:20, border:"1.5px solid #e8ecf4" }}>
+                    <p style={{ fontSize:11, color:"#16a34a", fontWeight:600, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:".05em" }}>Tổng tiền</p>
+                    <h3 style={{ fontSize:22, fontWeight:800, color:"#0f172a", margin:0 }}>{walletLoading ? "..." : fmtVnd(totalPoints)}</h3>
+                    <p style={{ fontSize:11, color:"#94a3b8", margin:"4px 0 0" }}>Khả dụng + Đang giữ</p>
+                </div>
+                <div style={{ background:"white", borderRadius:16, padding:20, border:"1.5px solid #e8ecf4" }}>
+                    <p style={{ fontSize:11, color:"#7c3aed", fontWeight:600, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:".05em" }}>Lượt đăng còn lại</p>
+                    <h3 style={{ fontSize:22, fontWeight:800, color:"#5b21b6", margin:0 }}>{walletLoading ? "..." : remainingFreePosts}</h3>
+                    <p style={{ fontSize:11, color:"#7c3aed", margin:"4px 0 0" }}>bài đăng</p>
+                </div>
+            </div>
+
+            {/* ── Chi tiết tiền đang tạm giữ ── */}
+            {!escrowLoading && escrowedOrders.length > 0 && (
+                <div style={{ background:"white", borderRadius:14, border:"1.5px solid #fde68a", marginBottom:16, overflow:"hidden" }} className="wt-fade">
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", background:"#fffbeb", borderBottom:"1px solid #fde68a" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                            <Clock size={14} color="#f59e0b" />
+                            <span style={{ fontSize:13, fontWeight:700, color:"#92400e" }}>Chi tiết tiền đang tạm giữ</span>
+                        </div>
+                        <span style={{ fontSize:14, fontWeight:800, color:"#f59e0b" }}>{fmtVnd(realHeld)}</span>
+                    </div>
+                    {escrowedOrders.map((o, i) => (
+                        <div key={o.id} className="escrow-row" style={{
+                            display:"flex", alignItems:"center", justifyContent:"space-between",
+                            padding:"11px 18px", background:"white",
+                            borderBottom: i < escrowedOrders.length - 1 ? "1px solid #f8fafc" : "none",
+                            transition:"background .15s",
+                        }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
+                                <div style={{ width:32, height:32, borderRadius:8, background:"#fffbeb", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                                    <Package size={14} color="#f59e0b" />
+                                </div>
+                                <div style={{ minWidth:0 }}>
+                                    <p style={{ fontSize:13, fontWeight:600, color:"#0f172a", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                        {o.bikeTitle}
+                                    </p>
+                                    <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>
+                                        Đơn #{o.id} · {HOLDING_STATUS_LABEL[o.status] || "Đang tạm giữ"}
+                                    </p>
                                 </div>
                             </div>
-                        )
-                    }
+                            <span style={{ fontSize:13, fontWeight:700, color:"#f59e0b", flexShrink:0, marginLeft:12 }}>
+                                +{fmtVnd(o.amountPoints)}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Tổng hợp ── */}
+            <div style={{ background:"white", borderRadius:16, border:"1.5px solid #e8ecf4", marginBottom:16, overflow:"hidden" }}>
+                <div style={{ padding:"16px 20px", borderBottom:"1px solid #f1f5f9" }}>
+                    <h3 style={{ fontSize:15, fontWeight:700, color:"#0f172a", margin:0 }}>Tổng hợp</h3>
+                </div>
+                <div style={{ padding:"16px 20px", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
+                    {([
+                        { key:"all"     as const, label:"Tất cả",   value:String(transactions.length), unit:"giao dịch", activeStyle:{ background:"#eff6ff", border:"1.5px solid #bfdbfe" }, textColor:"#2563eb" },
+                        { key:"income"  as const, label:"Tổng thu",  value:`+${totalIncome.toLocaleString("vi-VN")}`,  unit:"VND", activeStyle:{ background:"#f0fdf4", border:"1.5px solid #bbf7d0" }, textColor:"#16a34a" },
+                        { key:"expense" as const, label:"Tổng chi",  value:`-${totalExpense.toLocaleString("vi-VN")}`, unit:"VND", activeStyle:{ background:"#fff1f2", border:"1.5px solid #fecdd3" }, textColor:"#e11d48" },
+                    ] as const).map(item => (
+                        <button key={item.key} onClick={() => setFilter(item.key)}
+                            style={{
+                                borderRadius:12, padding:"14px 16px", textAlign:"left", cursor:"pointer", transition:"all .15s", fontFamily:"inherit",
+                                ...(filter === item.key ? item.activeStyle : { background:"#f8fafc", border:"1.5px solid #e8ecf4" }),
+                            }}>
+                            <p style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", margin:"0 0 6px", color: filter === item.key ? item.textColor : "#64748b" }}>{item.label}</p>
+                            <p style={{ fontSize:20, fontWeight:800, margin:"0 0 4px", color: filter === item.key ? item.textColor : "#0f172a" }}>{item.value}</p>
+                            <p style={{ fontSize:11, margin:0, color: filter === item.key ? item.textColor : "#94a3b8" }}>{item.unit}</p>
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* Transaction Summary */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                    <h2 className="font-bold text-gray-900 text-lg">Tổng hợp</h2>
-                </div>
-                <div className="p-6">
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        {([
-                            { key: "all"     as const, label: "Tất cả",  value: String(transactions.length), unit: "giao dịch", activeClass: "from-blue-50 to-blue-100/50 border-blue-300",   textClass: "text-blue-600",  numClass: "text-blue-900"  },
-                            { key: "income"  as const, label: "Tổng thu", value: `+${totalIncome.toLocaleString("vi-VN")}`,  unit: "VND", activeClass: "from-green-50 to-green-100/50 border-green-300", textClass: "text-green-600", numClass: "text-green-900" },
-                            { key: "expense" as const, label: "Tổng chi", value: `-${totalExpense.toLocaleString("vi-VN")}`, unit: "VND", activeClass: "from-red-50 to-red-100/50 border-red-300",     textClass: "text-red-600",   numClass: "text-red-900"   },
-                        ] as const).map(item => (
-                            <button key={item.key} onClick={() => setFilter(item.key)}
-                                className={`rounded-2xl border p-4 text-left transition cursor-pointer ${
-                                    filter === item.key
-                                        ? `bg-gradient-to-br ${item.activeClass}`
-                                        : "border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100/50 hover:shadow-sm"
-                                }`}>
-                                <div className={`text-xs font-semibold uppercase tracking-wide mb-1 ${filter === item.key ? item.textClass : "text-gray-600"}`}>{item.label}</div>
-                                <div className={`text-2xl font-extrabold ${filter === item.key ? item.numClass : "text-gray-900"}`}>{item.value}</div>
-                                <div className={`text-xs mt-1 ${filter === item.key ? item.textClass : "text-gray-500"}`}>{item.unit}</div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Combo Section */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+            {/* ── Gói combo ── */}
+            <div style={{ background:"white", borderRadius:16, border:"1.5px solid #e8ecf4", marginBottom:16, overflow:"hidden" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:"1px solid #f1f5f9" }}>
                     <div>
-                        <h2 className="font-bold text-gray-900 text-lg">Gói combo tin đăng</h2>
-                        <p className="text-sm text-gray-500 mt-0.5">Mua gói để tiết kiệm phí đăng bài</p>
+                        <h3 style={{ fontSize:15, fontWeight:700, color:"#0f172a", margin:0 }}>Gói combo tin đăng</h3>
+                        <p style={{ fontSize:12, color:"#94a3b8", margin:"3px 0 0" }}>Mua gói để tiết kiệm phí đăng bài</p>
                     </div>
-                    <button type="button" onClick={() => void refreshCombos()} disabled={combosLoading}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition">
-                        <RefreshCw size={14} className={combosLoading ? "animate-spin" : ""} /> Làm mới
+                    <button onClick={() => void refreshCombos()} disabled={combosLoading}
+                        style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", background:"white", border:"1.5px solid #e8ecf4", borderRadius:9, fontSize:13, color:"#64748b", cursor:"pointer", fontWeight:600 }}>
+                        <RefreshCw size={13} /> Làm mới
                     </button>
                 </div>
-                <div className="p-6">
-                    {comboSuccess && <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">✓ {comboSuccess}</div>}
-                    {comboError   && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">✕ {comboError}</div>}
+                <div style={{ padding:"16px 20px" }}>
+                    {comboSuccess && <div style={{ marginBottom:12, padding:"10px 13px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:9, color:"#16a34a", fontSize:13 }}>✓ {comboSuccess}</div>}
+                    {comboError   && <div style={{ marginBottom:12, padding:"10px 13px", background:"#fff1f2", border:"1px solid #fecdd3", borderRadius:9, color:"#e11d48", fontSize:13 }}>✕ {comboError}</div>}
                     {combosLoading
-                        ? <div className="flex items-center gap-2 text-sm text-gray-500 py-4"><div className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" /> Đang tải...</div>
+                        ? <p style={{ fontSize:13, color:"#94a3b8", padding:"16px 0" }}>Đang tải...</p>
                         : combos.length === 0
-                            ? <div className="py-8 text-center text-sm text-gray-500">Hiện chưa có gói combo nào.</div>
+                            ? <p style={{ fontSize:13, color:"#94a3b8", textAlign:"center", padding:"24px 0" }}>Hiện chưa có gói combo nào.</p>
                             : (
-                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:12 }}>
                                     {combos.map(combo => {
                                         const canAfford = availablePoints >= combo.pointsCost;
-                                        const isBuying = buyingComboId === combo.id;
+                                        const isBuying  = buyingComboId === combo.id;
                                         return (
-                                            <div key={combo.id} className="rounded-2xl border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-white p-5 flex flex-col gap-3">
-                                                <div className="flex items-start justify-between gap-2">
+                                            <div key={combo.id} style={{ borderRadius:14, border:"2px solid #ede9fe", background:"linear-gradient(135deg,#faf5ff,white)", padding:18, display:"flex", flexDirection:"column", gap:10 }}>
+                                                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
                                                     <div>
-                                                        <div className="font-bold text-gray-900 text-base">🎟 {combo.name}</div>
-                                                        <div className="text-xs text-gray-500 mt-0.5">{combo.postLimit} lượt đăng tin</div>
+                                                        <p style={{ fontSize:14, fontWeight:700, color:"#0f172a", margin:"0 0 3px" }}>🎟 {combo.name}</p>
+                                                        <p style={{ fontSize:12, color:"#94a3b8", margin:0 }}>{combo.postLimit} lượt đăng tin</p>
                                                     </div>
-                                                    <div className="text-right flex-shrink-0">
-                                                        <div className="text-lg font-extrabold text-purple-700">{combo.pointsCost.toLocaleString("vi-VN")}</div>
-                                                        <div className="text-xs text-purple-500">VND</div>
+                                                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                                                        <p style={{ fontSize:16, fontWeight:800, color:"#7c3aed", margin:0 }}>{combo.pointsCost.toLocaleString("vi-VN")}</p>
+                                                        <p style={{ fontSize:11, color:"#a78bfa", margin:0 }}>VND</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-xs text-gray-500">≈ {Math.round(combo.pointsCost / combo.postLimit).toLocaleString("vi-VN")} VND / bài</div>
+                                                <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>≈ {Math.round(combo.pointsCost / combo.postLimit).toLocaleString("vi-VN")} VND / bài</p>
                                                 <button onClick={() => void handleBuyCombo(combo)} disabled={!canAfford || isBuying}
-                                                    className={`w-full rounded-xl py-2.5 text-sm font-semibold transition ${canAfford && !isBuying ? "bg-purple-600 hover:bg-purple-700 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
+                                                    style={{ width:"100%", padding:"10px 0", borderRadius:10, border:"none", fontSize:13, fontWeight:700, cursor: canAfford && !isBuying ? "pointer" : "not-allowed", fontFamily:"inherit",
+                                                        background: canAfford && !isBuying ? "#7c3aed" : "#e2e8f0",
+                                                        color: canAfford && !isBuying ? "white" : "#94a3b8" }}>
                                                     {isBuying ? "Đang xử lý..." : canAfford ? "Mua ngay" : "Không đủ tiền"}
                                                 </button>
                                             </div>
@@ -243,73 +370,82 @@ export default function WalletTab({ token, userId }: WalletTabProps) {
                 </div>
             </div>
 
-            {/* Transactions History */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
+            {/* ── Lịch sử giao dịch ── */}
+            <div style={{ background:"white", borderRadius:16, border:"1.5px solid #e8ecf4", overflow:"hidden" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:"1px solid #f1f5f9" }}>
                     <div>
-                        <h2 className="font-bold text-gray-900 text-lg">Lịch sử giao dịch</h2>
-                        <p className="text-sm text-gray-500 mt-0.5">
+                        <h3 style={{ fontSize:15, fontWeight:700, color:"#0f172a", margin:0 }}>Lịch sử giao dịch</h3>
+                        <p style={{ fontSize:12, color:"#94a3b8", margin:"3px 0 0" }}>
                             {filter === "income" ? "Các khoản thu" : filter === "expense" ? "Các khoản chi" : "Tất cả giao dịch"}
                         </p>
                     </div>
-                    <button type="button" onClick={() => void refreshTransactions()} disabled={transLoading}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition">
-                        <RefreshCw size={14} className={transLoading ? "animate-spin" : ""} /> Làm mới
+                    <button onClick={() => void refreshTransactions()} disabled={transLoading}
+                        style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 14px", background:"white", border:"1.5px solid #e8ecf4", borderRadius:9, fontSize:13, color:"#64748b", cursor:"pointer", fontWeight:600 }}>
+                        <RefreshCw size={13} style={transLoading ? { animation:"spin .8s linear infinite" } : {}} /> Làm mới
                     </button>
                 </div>
-                <div className="p-6">
-                    {transLoading
-                        ? <div className="flex items-center gap-2 text-sm text-gray-500 py-4"><div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" /> Đang tải...</div>
-                        : (
-                            <div className="divide-y divide-gray-100">
-                                {filteredTransactions.length === 0
-                                    ? <div className="py-8 text-center text-sm text-gray-500">
-                                        {filter === "income" ? "Chưa có khoản thu nào" : filter === "expense" ? "Chưa có khoản chi nào" : "Chưa có giao dịch nào"}
-                                      </div>
-                                    : filteredTransactions.map((trans, idx) => {
-                                        const income = isIncomeType(trans.type);
-                                        const isOrderLink = !!trans.resolvedOrderId;
-                                        const isPostLink = trans.linkType === "post" && !!trans.resolvedBikeId;
-                                        const isInspectionLink = trans.linkType === "inspection" && !!trans.resolvedBikeId;
-                                        const isClickable = isOrderLink || isPostLink || isInspectionLink;
 
-                                        const handleClick = () => {
-                                            if (isOrderLink) navigate(`/seller/orders/${trans.resolvedOrderId}`);
-                                            else if (isPostLink) navigate(`/bikes/${trans.resolvedBikeId}`);
-                                            else if (isInspectionLink) navigate(`/seller?tab=inspection`);
-                                        };
+                <div style={{ padding:"16px 20px" }}>
+                    {transLoading ? (
+                        <div style={{ textAlign:"center", padding:"40px 0" }}>
+                            <div style={{ width:28, height:28, borderRadius:"50%", border:"3px solid #e8ecf4", borderTopColor:"#f97316", animation:"spin .8s linear infinite", margin:"0 auto" }} />
+                        </div>
+                    ) : filteredTransactions.length === 0 ? (
+                        <div style={{ textAlign:"center", padding:"40px 0" }}>
+                            <p style={{ color:"#94a3b8", fontSize:13 }}>
+                                {filter === "income" ? "Chưa có khoản thu nào" : filter === "expense" ? "Chưa có khoản chi nào" : "Chưa có giao dịch nào."}
+                            </p>
+                        </div>
+                    ) : (
+                        <div style={{ display:"flex", flexDirection:"column", gap:8 }} className="wt-fade">
+                            {filteredTransactions.map((trans, idx) => {
+                                const income = isIncomeType(trans.type);
+                                const info   = getTxInfo(trans);
+                                const StatusIcon = statusIcon((trans as any).status);
 
-                                        const linkLabel = isOrderLink ? "→ Xem đơn hàng"
-                                            : isPostLink ? "→ Xem bài đăng"
-                                            : isInspectionLink ? "→ Xem kiểm định"
-                                            : null;
+                                const isOrderLink      = !!trans.resolvedOrderId;
+                                const isPostLink       = trans.linkType === "post"       && !!trans.resolvedBikeId;
+                                const isInspectionLink = trans.linkType === "inspection" && !!trans.resolvedBikeId;
+                                const isClickable      = isOrderLink || isPostLink || isInspectionLink;
 
-                                        return (
-                                            <div key={trans.id || idx}
-                                                onClick={isClickable ? handleClick : undefined}
-                                                className={`py-4 flex items-center justify-between px-2 rounded-lg transition ${isClickable ? "hover:bg-blue-50 cursor-pointer" : "hover:bg-gray-50"}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${income ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                                        {income ? "↑" : "↓"}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-semibold text-gray-900 flex items-center gap-1">
-                                                            {trans.resolvedLabel || trans.description || trans.type || "Giao dịch"}
-                                                            {linkLabel && <span className="text-xs text-blue-500 font-normal">{linkLabel}</span>}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500 mt-0.5">{fmtDate(trans.createdAt)}</div>
-                                                    </div>
-                                                </div>
-                                                <div className={`text-sm font-bold flex-shrink-0 ml-4 ${income ? "text-green-600" : "text-red-600"}`}>
-                                                    {income ? "+" : "-"}{Math.abs(trans.amount || 0).toLocaleString("vi-VN")} VND
-                                                </div>
+                                const handleClick = () => {
+                                    if (isOrderLink)           navigate(`/seller/orders/${trans.resolvedOrderId}`);
+                                    else if (isPostLink)       navigate(`/bikes/${trans.resolvedBikeId}`);
+                                    else if (isInspectionLink) navigate(`/seller?tab=inspection`);
+                                };
+
+                                return (
+                                    <div key={trans.id || idx} className="tx-row"
+                                        onClick={isClickable ? handleClick : undefined}
+                                        style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", background:"#f8fafc", borderRadius:10, border:"1px solid #e8ecf4", transition:"background .15s", cursor: isClickable ? "pointer" : "default" }}>
+                                        <div style={{ width:40, height:40, borderRadius:10, background: income ? "#f0fdf4" : "#fff1f2", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                                            {income
+                                                ? <ArrowDownLeft size={18} color="#16a34a" />
+                                                : <ArrowUpRight  size={18} color="#e11d48" />}
+                                        </div>
+                                        <div style={{ flex:1, minWidth:0 }}>
+                                            <p style={{ fontSize:13, fontWeight:600, color:"#0f172a", margin:"0 0 2px" }}>
+                                                {info.label}
+                                                {isOrderLink      && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem đơn hàng</span>}
+                                                {isPostLink       && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem bài đăng</span>}
+                                                {isInspectionLink && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem kiểm định</span>}
+                                            </p>
+                                            {info.sub && <p style={{ fontSize:11, color:"#64748b", margin:"0 0 2px" }}>{info.sub}</p>}
+                                            <p style={{ fontSize:11, color:"#94a3b8", margin:0 }}>{fmtDate(trans.createdAt)}</p>
+                                        </div>
+                                        <div style={{ textAlign:"right", flexShrink:0 }}>
+                                            <p style={{ fontSize:14, fontWeight:800, color: income ? "#16a34a" : "#e11d48", margin:"0 0 4px" }}>
+                                                {income ? "+" : "−"}{fmtVnd(Math.abs(trans.amount || 0))}
+                                            </p>
+                                            <div style={{ display:"flex", alignItems:"center", gap:3, justifyContent:"flex-end", fontSize:11, color: statusColor((trans as any).status), fontWeight:600 }}>
+                                                <StatusIcon size={11} /> {statusLabel((trans as any).status)}
                                             </div>
-                                        );
-                                    })
-                                }
-                            </div>
-                        )
-                    }
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
