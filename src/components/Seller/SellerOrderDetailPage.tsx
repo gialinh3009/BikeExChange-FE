@@ -431,7 +431,16 @@ export default function SellerOrderDetailPage() {
                         order.shippingCarrier ? { label: "Đơn vị vận chuyển", value: order.shippingCarrier } : null,
                         order.trackingCode ? { label: "Mã vận đơn", value: order.trackingCode } : null,
                         order.shippingNote ? { label: "Ghi chú giao", value: order.shippingNote } : null,
-                        order.returnReason ? { label: "Lý do hoàn", value: order.returnReason, warn: true } : null,
+                                                order.returnReason ? { label: "Lý do hoàn", value: order.returnReason, warn: true } : null,
+                                                (order.remainingDays !== undefined && order.remainingHours !== undefined && order.remainingMinutes !== undefined && order.remainingSeconds !== undefined && order.status === "DELIVERED")
+                                                        ? {
+                                                                label: "Tự động xác nhận sau",
+                                                                value: `${order.remainingDays} ngày ${order.remainingHours} giờ ${order.remainingMinutes} phút ${order.remainingSeconds} giây`,
+                                                                warn: order.remainingDays <= 2
+                                                            }
+                                                        : order.daysUntilAutoRelease !== undefined && order.status === "DELIVERED"
+                                                        ? { label: "Tự động xác nhận sau", value: `${order.daysUntilAutoRelease} ngày`, warn: order.daysUntilAutoRelease <= 2 }
+                                                        : null,
                     ].filter(Boolean).map((row, i) => row && (
                         <div key={i} className="info-row" style={{ display: "grid", gridTemplateColumns: "140px 1fr", padding: "11px 20px", borderBottom: "1px solid #f8fafc", transition: "background .15s", alignItems: "center" }}>
                             <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>{row.label}</span>

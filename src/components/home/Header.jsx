@@ -13,6 +13,7 @@ import {
   getInspectionFeeAPI,
   getReturnWindowDaysAPI,
   getSellerUpgradeFeeAPI,
+  getReturnWindowAPI,
 } from "../../services/settingsService";
 
 function categoryIcon(name = "") {
@@ -100,14 +101,14 @@ export default function Header() {
     setFeeLoading(true);
     setFeeError("");
     try {
-      const [bikePostFee, inspectionFee, sellerUpgradeFee, commissionRate, returnWindowDays] = await Promise.all([
+      const [bikePostFee, inspectionFee, sellerUpgradeFee, commissionRate, returnWindow] = await Promise.all([
         getBikePostFeeAPI(),
         getInspectionFeeAPI(),
         getSellerUpgradeFeeAPI(),
         getCommissionRateAPI(),
-        getReturnWindowDaysAPI(),
+        getReturnWindowAPI ? getReturnWindowAPI() : getReturnWindowDaysAPI(),
       ]);
-      setFeeRules({ bikePostFee, inspectionFee, sellerUpgradeFee, commissionRate, returnWindowDays });
+      setFeeRules({ bikePostFee, inspectionFee, sellerUpgradeFee, commissionRate, ...returnWindow });
     } catch (err) {
       setFeeError(err?.message || "Không tải được quy định phí.");
     } finally {
@@ -339,7 +340,11 @@ export default function Header() {
                           <FeeRow label="Phí kiểm định" value={formatVND(feeRules.inspectionFee)} />
                           <FeeRow label="Phí nâng cấp Seller" value={formatVND(feeRules.sellerUpgradeFee)} />
                           <FeeRow label="Hoa hồng giao dịch" value={`${Number(feeRules.commissionRate || 0).toFixed(0)}%`} />
-                          <FeeRow label="Thời gian hoàn trả" value={`${Number(feeRules.returnWindowDays || 0)} ngày`} />
+                          <FeeRow label="Thời gian hoàn trả" value={
+                            (feeRules.returnWindowDays || feeRules.returnWindowHours || feeRules.returnWindowMinutes)
+                              ? `${feeRules.returnWindowDays || 0} ngày${feeRules.returnWindowHours ? ` ${feeRules.returnWindowHours} giờ` : ""}${feeRules.returnWindowMinutes ? ` ${feeRules.returnWindowMinutes} phút` : ""}`
+                              : `${Number(feeRules.returnWindowDays || 0)} ngày`
+                          } />
                         </div>
                       ) : (
                         <p className="text-xs text-gray-500">Chưa có dữ liệu.</p>

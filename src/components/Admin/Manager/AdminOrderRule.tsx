@@ -1,17 +1,179 @@
+// ─── ReturnWindowRow ─────────────────────────────────────────────────────────
+function ReturnWindowRow({ days, hours, minutes, onSave }: {
+  days: number;
+  hours: number;
+  minutes: number;
+  onSave: (days: number, hours: number, minutes: number) => Promise<void>;
+}) {
+  const [input, setInput] = useState({ days, hours, minutes });
+  const [focused, setFocused] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    setInput({ days, hours, minutes });
+  }, [days, hours, minutes]);
+
+  const isDirty = input.days !== days || input.hours !== hours || input.minutes !== minutes;
+  const isNegative = input.days < 0 || input.hours < 0 || input.minutes < 0;
+
+  const handleRequestSave = () => {
+    if (isNegative) return;
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await onSave(input.days, input.hours, input.minutes);
+      setSuccess(true);
+      setConfirmOpen(false);
+      toast.success("Cập nhật thành công!");
+      setTimeout(() => setSuccess(false), 2500);
+    } catch (err: any) {
+      setError(err.message || "Lỗi cập nhật.");
+      toast.error(err.message || "Lỗi cập nhật thời gian hoàn trả");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 mb-6 px-6 py-5 border-b border-gray-100 bg-white hover:bg-blue-50/40 transition">
+      <Calendar size={20} className="text-blue-700" />
+      <div className="flex flex-col flex-1">
+        <div className="font-medium text-gray-900 text-sm">Thời gian hoàn trả</div>
+        <div className="text-xs text-gray-500">Thời gian cho phép người mua yêu cầu hoàn trả sau khi nhận hàng (ngày, giờ, phút)</div>
+      </div>
+      <input
+        type="number"
+        min={0}
+        max={99}
+        value={input.days}
+        onChange={e => setInput(i => ({ ...i, days: Number(e.target.value) }))}
+        className="w-16 px-2 py-1 border rounded"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+      <span>ngày</span>
+      <input
+        type="number"
+        min={0}
+        max={23}
+        value={input.hours}
+        onChange={e => setInput(i => ({ ...i, hours: Number(e.target.value) }))}
+        className="w-16 px-2 py-1 border rounded ml-2 mr-1"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+      <span>giờ</span>
+      <input
+        type="number"
+        min={0}
+        max={59}
+        value={input.minutes}
+        onChange={e => setInput(i => ({ ...i, minutes: Number(e.target.value) }))}
+        className="w-16 px-2 py-1 border rounded ml-2 mr-1"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+      <span>phút</span>
+      <button
+        type="button"
+        className="ml-4 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 px-3 py-2 text-xs font-medium text-white hover:from-blue-800 hover:to-indigo-800 disabled:opacity-40"
+        onClick={handleRequestSave}
+        disabled={!isDirty || saving || isNegative}
+      >
+        <Save size={13} />
+        {saving ? "Đang lưu..." : "Cập nhật"}
+      </button>
+      {isNegative && <p className="mt-2 text-xs text-red-500">Giá trị không được âm.</p>}
+      {!isNegative && error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {success && <p className="mt-2 text-xs text-green-600">Cập nhật thành công.</p>}
+
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-blue-100 bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between gap-3 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Xác nhận cập nhật</h3>
+                <p className="mt-1 text-xs text-gray-600">Bạn có chắc muốn thay đổi cấu hình này không?</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-start gap-2">
+                <AlertTriangle size={14} className="mt-0.5" />
+                Hành động này sẽ áp dụng ngay cho toàn hệ thống.
+              </div>
+
+              <div className="rounded-xl border border-gray-200 overflow-hidden text-xs">
+                <div className="grid grid-cols-4 bg-gray-50 text-gray-500">
+                  <div className="px-3 py-2">Mục</div>
+                  <div className="px-3 py-2">Giá trị cũ</div>
+                  <div className="px-3 py-2">Giá trị mới</div>
+                  <div className="px-3 py-2">Đơn vị</div>
+                </div>
+                <div className="grid grid-cols-4 border-t border-gray-200">
+                  <div className="px-3 py-2 font-medium text-gray-800">Thời gian hoàn trả</div>
+                  <div className="px-3 py-2 text-gray-700">{days} ngày {hours} giờ {minutes} phút</div>
+                  <div className="px-3 py-2 font-semibold text-blue-700">{input.days} ngày {input.hours} giờ {input.minutes} phút</div>
+                  <div className="px-3 py-2">ngày/giờ/phút</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 bg-white">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSave}
+                disabled={saving}
+                className="rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 px-4 py-2 text-xs font-medium text-white hover:from-blue-800 hover:to-indigo-800 disabled:opacity-50"
+              >
+                {saving ? "Đang cập nhật..." : "Xác nhận cập nhật"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 import { useCallback, useEffect, useState } from "react";
 import { Percent, Calendar, Coins, Save, AlertTriangle, X } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
 import {
   getOrderRulesAPI,
   updateSellerUpgradeFeeAPI,
   updateInspectionFeeAPI,
   updateBikePostFeeAPI,
   updateCommissionRateAPI,
-  updateReturnWindowDaysAPI,
+  
 } from "../../../services/Admin/orderRuleService";
 
 
 interface OrderRules {
   returnWindowDays: number;
+  returnWindowHours?: number;
+  returnWindowMinutes?: number;
   inspectionFee: number;
   commissionRate: number;
   bikePostFee: number;
@@ -280,7 +442,11 @@ export default function AdminOrderRule() {
           {/* Summary cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { label: "Thời gian hoàn trả", value: `${rules.returnWindowDays} ngày`, icon: Calendar },
+              {
+                label: "Thời gian hoàn trả",
+                value: `${rules.returnWindowDays || 0} ngày${rules.returnWindowHours ? ` ${rules.returnWindowHours} giờ` : ""}${rules.returnWindowMinutes ? ` ${rules.returnWindowMinutes} phút` : ""}`,
+                icon: Calendar
+              },
               { label: "Tỷ lệ hoa hồng", value: `${rules.commissionRate.toFixed(1)}%`, icon: Percent },
               { label: "Phí kiểm định", value: formatVND(rules.inspectionFee), icon: Coins },
               { label: "Phí đăng xe", value: formatVND(rules.bikePostFee), icon: Coins },
@@ -298,18 +464,20 @@ export default function AdminOrderRule() {
             ))}
           </div>
 
-
           {/* Editable fields */}
           <div className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md">
             <div className="border-b border-blue-100 px-6 py-4 bg-gradient-to-r from-white to-blue-50">
               <h2 className="font-semibold text-gray-900">Cập nhật cấu hình</h2>
             </div>
-            <EditableRow
-              label="Thời gian hoàn trả"
-              description="Số ngày người mua được phép yêu cầu hoàn trả sau khi nhận hàng"
-              currentValue={rules.returnWindowDays}
-              unit="ngày"
-              onSave={handleUpdate(updateReturnWindowDaysAPI, "returnWindowDays")}
+            {/* Thời gian hoàn trả: ngày, giờ, phút */}
+            <ReturnWindowRow
+              days={rules.returnWindowDays || 0}
+              hours={rules.returnWindowHours || 0}
+              minutes={rules.returnWindowMinutes || 0}
+              onSave={async (days, hours, minutes) => {
+                const updated = await import("../../../services/Admin/orderRuleService").then(m => m.updateReturnWindow({ days, hours, minutes }));
+                setRules((prev) => prev ? { ...prev, returnWindowDays: updated.returnWindowDays, returnWindowHours: updated.returnWindowHours, returnWindowMinutes: updated.returnWindowMinutes } : prev);
+              }}
             />
             <EditableRow
               label="Tỷ lệ hoa hồng"
@@ -339,6 +507,7 @@ export default function AdminOrderRule() {
           </div>
         </>
       ) : null}
+      <Toaster position="top-right" />
     </div>
   );
 }

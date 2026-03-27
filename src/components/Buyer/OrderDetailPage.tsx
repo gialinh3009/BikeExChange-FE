@@ -8,7 +8,7 @@
  *   POST /orders/{id}/request-return   → BUYER yêu cầu hoàn hàng (DELIVERED, trong 14 ngày)
  *   POST /orders/{orderId}/return-dispute → BUYER mở tranh chấp (RETURN_REQUESTED)
  */
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     ChevronLeft, Package, CheckCircle, XCircle, Truck,
     RotateCcw, AlertTriangle, Clock, RefreshCw, MessageSquare,
@@ -22,6 +22,7 @@ import {
     cancelOrderAPI,
     requestReturnAPI,
     openReturnDisputeAPI,
+    confirmReceiptAPI,
 } from "../../services/Buyer/orderActionService";
 
 /* ─── Types ───────────────────────────────────────────────────────────────── */
@@ -50,6 +51,11 @@ interface OrderDetail {
     shippingNote?: string;
     returnReason?: string;
     daysUntilAutoRelease?: number;
+    // Optional granular countdown fields from backend (if present)
+    remainingDays?: number;
+    remainingHours?: number;
+    remainingMinutes?: number;
+    remainingSeconds?: number;
 }
 
 interface HistoryEvent {
@@ -75,7 +81,7 @@ interface OpenDisputePayload {
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
-const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
+const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} VND`;
 
 const fmtDateTime = (iso?: string) => {
     if (!iso) return "—";
@@ -134,6 +140,25 @@ export default function OrderDetailPage() {
     const [showDisputeModal, setShowDisputeModal] = useState(false);
     const [showConfirmReceiptModal, setShowConfirmReceiptModal] = useState(false);
     const [pendingConfirm, setPendingConfirm] = useState<{ msg: string; action: () => Promise<void> } | null>(null);
+    // Countdown state
+    const [countdown, setCountdown] = useState<{days:number,hours:number,minutes:number,seconds:number}|null>(null);
+    const countdownRef = useRef<NodeJS.Timeout|null>(null);
+    // ...existing code...
+
+    // ...existing code...
+
+    // ...existing code...
+
+    // (Countdown effect moved below fetchDetail)
+
+    function secondsToDHMS(totalSeconds:number) {
+        if (totalSeconds < 0) totalSeconds = 0;
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return { days, hours, minutes, seconds };
+    }
 
     const fetchDetail = useCallback(async () => {
         if (!orderId) return;
@@ -149,6 +174,48 @@ export default function OrderDetailPage() {
     }, [orderId]);
 
     useEffect(() => { void fetchDetail(); }, [fetchDetail]);
+
+    // Countdown effect with auto-reload when countdown reaches zero
+    useEffect(() => {
+        if (!detail?.order || detail.order.status !== "DELIVERED") {
+            setCountdown(null);
+            if (countdownRef.current) clearInterval(countdownRef.current);
+            return;
+        }
+        let totalSeconds = 0;
+        if (
+            typeof detail.order.remainingDays === "number" &&
+            typeof detail.order.remainingHours === "number" &&
+            typeof detail.order.remainingMinutes === "number" &&
+            typeof detail.order.remainingSeconds === "number"
+        ) {
+            totalSeconds = detail.order.remainingDays * 86400 + detail.order.remainingHours * 3600 + detail.order.remainingMinutes * 60 + detail.order.remainingSeconds;
+        } else if (typeof detail.order.daysUntilAutoRelease === "number") {
+            totalSeconds = detail.order.daysUntilAutoRelease * 86400;
+        }
+        setCountdown(secondsToDHMS(totalSeconds));
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        if (totalSeconds > 0) {
+            countdownRef.current = setInterval(() => {
+                totalSeconds -= 1;
+                setCountdown(secondsToDHMS(totalSeconds));
+                if (totalSeconds <= 0 && countdownRef.current) {
+                    clearInterval(countdownRef.current);
+                    // Gọi API xác nhận đã nhận hàng khi countdown = 0
+                    (async () => {
+                        try {
+                            await confirmReceiptAPI(detail.order.id);
+                        } catch (e) {
+                            alert("Lỗi xác nhận tự động: " + (e instanceof Error ? e.message : e));
+                        } finally {
+                            fetchDetail();
+                        }
+                    })();
+                }
+            }, 1000);
+        }
+        return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+    }, [detail?.order?.id, detail?.order?.status, fetchDetail]);
 
     /* ── Actions ── */
     const doAction = async (actionKey: string, fn: () => Promise<unknown>, confirmMsg?: string) => {
@@ -324,7 +391,7 @@ export default function OrderDetailPage() {
                     {[
                         { label: "Xe đạp",       value: order.bikeTitle,                    link: `/bikes/${order.bikeId}` },
                         { label: "Người bán",    value: order.sellerName,                  link: `/sellers/${order.sellerId}` },
-                        { label: "Số tiền",      value: fmtMoney(order.amountPoints),       highlight: true },
+                        { label: "Số tiền (VND)",      value: fmtMoney(order.amountPoints),       highlight: true },
                         { label: "Ngày tạo",     value: fmtDateTime(order.createdAt) },
                         { label: "Cập nhật",     value: fmtDateTime(order.updatedAt) },
                         order.acceptedAt ? { label: "Seller xác nhận", value: fmtDateTime(order.acceptedAt) } : null,
@@ -333,9 +400,13 @@ export default function OrderDetailPage() {
                         order.trackingCode ? { label: "Mã vận đơn",    value: order.trackingCode } : null,
                         order.shippingNote ? { label: "Ghi chú giao",  value: order.shippingNote } : null,
                         order.returnReason ? { label: "Lý do hoàn",    value: order.returnReason, warn: true } : null,
-                        order.daysUntilAutoRelease !== undefined && order.status === "DELIVERED"
-                            ? { label: "Tự động xác nhận sau", value: `${order.daysUntilAutoRelease} ngày`, warn: order.daysUntilAutoRelease <= 2 }
-                            : null,
+                                                (countdown && order.status === "DELIVERED")
+                                                        ? {
+                                                                label: "Tự động xác nhận sau",
+                                                                value: `${countdown.days} ngày ${countdown.hours} giờ ${countdown.minutes} phút ${countdown.seconds} giây`,
+                                                                warn: countdown.days <= 2
+                                                            }
+                                                        : null,
                     ].filter(Boolean).map((row, i) => row && (
                         <div key={i} className="info-row" style={{ display: "grid", gridTemplateColumns: "140px 1fr", padding: "11px 20px", borderBottom: "1px solid #f8fafc", transition: "background .15s", alignItems: "center" }}>
                             <span style={{ fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>{row.label}</span>
@@ -412,10 +483,12 @@ export default function OrderDetailPage() {
 
                     if (order.status === "DELIVERED") return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <p style={{ fontSize: 12, color: "#64748b", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "10px 14px" }}>
-                                ⏱ Hàng đã được giao. Xác nhận nhận hàng để giải ngân tiền cho seller, hoặc yêu cầu hoàn hàng nếu có vấn đề.
-                                {order.daysUntilAutoRelease !== undefined && ` Hệ thống tự động xác nhận sau ${order.daysUntilAutoRelease} ngày.`}
-                            </p>
+                                                        <p style={{ fontSize: 12, color: "#64748b", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "10px 14px" }}>
+                                                                ⏱ Hàng đã được giao. Xác nhận nhận hàng để giải ngân tiền cho seller, hoặc yêu cầu hoàn hàng nếu có vấn đề.
+                                                                {countdown && order.status === "DELIVERED"
+                                                                    ? ` Hệ thống tự động xác nhận sau ${countdown.days} ngày ${countdown.hours} giờ ${countdown.minutes} phút ${countdown.seconds} giây.`
+                                                                    : ""}
+                                                        </p>
                             <button className="action-btn" onClick={handleConfirmReceipt} disabled={busy}
                                     style={{ ...btnBase, background: busy ? "#f1f5f9" : "#2563eb", color: "white", border: "none", boxShadow: "0 2px 12px rgba(37,99,235,.25)", opacity: busy ? .6 : 1 }}>
                                 <CheckCircle size={16} /> {busy ? "Đang xử lý..." : "Xác nhận đã nhận hàng"}

@@ -1,3 +1,18 @@
+/** Lấy thời gian hoàn trả (ngày, giờ, phút) */
+export async function getReturnWindowAPI() {
+  const res = await fetch(`${BASE_URL}/public/settings/return-window`);
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || `Không thể tải cấu hình: return-window`);
+  }
+  // Chuẩn hóa key cho FE
+  const d = data.data || {};
+  return {
+    returnWindowDays: d.days ?? d.returnWindowDays ?? 0,
+    returnWindowHours: d.hours ?? d.returnWindowHours ?? 0,
+    returnWindowMinutes: d.minutes ?? d.returnWindowMinutes ?? 0
+  };
+}
 import { BASE_URL } from "../config/apiConfig";
 
 /**

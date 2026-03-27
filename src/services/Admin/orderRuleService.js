@@ -58,8 +58,15 @@ export async function updateCommissionRateAPI(commissionRate) {
 }
 
 
-export async function updateReturnWindowDaysAPI(returnWindowDays) {
-  const res = await fetch(`${BASE_URL}/admin/order-rules/return-window-days?returnWindowDays=${returnWindowDays}`, {
+
+// API mới: cập nhật thời gian hoàn trả theo ngày, giờ, phút
+export async function updateReturnWindow({ days, hours, minutes }) {
+  const params = [];
+  if (days !== undefined) params.push(`returnWindowDays=${days}`);
+  if (hours !== undefined) params.push(`returnWindowHours=${hours}`);
+  if (minutes !== undefined) params.push(`returnWindowMinutes=${minutes}`);
+  const query = params.length ? `?${params.join("&")}` : "";
+  const res = await fetch(`${BASE_URL}/admin/order-rules/return-window${query}`, {
     method: "PUT",
     headers: authHeaders(),
   });

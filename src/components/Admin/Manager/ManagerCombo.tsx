@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  
   PackagePlus,
   RefreshCw,
   Power,
@@ -14,7 +15,7 @@ import {
   ArrowRight,
   BadgeCheck,
   ShieldAlert,
-} from "lucide-react";
+} from "lucide-react";import { getBikePostFeeAPI } from "../../../services/settingsService";
 import {
   createAdminComboAPI,
   deleteAdminComboAPI,
@@ -63,6 +64,13 @@ type ConfirmAction = {
 };
 
 export default function ManagerCombo() {
+
+  // Giá đăng lẻ lấy động từ API
+  const [singlePostPrice, setSinglePostPrice] = useState<number>(0);
+  useEffect(() => {
+    getBikePostFeeAPI().then(setSinglePostPrice).catch(() => setSinglePostPrice(0));
+  }, []);
+
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +112,25 @@ export default function ManagerCombo() {
     Number.isFinite(parsedPointsCost) &&
     parsedPointsCost >= 0 &&
     Number.isInteger(parsedPostLimit) &&
-    parsedPostLimit > 0;
+    parsedPostLimit > 0 &&
+    singlePostPrice > 0 &&
+    parsedPointsCost < singlePostPrice * parsedPostLimit;
+
+  // Thông báo lỗi riêng cho rule combo phải rẻ hơn lẻ
+  let comboPriceError: string | null = null;
+  if (
+    parsedName.length > 0 &&
+    Number.isFinite(parsedPointsCost) &&
+    parsedPointsCost >= 0 &&
+    Number.isInteger(parsedPostLimit) &&
+    parsedPostLimit > 0 &&
+    singlePostPrice > 0
+  ) {
+    const totalSingle = singlePostPrice * parsedPostLimit;
+    if (parsedPointsCost >= totalSingle) {
+      comboPriceError = `Giá combo phải rẻ hơn mua lẻ từng bài (${totalSingle.toLocaleString('vi-VN')} VND)`;
+    }
+  }
 
   const editingCombo = useMemo(
     () => (editingId == null ? null : combos.find((c) => c.id === editingId) ?? null),
@@ -418,6 +444,9 @@ export default function ManagerCombo() {
                 inputMode="numeric"
                 className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
+              {comboPriceError && (
+                <div className="mt-1 text-xs text-red-600 font-medium">{comboPriceError}</div>
+              )}
             </div>
 
             <div className="lg:col-span-2">
@@ -464,6 +493,9 @@ export default function ManagerCombo() {
             >
               <PackagePlus size={15} /> {editingId == null ? "Tạo combo mới" : "Lưu cập nhật"}
             </button>
+            {comboPriceError && (
+              <span className="text-xs text-red-600 font-medium">{comboPriceError}</span>
+            )}
             {editingId != null && !hasEditChanges && formValid && (
               <span className="text-xs text-slate-500">Chưa có thay đổi để lưu.</span>
             )}

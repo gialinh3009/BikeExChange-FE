@@ -52,6 +52,8 @@ export default function ManagerPayment() {
   const [commissionRatePercent, setCommissionRatePercent] = useState("2");
   const [sellerUpgradeFee, setSellerUpgradeFee] = useState("");
   const [returnWindowDays, setReturnWindowDays] = useState("14");
+  const [returnWindowHours, setReturnWindowHours] = useState("0");
+  const [returnWindowMinutes, setReturnWindowMinutes] = useState("0");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingPaymentUpdate | null>(null);
 
@@ -88,30 +90,36 @@ export default function ManagerPayment() {
   const currentCommissionPercent = (rules?.commissionRate ?? 0) * 100;
   const commissionPreview = Number.isFinite(commissionInputNum) ? `${commissionInputNum.toFixed(2)}%` : "—";
   const sellerUpgradeFeePreview = Number.isFinite(feeInputNum) ? fmtVND(feeInputNum) : "—";
-  const returnWindowPreview = Number.isFinite(daysInputNum) ? `${daysInputNum} ngày` : "—";
+  const hoursInputNum = Number(returnWindowHours);
+  const minutesInputNum = Number(returnWindowMinutes);
+  const returnWindowPreview = `${daysInputNum || 0} ngày${hoursInputNum ? ` ${hoursInputNum} giờ` : ""}${minutesInputNum ? ` ${minutesInputNum} phút` : ""}`;
   const hasUnsavedChanges =
     !!rules && (
       (Number.isFinite(commissionInputNum) && Math.abs(commissionInputNum - currentCommissionPercent) > 0.0001) ||
       (Number.isFinite(feeInputNum) && feeInputNum !== Number(rules?.sellerUpgradeFee ?? 0)) ||
-      (Number.isFinite(daysInputNum) && daysInputNum !== Number(rules?.returnWindowDays ?? 0))
+      (Number.isFinite(daysInputNum) && daysInputNum !== Number(rules?.returnWindowDays ?? 0)) ||
+      (Number.isFinite(hoursInputNum) && hoursInputNum !== Number(rules?.returnWindowHours ?? 0)) ||
+      (Number.isFinite(minutesInputNum) && minutesInputNum !== Number(rules?.returnWindowMinutes ?? 0))
     );
 
   const doSave = async (payload: PendingPaymentUpdate) => {
     setSaving(true);
     try {
-      const saved = await updateOrderRulesAPI({
-        commissionRate: payload.commissionRate / 100,
-        sellerUpgradeFee: payload.sellerUpgradeFee,
-        returnWindowDays: payload.returnWindowDays,
-      });
-      setRules({
-        commissionRate: Number(saved?.commissionRate ?? 0),
-        sellerUpgradeFee: Number(saved?.sellerUpgradeFee ?? payload.sellerUpgradeFee),
-        returnWindowDays: Number(saved?.returnWindowDays ?? payload.returnWindowDays),
-      });
-      setCommissionRatePercent(String(((Number(saved?.commissionRate ?? 0)) * 100).toFixed(2)));
-      setSellerUpgradeFee(fmtNumber(Number(saved?.sellerUpgradeFee ?? payload.sellerUpgradeFee)));
-      setReturnWindowDays(String(Number(saved?.returnWindowDays ?? payload.returnWindowDays)));
+      // Gọi API mới cho thời gian hoàn trả
+      const saved = await import("../../../services/Admin/orderRuleService").then(m => m.updateReturnWindow({
+        days: daysInputNum,
+        hours: hoursInputNum,
+        minutes: minutesInputNum
+      }));
+      setRules((prev) => prev ? {
+        ...prev,
+        returnWindowDays: saved.returnWindowDays,
+        returnWindowHours: saved.returnWindowHours,
+        returnWindowMinutes: saved.returnWindowMinutes
+      } : prev);
+      setReturnWindowDays(String(saved.returnWindowDays ?? daysInputNum));
+      setReturnWindowHours(String(saved.returnWindowHours ?? hoursInputNum));
+      setReturnWindowMinutes(String(saved.returnWindowMinutes ?? minutesInputNum));
       setFormError(null);
       setMessage("Đã lưu cấu hình thanh toán thành công.");
     } catch (err) {
@@ -311,19 +319,37 @@ export default function ManagerPayment() {
 
               <label className="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <div>
-                  <span className="text-sm font-semibold text-gray-800">Ngày xác nhận tối đa</span>
-                  <p className="mt-1 text-xs text-gray-500">Mốc thời gian auto-release đơn hàng.</p>
+                  <span className="text-sm font-semibold text-gray-800">Thời gian hoàn trả tối đa</span>
+                  <p className="mt-1 text-xs text-gray-500">Thời gian auto-release đơn hàng (ngày, giờ, phút).</p>
                 </div>
-                <div className="relative">
+                <div className="flex gap-2 items-center">
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={60}
                     value={returnWindowDays}
                     onChange={(e) => setReturnWindowDays(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 pr-14 text-sm font-semibold text-gray-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    className="w-16 rounded-xl border border-gray-200 bg-white px-2 py-2 text-sm font-semibold text-gray-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                   />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-gray-500">ngày</span>
+                  <span className="text-xs font-semibold text-gray-500">ngày</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={returnWindowHours}
+                    onChange={(e) => setReturnWindowHours(e.target.value)}
+                    className="w-14 rounded-xl border border-gray-200 bg-white px-2 py-2 text-sm font-semibold text-gray-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
+                  <span className="text-xs font-semibold text-gray-500">giờ</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={returnWindowMinutes}
+                    onChange={(e) => setReturnWindowMinutes(e.target.value)}
+                    className="w-14 rounded-xl border border-gray-200 bg-white px-2 py-2 text-sm font-semibold text-gray-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
+                  <span className="text-xs font-semibold text-gray-500">phút</span>
                 </div>
                 <p className="text-xs text-gray-500">Xem trước: <span className="font-medium text-gray-700">{returnWindowPreview}</span></p>
               </label>
