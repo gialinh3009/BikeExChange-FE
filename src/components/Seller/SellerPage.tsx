@@ -453,7 +453,13 @@ export default function SellerPage() {
             {/* ── Modals (unchanged) ── */}
             <BikeDetailModal bike={bikeDetail} onClose={() => setBikeDetail(null)} onEdit={setEditBike} onDelete={setDeleteBike} />
             <EditBikeModal bike={editBike} token={token} onClose={() => setEditBike(null)} onSuccess={refreshBikes} />
-            <DeleteBikeModal bike={deleteBike} token={token} onClose={() => setDeleteBike(null)} onSuccess={refreshBikes} />
+            <DeleteBikeModal bike={deleteBike} token={token} onClose={() => setDeleteBike(null)} onSuccess={() => {
+                    if (deleteBike) {
+                        setBikes(prev => prev.filter(b => b.id !== deleteBike.id));
+                    }
+                    setDeleteBike(null);
+                    void refreshBikes();
+                }} />
             <InspectionReportModal
                 isOpen={inspectionOpen} isLoading={inspectionLoading}
                 error={inspectionError} detail={inspectionDetail}

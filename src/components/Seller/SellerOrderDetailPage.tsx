@@ -48,6 +48,10 @@ interface OrderDetail {
     shippingNote?: string;
     returnReason?: string;
     daysUntilAutoRelease?: number;
+    remainingDays?: number;
+    remainingHours?: number;
+    remainingMinutes?: number;
+    remainingSeconds?: number;
 }
 
 interface HistoryEvent {

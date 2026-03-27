@@ -54,6 +54,8 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
   const [approvalModal, setApprovalModal] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
   const [deliveryModal, setDeliveryModal] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
   const [shippingNotice, setShippingNotice] = useState<{ open: boolean; order: SellerOrder | null }>({ open: false, order: null });
+  const [confirmPopup, setConfirmPopup] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true); setError("");
@@ -89,24 +91,41 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
     return orders.filter(o => map[tab].includes(o.status));
   };
 
-  const handleConfirmReturn = async (id: number) => {
-    if (!confirm("Xac nhan da nhan lai hang tu buyer?")) return;
-    setActionOrderId(id);
-    try { await confirmReturnAPI(id, token); await fetchOrders(); }
-    catch (e) { alert(String(e instanceof Error ? e.message : e)); }
-    finally { setActionOrderId(null); }
+  const handleConfirmReturn = (id: number) => {
+    setConfirmPopup({
+      open: true,
+      title: "Xác nhận nhận hàng trả",
+      message: "Bạn xác nhận đã nhận lại hàng từ người mua?",
+      onConfirm: async () => {
+        setConfirmPopup(null);
+        setActionOrderId(id);
+        setActionError(null);
+        try { await confirmReturnAPI(id, token); await fetchOrders(); }
+        catch (e) { setActionError(String(e instanceof Error ? e.message : e)); }
+        finally { setActionOrderId(null); }
+      },
+    });
   };
-  const handleSellerCancel = async (id: number) => {
-    if (!confirm("Ban chac chan muon huy don hang nay?")) return;
-    setActionOrderId(id);
-    try { await sellerCancelOrderAPI(id, token); await fetchOrders(); }
-    catch (e) { alert(String(e instanceof Error ? e.message : e)); }
-    finally { setActionOrderId(null); }
+  const handleSellerCancel = (id: number) => {
+    setConfirmPopup({
+      open: true,
+      title: "Hủy đơn hàng",
+      message: "Bạn chắc chắn muốn hủy đơn hàng này?",
+      onConfirm: async () => {
+        setConfirmPopup(null);
+        setActionOrderId(id);
+        setActionError(null);
+        try { await sellerCancelOrderAPI(id, token); await fetchOrders(); }
+        catch (e) { setActionError(String(e instanceof Error ? e.message : e)); }
+        finally { setActionOrderId(null); }
+      },
+    });
   };
   const handleConfirmDelivery = async (id: number) => {
     setActionOrderId(id);
+    setActionError(null);
     try { await confirmDeliveryAPI(id, token); await fetchOrders(); }
-    catch (e) { alert(String(e instanceof Error ? e.message : e)); }
+    catch (e) { setActionError(String(e instanceof Error ? e.message : e)); }
     finally { setActionOrderId(null); }
   };
 
@@ -233,7 +252,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
                         className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm shadow-blue-200">
                         <CheckCircle size={13} /> Xác nhận
                       </button>
-                      <button onClick={() => void handleSellerCancel(order.id)} disabled={busy}
+                      <button onClick={() => handleSellerCancel(order.id)} disabled={busy}
                         className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-xl text-xs font-bold transition disabled:opacity-50">
                         <X size={13} /> {busy ? "Đang xử lý..." : "Hủy đơn"}
                       </button>
@@ -257,7 +276,7 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
                     </span>
                   )}
                   {order.status === "RETURN_REQUESTED" && (
-                    <button onClick={() => void handleConfirmReturn(order.id)} disabled={busy}
+                    <button onClick={() => handleConfirmReturn(order.id)} disabled={busy}
                       className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-sm shadow-amber-200">
                       <RotateCcw size={13} /> {busy ? "Đang xử lý..." : "Xác nhận nhận hàng trả"}
                     </button>
@@ -307,6 +326,50 @@ export default function SellerOrdersTab({ token }: SellerOrdersTabProps) {
               <button onClick={() => { const o = shippingNotice.order; setShippingNotice({ open:false, order:null }); setDeliveryModal({ open:true, order:o }); }}
                 style={{ flex:1, padding:"11px 16px", background:"#10b981", color:"white", border:"none", borderRadius:9, fontSize:14, fontWeight:600, cursor:"pointer" }}>
                 🚚 Đã xác nhận với người mua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline error popup */}
+      {actionError && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1100 }}>
+          <div style={{ background:"white", borderRadius:16, maxWidth:400, width:"90%", boxShadow:"0 20px 60px rgba(0,0,0,0.15)", overflow:"hidden" }}>
+            <div style={{ padding:"20px 24px 16px", borderBottom:"1px solid #fecaca", background:"#fef2f2" }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:700, color:"#dc2626" }}>⚠️ Có lỗi xảy ra</h3>
+            </div>
+            <div style={{ padding:"16px 24px" }}>
+              <p style={{ fontSize:14, color:"#374151", margin:0 }}>{actionError}</p>
+            </div>
+            <div style={{ padding:"12px 24px 20px" }}>
+              <button onClick={() => setActionError(null)}
+                style={{ width:"100%", padding:"10px 0", background:"#dc2626", color:"white", border:"none", borderRadius:9, fontSize:14, fontWeight:600, cursor:"pointer" }}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline confirm popup */}
+      {confirmPopup?.open && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1100 }}>
+          <div style={{ background:"white", borderRadius:16, maxWidth:400, width:"90%", boxShadow:"0 20px 60px rgba(0,0,0,0.15)", overflow:"hidden" }}>
+            <div style={{ padding:"20px 24px 16px", borderBottom:"1px solid #e5e7eb" }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:700, color:"#0f172a" }}>{confirmPopup.title}</h3>
+            </div>
+            <div style={{ padding:"16px 24px" }}>
+              <p style={{ fontSize:14, color:"#374151", margin:0 }}>{confirmPopup.message}</p>
+            </div>
+            <div style={{ display:"flex", gap:10, padding:"12px 24px 20px" }}>
+              <button onClick={() => setConfirmPopup(null)}
+                style={{ flex:1, padding:"10px 0", background:"#f1f5f9", color:"#374151", border:"none", borderRadius:9, fontSize:14, fontWeight:600, cursor:"pointer" }}>
+                Hủy
+              </button>
+              <button onClick={() => confirmPopup.onConfirm()}
+                style={{ flex:1, padding:"10px 0", background:"#f97316", color:"white", border:"none", borderRadius:9, fontSize:14, fontWeight:600, cursor:"pointer" }}>
+                Xác nhận
               </button>
             </div>
           </div>
