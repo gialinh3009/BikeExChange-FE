@@ -6,7 +6,6 @@ import {
   ClipboardCheck,
   UserCog,
   Tag,
-  Cpu,
   AlertTriangle,
   Wallet,
   ShoppingBag,
@@ -19,6 +18,7 @@ import {
   ChevronRight,
   X,
   Settings,
+  TrendingUp,
 } from "lucide-react";
 
 
@@ -104,7 +104,7 @@ export default function AdminSidebar({
       },
       {
         to: "/admin/inspectors",
-        label: "Quản Lý Kiểm Định Viên",
+        label: "Quản Lý Đơn Kiểm Định",
         key: "inspectors",
         icon: ClipboardCheck,
       },
@@ -127,12 +127,6 @@ export default function AdminSidebar({
         icon: Tag,
       },
       {
-        to: "/admin/components",
-        label: "Quản Lý Linh Kiện",
-        key: "components",
-        icon: Cpu,
-      },
-      {
         to: "/admin/order-rules",
         label: "Quản Lý Cấu Hình Đơn",
         key: "order-rules",
@@ -143,6 +137,18 @@ export default function AdminSidebar({
         label: "Quản Lý Gói Combo",
         key: "combos",
         icon: Package,
+      },
+      {
+        to: "/admin/system-wallet",
+        label: "Ví hệ thống",
+        key: "system-wallet",
+        icon: Wallet,
+      },
+      {
+        to: "/admin/revenue",
+        label: "Doanh thu hệ thống",
+        key: "revenue",
+        icon: TrendingUp,
       },
     ],
     [],
