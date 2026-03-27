@@ -56,3 +56,35 @@ export async function getInspectionReportAPI(bikeId, token) {
   }
   return data.data ?? data;
 }
+
+// Get inspection detail for a specific bike (by bikeId)
+// Uses GET /inspections?sellerId=X then filters by bikeId, then fetches detail
+export async function getInspectionDetailByBikeIdAPI(bikeId, token) {
+  // Fetch all inspections (large page to get all)
+  const res = await fetch(`${BASE_URL}/inspections?page=0&size=100`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách kiểm định thất bại.");
+  }
+
+  const pageData = data.data ?? data;
+  const items = pageData?.content ?? (Array.isArray(pageData) ? pageData : []);
+
+  // Find inspection matching this bikeId
+  const match = items.find((i) => Number(i.bikeId) === Number(bikeId));
+  if (!match) {
+    throw new Error("Chưa có yêu cầu kiểm định cho xe này.");
+  }
+
+  // Fetch full detail (inspection + report + history)
+  const detailRes = await fetch(`${BASE_URL}/inspections/${match.id}`, {
+    headers: authHeader(token),
+  });
+  const detailData = await detailRes.json();
+  if (!detailRes.ok || detailData.success === false) {
+    throw new Error(detailData.message || "Lấy chi tiết kiểm định thất bại.");
+  }
+  return detailData.data ?? detailData;
+}

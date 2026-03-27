@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bike, ChevronDown, Coins, LogOut } from "lucide-react";
 import { listSellerBikesAPI } from "../../services/Seller/bikeManagementService";
-import { requestInspectionAPI, listInspectionsAPI, getInspectionDetailAPI } from "../../services/Seller/inspectionService";
+import { requestInspectionAPI, getInspectionDetailByBikeIdAPI } from "../../services/Seller/inspectionService";
 import { getWalletAPI } from "../../services/Seller/walletService";
 import {
     getBikePostFeeAPI,
@@ -21,7 +21,7 @@ import SellerTransactionHistoryTab from "./SellerTransactionHistoryTab";
 import BikeDetailModal from "./BikeDetailModal";
 import EditBikeModal from "./EditBikeModal";
 import DeleteBikeModal from "./DeleteBikeModal";
-import InspectionReportModal from "./InspectionReportModal";
+import InspectionReportModal, { type InspectionDetail } from "./InspectionReportModal";
 import RequestInspectionModal from "./RequestInspectionModal";
 
 type BikeBrowseItem = {
@@ -46,17 +46,6 @@ type BikeBrowseItem = {
 type BikeItem = BikeBrowseItem;
 
 type TabKey = "posts" | "create" | "inspection" | "wallet" | "orders" | "disputes" | "history" | "transactions";
-
-type InspectionDetail = {
-    inspection?: unknown;
-    report?: unknown;
-    history?: unknown;
-};
-
-type PageResponse<T> = {
-    content?: T[];
-    data?: { content?: T[] };
-};
 
 type WalletLike = {
     availablePoints?: number;
@@ -268,31 +257,12 @@ export default function SellerPage() {
 
     const openInspectionForBike = async (bikeId: number) => {
         try {
-            void bikeId; // Used in filtering/logging
             setInspectionOpen(true);
             setInspectionLoading(true);
             setInspectionError(null);
             setInspectionDetail(null);
 
-            const page = await listInspectionsAPI({ page: 0, size: 10 } as Record<string, number>, token);
-            const p = page as unknown as PageResponse<{ id?: number }> | { id?: number }[];
-            const content =
-                (p as PageResponse<{ id?: number }>)?.content ??
-                (p as PageResponse<{ id?: number }>)?.data?.content ??
-                (Array.isArray(p) ? p : []);
-            if (!Array.isArray(content) || content.length === 0) {
-                throw new Error("Chưa có yêu cầu kiểm định cho xe này.");
-            }
-
-            const asRecord = (value: unknown): Record<string, unknown> => {
-                return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-            };
-            const inspectionId = Number(asRecord(content[0]).id ?? 0) || undefined;
-            if (!inspectionId) {
-                throw new Error("Không tìm thấy inspectionId.");
-            }
-
-            const detail = await getInspectionDetailAPI(inspectionId, token);
+            const detail = await getInspectionDetailByBikeIdAPI(bikeId, token);
             setInspectionDetail(detail as InspectionDetail);
         } catch (e) {
             setInspectionError((e as Error).message || "Không thể tải thông tin kiểm định.");
@@ -437,7 +407,7 @@ export default function SellerPage() {
             <main className="max-w-7xl mx-auto px-6 py-8">
                 {/* Welcome Section */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Xin chào, {user?.email?.split("@")[0] ?? "bạn"} 👋</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Xin chào Seller của BikeExChange, {user?.email?.split("@")[0] ?? "bạn"} 👋</h1>
                     <p className="text-gray-600 text-sm mt-2">Quản lý bài đăng, đơn hàng và ví của bạn</p>
                 </div>
 
