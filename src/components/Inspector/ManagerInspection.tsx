@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import InspectorInspectionDetail from "./InspectorInspectionDetail";
 import {
   getInspectionsAPI,
   updateInspectionStatusAPI,
@@ -78,6 +79,10 @@ function formatDate(dateStr: string | null) {
 
 
 export default function ManagerInspection() {
+  // State for detail modal (number | null)
+  const [detailId, setDetailId] = useState<number | null>(null);
+  // Get token from localStorage
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +115,7 @@ export default function ManagerInspection() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter]);
 
 
@@ -496,7 +502,9 @@ export default function ManagerInspection() {
                         borderBottom: "1px solid #f1f5f9",
                         background: idx % 2 === 0 ? "#fff" : "#fafafa",
                         transition: "background 0.15s",
+                        cursor: "pointer",
                       }}
+                      onClick={() => setDetailId(item.id)}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.background = "#f0f7ff")
                       }
@@ -505,6 +513,29 @@ export default function ManagerInspection() {
                           idx % 2 === 0 ? "#fff" : "#fafafa")
                       }
                     >
+                            {/* Detail Modal */}
+                            {detailId !== null && (
+                              <div
+                                style={{
+                                  position: "fixed",
+                                  inset: 0,
+                                  zIndex: 10000,
+                                  background: "rgba(0,0,0,0.35)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: 16,
+                                }}
+                              >
+                                <div style={{ position: "relative", width: "100%", maxWidth: 650 }}>
+                                  <InspectorInspectionDetail
+                                    inspectionId={detailId}
+                                    token={token}
+                                    onClose={() => setDetailId(null)}
+                                  />
+                                </div>
+                              </div>
+                            )}
                       <td
                         style={{
                           padding: "11px 16px",

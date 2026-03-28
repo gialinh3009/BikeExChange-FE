@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from "react";
 import { createInspectionReportAPI } from "../../services/Inspector/inspectionServices";
-import { uploadImageToCloudinary } from "../../services/firebaseService";
+import { uploadMultipleToCloudinary } from "../../services/cloudinaryService";
 
 interface MediaItem {
   url: string;
@@ -133,14 +133,11 @@ export default function CreateReportForm({ inspectionId, bikeTitle, onSuccess, o
       const mediasToSubmit = [...form.medias];
 
       if (selectedImageFiles.length > 0) {
-        const uploadedImageUrls = await Promise.all(
-          selectedImageFiles.map((file) => uploadImageToCloudinary(file))
-        );
+        const uploadedImages = await uploadMultipleToCloudinary(selectedImageFiles, "inspections");
         const existingMediaCount = mediasToSubmit.length;
-
-        uploadedImageUrls.forEach((url, index) => {
+        uploadedImages.forEach((img, index) => {
           mediasToSubmit.push({
-            url,
+            url: img.url,
             type: "IMAGE",
             sortOrder: existingMediaCount + index,
           });
