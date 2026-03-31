@@ -218,9 +218,11 @@ export default function SellerPage() {
 
     const canRequestInspection = (bike?: BikeBrowseItem | null) => {
         if (!bike) return false;
+        // Không cho đăng kiểm định nếu xe đã bán hoặc đã đặt cọc
+        if (bike.status === "SOLD" || bike.status === "RESERVED") return false;
         const status = (bike.inspectionStatus ?? "").toUpperCase();
         return status === "" || status === "NONE" || status === "REJECTED";
-    };
+    }
 
     const openRequestForBike = (bike: BikeBrowseItem) => {
         setRequestBike(bike);
