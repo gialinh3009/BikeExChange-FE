@@ -8,7 +8,12 @@ export async function loginAPI({ email, password }) {
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data.message || "Đăng nhập thất bại.");
+    // Nếu backend trả về các trường locked, reason, contactEmail thì trả về cho FE
+    const error = new Error(data.message || "Đăng nhập thất bại.");
+    if (typeof data.locked !== "undefined") error.locked = data.locked;
+    if (typeof data.reason !== "undefined") error.reason = data.reason;
+    if (typeof data.contactEmail !== "undefined") error.contactEmail = data.contactEmail;
+    throw error;
   }
   return data.data;
 }

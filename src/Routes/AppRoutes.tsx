@@ -11,7 +11,7 @@ import ManagerInspector from "../components/Admin/Manager/ManagerInspector";
 import ManagerUsers from "../components/Admin/Manager/ManagerUsers";
 import ManagerCategories from "../components/Admin/Manager/ManagerCategories";
 import ManagerBrand from "../components/Admin/Manager/ManagerBrand";
-import ManagerComponent from "../components/Admin/Manager/ManagerComponent";
+// ...existing code...
 import ManagementDisputes from "../components/Admin/Manager/ManagementDisputes";
 import ManagementWithdrawal from "../components/Admin/Manager/ManagementWithdrawal";
 import ManagerOrder from "../components/Admin/Manager/ManagerOrder";
@@ -142,7 +142,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
           <Route path="users" element={<ManagerUsers />} />
           <Route path="categories" element={<ManagerCategories />} />
           <Route path="brands" element={<ManagerBrand />} />
-          <Route path="components" element={<ManagerComponent />} />
+// ...existing code...
           <Route path="disputes" element={<ManagementDisputes />} />
           <Route path="bikes" element={<ManagerBike />} />
           <Route path="orders" element={<ManagerOrder />} />

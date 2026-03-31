@@ -491,22 +491,20 @@ export default function ManagerUsers() {
 
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 w-full max-w-xs">
+      <div className="flex flex-wrap gap-3 items-center bg-white rounded-2xl border border-gray-100 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 w-full max-w-xs focus-within:border-blue-400 transition">
           <Search size={15} className="text-gray-400 shrink-0" />
           <input
-            className="flex-1 outline-none text-sm placeholder:text-gray-400"
+            className="flex-1 outline-none text-sm placeholder:text-gray-400 bg-transparent"
             placeholder="Tìm tên, email, SĐT..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-
-
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
+          className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-blue-400 transition"
         >
           <option value="">Tất cả vai trò</option>
           <option value="ADMIN">Quản trị</option>
@@ -514,12 +512,10 @@ export default function ManagerUsers() {
           <option value="BUYER">Người mua</option>
           <option value="INSPECTOR">Kiểm định viên</option>
         </select>
-
-
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none"
+          className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-blue-400 transition"
         >
           <option value="">Tất cả trạng thái</option>
           <option value="ACTIVE">Hoạt động</option>
@@ -530,7 +526,7 @@ export default function ManagerUsers() {
 
 
       {/* Table */}
-      <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
+      <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
             Đang tải...
@@ -549,92 +545,88 @@ export default function ManagerUsers() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 text-gray-500 text-left">
-                <th className="px-5 py-3 font-medium">Người dùng</th>
-                <th className="px-5 py-3 font-medium">SĐT</th>
-                <th className="px-5 py-3 font-medium">Vai trò</th>
-                <th className="px-5 py-3 font-medium">Trạng thái</th>
-                <th className="px-5 py-3 font-medium">Xác thực</th>
-                <th className="px-5 py-3 font-medium">Ngày tham gia</th>
-                <th className="px-5 py-3 font-medium">Thao tác</th>
+              <tr className="border-b border-gray-100 text-gray-500 text-left bg-gray-50">
+                <th className="px-5 py-3 font-semibold">Người dùng</th>
+                <th className="px-5 py-3 font-semibold">SĐT</th>
+                <th className="px-5 py-3 font-semibold">Vai trò</th>
+                <th className="px-5 py-3 font-semibold">Trạng thái</th>
+                <th className="px-5 py-3 font-semibold">Xác thực</th>
+                <th className="px-5 py-3 font-semibold">Ngày tham gia</th>
+                <th className="px-5 py-3 font-semibold">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr
                   key={user.id}
-                  className="border-b border-gray-50 hover:bg-blue-50"
+                  className="border-b border-gray-50 hover:bg-blue-100/40 transition"
                 >
                   <td className="px-5 py-3">
-                    <div className="font-medium text-gray-900">
-                      {user.fullName}
-                    </div>
-                    <div className="text-xs text-gray-400">{user.email}</div>
+                    <div className="font-semibold text-gray-900 text-sm">{user.fullName}</div>
+                    <div className="text-xs text-gray-500">{user.email}</div>
                   </td>
-                  <td className="px-5 py-3 text-gray-600">{user.phone}</td>
+                  <td className="px-5 py-3 text-gray-700">{user.phone}</td>
                   <td className="px-5 py-3">
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-600"}`}
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-600"}`}
                     >
                       {ROLE_LABELS[user.role] ?? user.role}
                     </span>
                   </td>
                   <td className="px-5 py-3">
                     <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[user.status] ?? "bg-gray-100 text-gray-500"}`}
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLORS[user.status] ?? "bg-gray-100 text-gray-500"}`}
                     >
                       {STATUS_LABELS[user.status] ?? user.status}
                     </span>
                   </td>
                   <td className="px-5 py-3">
                     {user.isVerified ? (
-                      <span className="text-emerald-600 text-xs font-medium">
-                        Đã xác thực
-                      </span>
+                      <span className="text-emerald-600 text-xs font-semibold">Đã xác thực</span>
                     ) : (
-                      <span className="text-gray-400 text-xs">Chưa</span>
+                      <span className="text-gray-400 text-xs font-semibold">Chưa</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-500">
+                  <td className="px-5 py-3 text-gray-500 font-medium">
                     {fmtDate(user.createdAt)}
                   </td>
                   <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDetailUser(user)}
-                        className="text-blue-600 hover:underline text-xs"
-                      >
-                        Chi tiết
-                      </button>
-                      {user.role !== "ADMIN" && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={actionLoading === user.id}
-                            onClick={() => setLockUser(user)}
-                            className="inline-flex items-center gap-0.5 text-xs text-red-500 hover:underline disabled:opacity-50"
-                          >
-                            <Lock size={11} /> Khóa
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionLoading === user.id}
-                            onClick={() => handleUnlock(user)}
-                            className="inline-flex items-center gap-0.5 text-xs text-emerald-600 hover:underline disabled:opacity-50"
-                          >
-                            <Unlock size={11} /> Mở khóa
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionLoading === user.id}
-                            onClick={() => handleDelete(user)}
-                            className="text-red-500 hover:underline text-xs disabled:opacity-50"
-                          >
-                            Xóa
-                          </button>
-                        </>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <div className="inline-flex rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setDetailUser(user)}
+                          className="flex items-center gap-1 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus:bg-blue-100 transition outline-none"
+                          style={{ borderRight: user.role !== "ADMIN" ? '1px solid #e5e7eb' : undefined }}
+                        >
+                          <Users size={13} className="mr-1" /> Chi tiết
+                        </button>
+                        {user.role !== "ADMIN" && (
+                          <>
+                            {user.status !== "LOCKED" && (
+                              <button
+                                type="button"
+                                disabled={actionLoading === user.id}
+                                onClick={() => setLockUser(user)}
+                                className="flex items-center gap-1 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 focus:bg-red-100 transition outline-none disabled:opacity-50"
+                                style={{ borderRight: user.status === "LOCKED" ? undefined : '1px solid #e5e7eb' }}
+                              >
+                                <Lock size={13} className="mr-1" /> Khóa
+                              </button>
+                            )}
+                            {user.status === "LOCKED" && (
+                              <button
+                                type="button"
+                                disabled={actionLoading === user.id}
+                                onClick={() => handleUnlock(user)}
+                                className="flex items-center gap-1 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 focus:bg-emerald-100 transition outline-none disabled:opacity-50"
+                              >
+                                <Unlock size={13} className="mr-1" /> Mở khóa
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

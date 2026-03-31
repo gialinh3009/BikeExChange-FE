@@ -49,13 +49,24 @@ export default function Login() {
       else if (role === "SELLER") navigate("/", { replace: true });
       else navigate("/", { replace: true });
     } catch (err) {
-      const msg = err.message || "";
-      if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
-        setError("Tài khoản chưa được xác thực. Vui lòng kiểm tra email và nhấn vào link xác thực.");
-      } else if (msg.toLowerCase().includes("bad credentials") || msg.toLowerCase().includes("unauthorized")) {
-        setError("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      // Luôn truyền string vào setError, không truyền JSX
+      if (err.locked && err.reason) {
+        setError(
+          `Tài khoản của bạn đã bị khóa.\nLý do: ${err.reason}\nNếu cần hỗ trợ mở khóa, vui lòng liên hệ: ${err.contactEmail || 'support@bikeexchange.com'}`
+        );
       } else {
-        setError(msg || "Đăng nhập thất bại. Vui lòng thử lại.");
+        const msg = err.message || "";
+        if (msg.toLowerCase().includes("locked") || msg.toLowerCase().includes("bị khóa")) {
+          setError(
+            `Tài khoản của bạn đã bị khóa.\n${msg.replace(/(locked|bị khóa)/gi, "").trim()}\nNếu cần hỗ trợ mở khóa, vui lòng liên hệ: support@bikeexchange.com`
+          );
+        } else if (msg.toLowerCase().includes("disabled") || msg.toLowerCase().includes("user is disabled")) {
+          setError("Tài khoản chưa được xác thực. Vui lòng kiểm tra email và nhấn vào link xác thực.");
+        } else if (msg.toLowerCase().includes("bad credentials") || msg.toLowerCase().includes("unauthorized")) {
+          setError("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+        } else {
+          setError(msg || "Đăng nhập thất bại. Vui lòng thử lại.");
+        }
       }
     } finally {
       setLoading(false);
@@ -133,8 +144,16 @@ export default function Login() {
               )}
 
               {error && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                  {error}
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" /></svg>
+                  <div className="flex-1 whitespace-pre-line text-left">
+                    {error.split('\n').map((line, idx) => {
+                      if (line.startsWith('Lý do:')) {
+                        return <div key={idx} className="font-semibold text-red-700">{line}</div>;
+                      }
+                      return <div key={idx}>{line}</div>;
+                    })}
+                  </div>
                 </div>
               )}
 
