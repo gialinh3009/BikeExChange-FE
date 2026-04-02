@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Search, ShoppingBag, CheckCircle, Clock, RefreshCw, Eye, X } from "lucide-react";
+import { X } from "lucide-react";
 import { getAdminOrdersAPI } from "../../../services/Admin/orderManagerService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -260,21 +260,18 @@ export default function ManagerOrder() {
           onClick={fetchOrders}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
-          <RefreshCw size={15} /> Làm mới
+          Làm mới
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[
-          { label: "Tổng đơn hàng", value: orders.length, icon: ShoppingBag, color: "bg-blue-100 text-blue-700" },
-          { label: "Hoàn thành", value: completedCount, icon: CheckCircle, color: "bg-green-100 text-green-700" },
-          { label: "Chờ xử lý", value: pendingCount, icon: Clock, color: "bg-yellow-100 text-yellow-700" },
-        ].map(({ label, value, icon: Icon, color }) => (
+          { label: "Tổng đơn hàng", value: orders.length },
+          { label: "Hoàn thành", value: completedCount },
+          { label: "Chờ xử lý", value: pendingCount },
+        ].map(({ label, value }) => (
           <div key={label} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4">
-            <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-              <Icon size={20} />
-            </span>
             <div>
               <div className="text-xl font-bold text-gray-900">{value}</div>
               <div className="text-xs text-gray-500">{label}</div>
@@ -283,23 +280,11 @@ export default function ManagerOrder() {
         ))}
       </div>
 
-      {/* Total points banner */}
-      <div className="rounded-2xl border border-green-100 bg-green-50 px-5 py-4 flex items-center gap-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
-          <CheckCircle size={20} className="text-green-600" />
-        </span>
-        <div>
-          <div className="text-xl font-bold text-gray-900">{formatPoints(totalPoints)}</div>
-          <div className="text-xs text-gray-500">Tổng điểm từ đơn hàng hoàn thành</div>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-0 max-w-sm flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
-          <Search size={15} className="shrink-0 text-gray-400" />
+        <div className="flex min-w-0 max-w-sm flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2">
           <input
-            className="flex-1 text-sm outline-none placeholder:text-gray-400"
+            className="w-full text-sm outline-none placeholder:text-gray-400"
             placeholder="Tìm người mua, người bán, tên xe, mã đơn..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -375,7 +360,7 @@ export default function ManagerOrder() {
                         onClick={() => setSelectedOrder(o)}
                         className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                       >
-                        <Eye size={13} /> Xem
+                        Xem
                       </button>
                     </td>
                   </tr>

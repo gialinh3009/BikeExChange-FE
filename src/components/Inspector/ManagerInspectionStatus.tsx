@@ -53,7 +53,7 @@ const COLUMNS = [
   "Chủ xe",
   "Kiểm định viên",
   "Ngày ưu tiên",
-  "Phí (điểm)",
+  "Phí (VNĐ)",
   "Trạng thái",
   "Ngày tạo",
 ];

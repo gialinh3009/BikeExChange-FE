@@ -223,7 +223,7 @@ function DetailModal({ report, onClose, onApprove, approveLoadingId }: DetailMod
               {request.preferredTimeSlot && (
                 <Row label="Khung giờ" value={request.preferredTimeSlot} />
               )}
-              <Row label="Phí kiểm định" value={`${request.feePoints.toLocaleString("vi-VN")} pts`} />
+              <Row label="Phí kiểm định" value={`${request.feePoints.toLocaleString("vi-VN")} VNĐ`} />
               {request.notes && <Row label="Ghi chú" value={request.notes} />}
               <Row label="Ngày tạo yêu cầu" value={formatDate(request.createdAt)} />
               {request.completedAt && <Row label="Hoàn thành lúc" value={formatDate(request.completedAt)} />}

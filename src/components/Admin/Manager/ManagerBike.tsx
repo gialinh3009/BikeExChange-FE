@@ -143,6 +143,7 @@ export default function ManagerBike() {
   const [showDetail, setShowDetail] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [confirmBike, setConfirmBike] = useState<BikeItem | null>(null);
 
 
   const showToast = (type: "success" | "error", msg: string) => {
@@ -151,8 +152,10 @@ export default function ManagerBike() {
   };
 
 
-  const handleDelete = async (bike: BikeItem) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa xe "${bike.title}"?`)) return;
+  const handleDeleteConfirmed = async () => {
+    if (!confirmBike) return;
+    const bike = confirmBike;
+    setConfirmBike(null);
     setDeleteLoading(bike.id);
     try {
       await deleteBikeAPI(bike.id);
@@ -397,7 +400,7 @@ export default function ManagerBike() {
                             Chi tiết
                           </button>
                           <button
-                            onClick={() => handleDelete(bike)}
+                            onClick={() => setConfirmBike(bike)}
                             disabled={deleteLoading === bike.id}
                             className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                           >
@@ -441,6 +444,41 @@ export default function ManagerBike() {
         )}
       </div>
 
+
+      {/* Confirm Delete Modal */}
+      {confirmBike && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
+                <Trash2 size={20} className="text-red-600" />
+              </span>
+              <div>
+                <p className="text-base font-bold text-gray-900">Xác nhận xóa xe</p>
+                <p className="text-xs text-gray-500 mt-0.5">Hành động này không thể hoàn tác</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700">
+              Bạn có chắc chắn muốn xóa xe{" "}
+              <span className="font-semibold text-gray-900">"{confirmBike.title}"</span> không?
+            </p>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setConfirmBike(null)}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeleteConfirmed}
+                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-medium text-white transition-colors"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       {showDetail && (
@@ -560,6 +598,5 @@ export default function ManagerBike() {
     </div>
   );
 }
-
 
 

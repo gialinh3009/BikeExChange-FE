@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Search, ArrowLeftRight, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { getAdminTransactionsAPI } from "../../../services/Admin/transactionsManagerService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -132,21 +131,18 @@ export default function ManagerTransactions() {
           onClick={fetchTransactions}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
-          <RefreshCw size={15} /> Làm mới
+          Làm mới
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[
-          { label: "Tổng giao dịch", value: transactions.length, icon: ArrowLeftRight, color: "bg-blue-100 text-blue-700" },
-          { label: "Thành công", value: successCount, icon: CheckCircle, color: "bg-green-100 text-green-700" },
-          { label: "Thất bại", value: failedCount, icon: XCircle, color: "bg-red-100 text-red-700" },
-        ].map(({ label, value, icon: Icon, color }) => (
+          { label: "Tổng giao dịch", value: transactions.length },
+          { label: "Thành công", value: successCount },
+          { label: "Thất bại", value: failedCount },
+        ].map(({ label, value }) => (
           <div key={label} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4">
-            <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-              <Icon size={20} />
-            </span>
             <div>
               <div className="text-xl font-bold text-gray-900">{value}</div>
               <div className="text-xs text-gray-500">{label}</div>
@@ -155,23 +151,11 @@ export default function ManagerTransactions() {
         ))}
       </div>
 
-      {/* Volume banner */}
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 flex items-center gap-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
-          <ArrowLeftRight size={20} className="text-blue-600" />
-        </span>
-        <div>
-          <div className="text-xl font-bold text-gray-900">{formatPoints(totalVolume)}</div>
-          <div className="text-xs text-gray-500">Tổng khối lượng giao dịch thành công</div>
-        </div>
-      </div>
-
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-0 max-w-sm flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
-          <Search size={15} className="shrink-0 text-gray-400" />
+        <div className="flex min-w-0 max-w-sm flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2">
           <input
-            className="flex-1 text-sm outline-none placeholder:text-gray-400"
+            className="w-full text-sm outline-none placeholder:text-gray-400"
             placeholder="Tìm tên, email, mã tham chiếu..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

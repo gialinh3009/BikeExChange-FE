@@ -66,6 +66,18 @@ export default function AdminSidebar({
         key: "dashboard",
         icon: LayoutDashboard,
       },
+            {
+        to: "/admin/system-wallet",
+        label: "Ví hệ thống",
+        key: "system-wallet",
+        icon: Wallet,
+      },
+       {
+        to: "/admin/revenue",
+        label: "Doanh thu hệ thống",
+        key: "revenue",
+        icon: TrendingUp,
+      },
       {
         to: "/admin/users",
         label: "Quản Lý Người Dùng",
@@ -137,18 +149,6 @@ export default function AdminSidebar({
         label: "Quản Lý Gói Combo",
         key: "combos",
         icon: Package,
-      },
-      {
-        to: "/admin/system-wallet",
-        label: "Ví hệ thống",
-        key: "system-wallet",
-        icon: Wallet,
-      },
-      {
-        to: "/admin/revenue",
-        label: "Doanh thu hệ thống",
-        key: "revenue",
-        icon: TrendingUp,
       },
     ],
     [],
