@@ -565,7 +565,7 @@ export default function ManagerBike() {
                       { label: "Loại xe", value: BIKE_TYPE_LABELS[detail.bikeType] ?? detail.bikeType },
                       { label: "Tình trạng", value: CONDITION_LABELS[detail.condition] ?? detail.condition },
                       { label: "Số km đã đi", value: `${detail.mileage} km` },
-                      { label: "Giá (điểm)", value: formatPoints(detail.pricePoints) },
+                      { label: "Giá (VNĐ)", value: formatPoints(detail.pricePoints) },
                       { label: "Lượt xem", value: detail.views },
                       { label: "Vị trí", value: detail.location },
                       { label: "Người bán (ID)", value: `#${detail.sellerId}` },

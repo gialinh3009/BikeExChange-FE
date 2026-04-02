@@ -161,7 +161,7 @@ export default function ManagerInspection() {
     "Chủ xe",
     "Kiểm định viên",
     "Trạng thái",
-    "Phí (điểm)",
+    "Phí (VNĐ)",
     "Ngày hẹn",
     "Ngày tạo",
     "Thao tác",

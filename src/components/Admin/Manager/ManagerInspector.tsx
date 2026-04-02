@@ -239,7 +239,7 @@ function DetailModal({ report, onClose, onApprove, approveLoadingId }: DetailMod
               {report.groupsetCondition && <Row label="Groupset" value={report.groupsetCondition} />}
               {report.overallScore != null && (
                 <Row label="Điểm tổng" value={
-                  <span className="font-bold text-blue-700">{report.overallScore} / 100</span>
+                  <span className="font-bold text-blue-700">{report.overallScore} / 10</span>
                 } />
               )}
               {report.comments && <Row label="Nhận xét" value={report.comments} />}
