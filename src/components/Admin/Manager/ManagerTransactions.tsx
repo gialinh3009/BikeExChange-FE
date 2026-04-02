@@ -45,8 +45,8 @@ const TYPE_LABEL: Record<TxType, { label: string; color: string }> = {
   ESCROW_RELEASE: { label: "Giải phóng ký quỹ", color: "bg-indigo-100 text-indigo-700" },
   SPEND: { label: "Chi tiêu", color: "bg-orange-100 text-orange-700" },
   EARN: { label: "Thu nhập", color: "bg-green-100 text-green-700" },
-  WITHDRAW: { label: "Rút điểm", color: "bg-red-100 text-red-700" },
-  DEPOSIT: { label: "Nạp điểm", color: "bg-blue-100 text-blue-700" },
+  WITHDRAW: { label: "Rút tiền", color: "bg-red-100 text-red-700" },
+  DEPOSIT: { label: "Nạp tiền", color: "bg-blue-100 text-blue-700" },
   REFUND: { label: "Hoàn tiền", color: "bg-pink-100 text-pink-700" },
   COMMISSION: { label: "Hoa hồng", color: "bg-purple-100 text-purple-700" },
   ESCROW: { label: "Ký quỹ", color: "bg-cyan-100 text-cyan-700" },
@@ -207,7 +207,7 @@ export default function ManagerTransactions() {
               <tr className="border-b border-gray-100 text-left text-gray-500">
                 <th className="px-5 py-3 font-medium">#</th>
                 <th className="px-5 py-3 font-medium">Người dùng</th>
-                <th className="px-5 py-3 font-medium text-right">Số điểm</th>
+                <th className="px-5 py-3 font-medium text-right">Số tiền</th>
                 <th className="px-5 py-3 font-medium">Loại</th>
                 <th className="px-5 py-3 font-medium">Trạng thái</th>
                 <th className="px-5 py-3 font-medium">Mã tham chiếu</th>

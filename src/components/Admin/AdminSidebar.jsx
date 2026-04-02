@@ -104,7 +104,7 @@ export default function AdminSidebar({
       },
       {
         to: "/admin/withdrawals",
-        label: "Quản Lý Rút Điểm",
+        label: "Quản Lý Rút Tiền",
         key: "withdrawals",
         icon: Wallet,
       },
