@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
     ChevronLeft, Heart, Calendar,
-    Star, MessageSquare, CheckCircle, Image as ImageIcon,
+    Star, CheckCircle, Image as ImageIcon,
     ShieldCheck, Zap,  User,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -599,18 +599,6 @@ export default function BikedetailPage() {
                             ))}
                         </div>
 
-                        {/* Contact row */}
-                        {seller && (
-                            <div style={{ display: "flex", gap: 0 }}>
-                                <button
-                                    className="btn-outline"
-                                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px 0", background: "white", color: "#2563eb", border: "1.5px solid #2563eb", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background .15s" }}
-                                    onClick={() => alert(`Email: ${seller.email}`)}
-                                >
-                                    <MessageSquare size={15} /> Liên hệ người bán
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
