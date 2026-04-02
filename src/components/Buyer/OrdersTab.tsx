@@ -16,6 +16,7 @@ import {
     Truck,
     AlertTriangle,
     ShieldCheck,
+    Star,
 } from "lucide-react";
 import { getMyPurchasesAPI } from "../../services/Buyer/Orderservice";
 import {
@@ -578,23 +579,46 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
 
                                 </div>
 
-                                <button
-                                    onClick={() => navigate(`/order-detail/${order.id}`)}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 4,
-                                        padding: "7px 14px",
-                                        background: "#f8faff",
-                                        border: "1.5px solid #e8ecf4",
-                                        borderRadius: 8,
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        color: "#2563eb",
-                                        cursor: "pointer"
-                                    }}>
-                                    Xem chi tiết <ChevronRight size={13} />
-                                </button>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <button
+                                        onClick={() => navigate(`/order-detail/${order.id}`)}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 4,
+                                            padding: "7px 14px",
+                                            background: "#f8faff",
+                                            border: "1.5px solid #e8ecf4",
+                                            borderRadius: 8,
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            color: "#2563eb",
+                                            cursor: "pointer"
+                                        }}>
+                                        Xem chi tiết <ChevronRight size={13} />
+                                    </button>
+                                    {/* Nút Đánh giá cho đơn đã hoàn thành, chưa đánh giá */}
+                                    {order.status === "COMPLETED" && order.canReview && !order.isReviewed && (
+                                        <button
+                                            onClick={() => navigate(`/orders/${order.id}/review`)}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                                padding: "7px 14px",
+                                                background: "#fef9c3",
+                                                border: "1.5px solid #fde68a",
+                                                borderRadius: 8,
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                color: "#b45309",
+                                                cursor: "pointer"
+                                            }}
+                                        >
+                                            Đánh giá <Star size={13} />
+                                        </button>
+                                    )}
+                                </div>
 
                             </div>
 
