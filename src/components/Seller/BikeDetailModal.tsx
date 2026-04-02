@@ -256,7 +256,7 @@ export default function BikeDetailModal({ bike, onClose, onEdit, onDelete }: Bik
                             Chỉnh sửa
                         </button>
                     )}
-                    {onDelete && (
+                    {onDelete && displayBike.status === "ACTIVE" && (
                         <button
                             onClick={() => {
                                 onDelete(displayBike);

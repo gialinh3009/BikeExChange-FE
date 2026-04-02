@@ -241,10 +241,12 @@ export default function PostsTab({
                                             className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
                                             <Edit2 size={12} /> Sửa
                                         </button>
-                                        <button onClick={() => onDeleteBike(bike)}
-                                            className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
-                                            <Trash2 size={12} /> Xóa
-                                        </button>
+                                        {bike.status === "ACTIVE" && (
+                                            <button onClick={() => onDeleteBike(bike)}
+                                                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
+                                                <Trash2 size={12} /> Xóa
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

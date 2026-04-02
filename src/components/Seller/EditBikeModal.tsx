@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Plus } from "lucide-react";
 import { updateBikeAPI } from "../../services/Seller/bikeManagementService";
 import { getBrandsAPI, getCategoriesAPI } from "../../services/Seller/catalogService";
-import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
+import { uploadToCloudinary } from "../../services/cloudinaryService";
 
 type BikeBrowseItem = {
     id: number;
@@ -189,15 +189,16 @@ const MIN_YEAR = 1900;export default function EditBikeModal({ bike, token, onClo
             const media = [] as { url: string; type: string; sortOrder: number }[];
             let sortOrder = 1;
 
+
             for (const image of images) {
                 let url = image.dataUrl;
                 if (image.isNew && image.file) {
-                    url = await uploadToCloudinary(image.file);
+                    const uploadResult = await uploadToCloudinary(image.file, "bikes");
+                    url = uploadResult.url;
                 }
-
                 media.push({
                     url,
-                type: "IMAGE",
+                    type: "IMAGE",
                     sortOrder: sortOrder++,
                 });
             }
