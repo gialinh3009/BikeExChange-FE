@@ -6,7 +6,7 @@ import {
     CreditCard, FileText,
 } from "lucide-react";
 import { listSellerBikesAPI } from "../../services/Seller/bikeManagementService";
-import { requestInspectionAPI, getInspectionDetailByBikeIdAPI } from "../../services/Seller/inspectionService";
+import { requestInspectionAPI, getInspectionDetailByBikeIdAPI, cancelInspectionAPI } from "../../services/Seller/inspectionService";
 import { getWalletAPI } from "../../services/Seller/walletService";
 import {
     getBikePostFeeAPI,
@@ -27,6 +27,7 @@ import EditBikeModal from "./EditBikeModal";
 import DeleteBikeModal from "./DeleteBikeModal";
 import InspectionReportModal, { type InspectionDetail } from "./InspectionReportModal";
 import RequestInspectionModal from "./RequestInspectionModal";
+import EditInspectionModal from "./EditInspectionModal";
 
 type BikeBrowseItem = {
     id: number;
@@ -100,6 +101,16 @@ export default function SellerPage() {
     const [requestError, setRequestError] = useState<string | null>(null);
     const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
     const [requestForm, setRequestForm] = useState({
+        preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "",
+    });
+
+    // ── Cancel inspection state ──
+    const [cancelLoading, setCancelLoading] = useState(false);
+
+    // ── Edit inspection state ──
+    const [editInspectionOpen, setEditInspectionOpen] = useState(false);
+    const [editInspectionId, setEditInspectionId] = useState<number | null>(null);
+    const [editInspectionForm, setEditInspectionForm] = useState({
         preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "",
     });
 
@@ -256,6 +267,44 @@ export default function SellerPage() {
         } catch (e) {
             setRequestError((e as Error).message || "Không thể gửi yêu cầu kiểm định.");
         } finally { setRequestLoading(false); }
+    };
+
+    const handleCancelInspection = async (inspectionId: number) => {
+        if (!window.confirm("Bạn có chắc muốn hủy yêu cầu kiểm định này? Phí sẽ được hoàn lại vào ví.")) return;
+        try {
+            setCancelLoading(true);
+            await cancelInspectionAPI(inspectionId, token);
+            setInspectionOpen(false);
+            setInspectionDetail(null);
+            void refreshBikes();
+            void refreshWallet();
+        } catch (e) {
+            setInspectionError((e as Error).message || "Không thể hủy yêu cầu kiểm định.");
+        } finally { setCancelLoading(false); }
+    };
+
+    const handleOpenEditInspection = (inspection: { id: number; preferredDate?: string; preferredTimeSlot?: string; address?: string; contactPhone?: string; notes?: string }) => {
+        setEditInspectionId(inspection.id);
+        setEditInspectionForm({
+            preferredDate: inspection.preferredDate ?? "",
+            preferredTimeSlot: inspection.preferredTimeSlot ?? "",
+            address: inspection.address ?? "",
+            contactPhone: inspection.contactPhone ?? "",
+            notes: inspection.notes ?? "",
+        });
+        setEditInspectionOpen(true);
+    };
+
+    const handleEditInspectionSuccess = async () => {
+        // Reload inspection detail after edit
+        if (inspectionDetail?.inspection?.bikeId) {
+            try {
+                setInspectionLoading(true);
+                const detail = await getInspectionDetailByBikeIdAPI(inspectionDetail.inspection.bikeId, token);
+                setInspectionDetail(detail as import("./InspectionReportModal").InspectionDetail);
+            } catch { /* ignore */ } finally { setInspectionLoading(false); }
+        }
+        void refreshBikes();
     };
 
     const walletPoints =
@@ -466,6 +515,9 @@ export default function SellerPage() {
                 isOpen={inspectionOpen} isLoading={inspectionLoading}
                 error={inspectionError} detail={inspectionDetail}
                 onClose={() => { setInspectionOpen(false); setInspectionDetail(null); }}
+                onCancelInspection={handleCancelInspection}
+                onEditInspection={handleOpenEditInspection}
+                cancelLoading={cancelLoading}
             />
             <RequestInspectionModal
                 isOpen={requestOpen} bike={requestBike}
@@ -474,6 +526,14 @@ export default function SellerPage() {
                 onFormChange={(field, value) => setRequestForm((p) => ({ ...p, [field]: value }))}
                 onSubmit={() => void handleSubmitInspectionRequest()}
                 onClose={() => { setRequestOpen(false); setRequestBike(null); }}
+            />
+            <EditInspectionModal
+                isOpen={editInspectionOpen}
+                inspectionId={editInspectionId}
+                initialForm={editInspectionForm}
+                token={token}
+                onClose={() => setEditInspectionOpen(false)}
+                onSuccess={() => { setEditInspectionOpen(false); void handleEditInspectionSuccess(); }}
             />
         </div>
     );

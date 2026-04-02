@@ -88,3 +88,30 @@ export async function getInspectionDetailByBikeIdAPI(bikeId, token) {
   }
   return detailData.data ?? detailData;
 }
+
+// Cancel inspection request (Seller) - only allowed when status is REQUESTED
+export async function cancelInspectionAPI(inspectionId, token) {
+  const res = await fetch(`${BASE_URL}/inspections/${inspectionId}/cancel`, {
+    method: "POST",
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Hủy yêu cầu kiểm định thất bại.");
+  }
+  return data.data ?? data;
+}
+
+// Update inspection request info (Seller) - only allowed when status is REQUESTED
+export async function updateInspectionAPI(inspectionId, payload, token) {
+  const res = await fetch(`${BASE_URL}/inspections/${inspectionId}/edit`, {
+    method: "PUT",
+    headers: authHeader(token),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Cập nhật yêu cầu kiểm định thất bại.");
+  }
+  return data.data ?? data;
+}

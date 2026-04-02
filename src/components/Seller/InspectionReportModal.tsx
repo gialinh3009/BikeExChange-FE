@@ -1,4 +1,4 @@
-import { X, ShieldCheck, Clock, AlertCircle, XCircle, CheckCircle2, FileText } from "lucide-react";
+import { X, ShieldCheck, Clock, AlertCircle, XCircle, CheckCircle2, FileText, Edit3, Trash2 } from "lucide-react";
 
 // ── Types matching backend DTOs ──────────────────────────────────────────────
 
@@ -57,6 +57,9 @@ interface InspectionReportModalProps {
     error: string | null;
     detail: InspectionDetail | null;
     onClose: () => void;
+    onCancelInspection?: (inspectionId: number) => void;
+    onEditInspection?: (inspection: InspectionData) => void;
+    cancelLoading?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -152,6 +155,9 @@ export default function InspectionReportModal({
     error,
     detail,
     onClose,
+    onCancelInspection,
+    onEditInspection,
+    cancelLoading = false,
 }: InspectionReportModalProps) {
     if (!isOpen) return null;
 
@@ -316,10 +322,28 @@ export default function InspectionReportModal({
                 </div>
 
                 {/* Footer */}
-                <div className="border-t border-gray-100 px-6 py-4 flex justify-end flex-shrink-0">
+                <div className="border-t border-gray-100 px-6 py-4 flex items-center justify-between flex-shrink-0 gap-3">
+                    {/* Seller actions — only when REQUESTED */}
+                    {inspection?.status === "REQUESTED" && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => inspection && onEditInspection?.(inspection)}
+                                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition"
+                            >
+                                <Edit3 size={14} /> Chỉnh sửa
+                            </button>
+                            <button
+                                onClick={() => inspection?.id && onCancelInspection?.(inspection.id)}
+                                disabled={cancelLoading}
+                                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 transition"
+                            >
+                                <Trash2 size={14} /> {cancelLoading ? "Đang hủy..." : "Hủy yêu cầu"}
+                            </button>
+                        </div>
+                    )}
                     <button
                         onClick={onClose}
-                        className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+                        className="ml-auto rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
                     >
                         Đóng
                     </button>
