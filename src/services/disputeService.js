@@ -108,6 +108,25 @@ export async function getMyDisputesAPI(token) {
 }
 
 /**
+ * Get list of disputes for current seller (disputes on their bikes)
+ * GET /api/orders/my-seller-disputes
+ */
+export async function getSellerDisputesAPI(token) {
+  const res = await fetch(`${BASE_URL}/orders/my-seller-disputes`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || "Lấy danh sách tranh chấp thất bại.");
+  }
+  return data.data ?? data;
+}
+
+/**
  * Get order history detail for dispute page
  * GET /api/orders/{orderId}/history
  */

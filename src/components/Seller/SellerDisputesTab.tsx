@@ -1,33 +1,40 @@
-/**
- * SellerDisputesTab.tsx
- * 
- * Show list of disputes for seller
- * Tab component for use in seller dashboard
- */
 import { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle, Eye, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getMyDisputesAPI } from "../../services/disputeService";
+import { getSellerDisputesAPI } from "../../services/disputeService";
 
 interface DisputeItem {
+    id: number;
     orderId: number;
-    orderAmount: number;
+    orderStatus: string;
+    amountPoints: number;
     bikeTitle: string;
-    buyerName: string;
     sellerName: string;
-    status: string; // DISPUTED, RESOLVED
+    sellerPhone?: string;
+    sellerShopName?: string;
+    reporterName: string;
+    reporterEmail?: string;
+    reporterPhone?: string;
     reason: string;
+    status: string; // OPEN, INVESTIGATING, RESOLVED_REFUND, RESOLVED_RELEASE, REJECTED
+    disputeType?: string;
+    buyerContactAddress?: string;
+    buyerContactPhone?: string;
+    buyerContactEmail?: string;
+    resolutionNote?: string;
     createdAt: string;
     resolvedAt?: string;
-    resolution?: string; // REFUND, KEPT
 }
 
-const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
+const fmtMoney = (p: number) =>
+    `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} đ`;
 
 const fmtDate = (iso?: string) => {
     if (!iso) return "—";
     return new Date(iso).toLocaleDateString("vi-VN", {
-        day: "2-digit", month: "2-digit", year: "numeric",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
     });
 };
 
@@ -46,8 +53,8 @@ export default function SellerDisputesTab({ token }: SellerDisputesTabProps) {
         setError("");
         try {
             if (!token) throw new Error("Vui lòng đăng nhập");
-            const data = await getMyDisputesAPI(token);
-            setDisputes(Array.isArray(data) ? data : data.data ?? []);
+            const data = await getSellerDisputesAPI(token);
+            setDisputes(Array.isArray(data) ? data : (data as { data?: DisputeItem[] }).data ?? []);
         } catch (e) {
             setError(String(e instanceof Error ? e.message : e));
         } finally {
@@ -56,193 +63,462 @@ export default function SellerDisputesTab({ token }: SellerDisputesTabProps) {
     };
 
     useEffect(() => {
-        fetchDisputes();
+        void fetchDisputes();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
     if (loading) {
         return (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-12 text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mb-4" />
-                    <p className="text-gray-600 text-sm">Đang tải...</p>
-                </div>
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+                <div
+                    style={{
+                        width: 40,
+                        height: 40,
+                        border: "3px solid #e8ecf4",
+                        borderTop: "3px solid #f97316",
+                        borderRadius: "50%",
+                        margin: "0 auto 16px",
+                        animation: "spin 1s linear infinite",
+                    }}
+                />
+                <p style={{ color: "#64748b", fontSize: 14 }}>Đang tải...</p>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-12 text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                        <AlertTriangle size={32} className="text-red-600" />
-                    </div>
-                    <p className="text-gray-600 text-sm mb-4">{error}</p>
-                    <button
-                        onClick={() => fetchDisputes()}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition"
-                    >
-                        Thử lại
-                    </button>
-                </div>
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+                <AlertTriangle size={40} color="#ef4444" style={{ margin: "0 auto 16px" }} />
+                <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>{error}</p>
+                <button
+                    onClick={() => void fetchDisputes()}
+                    style={{
+                        padding: "8px 16px",
+                        background: "#f97316",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                    }}
+                >
+                    Thử lại
+                </button>
             </div>
         );
     }
 
     if (disputes.length === 0) {
         return (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-16 text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
-                        <CheckCircle size={32} className="text-blue-600" />
-                    </div>
-                    <p className="text-gray-900 font-semibold text-sm mb-1">Không có tranh chấp</p>
-                    <p className="text-gray-500 text-xs">Tất cả các giao dịch của bạn đều bình thường</p>
+            <div style={{ padding: "60px 20px", textAlign: "center" }}>
+                <div
+                    style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 14,
+                        background: "#fff7ed",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 16px",
+                        color: "#f97316",
+                    }}
+                >
+                    <CheckCircle size={28} />
                 </div>
+                <p style={{ fontSize: 14, color: "#64748b", fontWeight: 500, marginBottom: 4 }}>
+                    Không có tranh chấp
+                </p>
+                <p style={{ fontSize: 12, color: "#94a3b8" }}>
+                    Tất cả các giao dịch của bạn đều bình thường
+                </p>
             </div>
         );
     }
 
     return (
-        <div>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+        <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+                .seller-dispute-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08) !important; transform: translateY(-1px); }
+                .seller-dispute-card { transition: all .2s ease; }
+            `}</style>
+
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingBottom: 16,
+                    marginBottom: 16,
+                    borderBottom: "1px solid #e8ecf4",
+                }}
+            >
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900">Tranh chấp</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">Các đơn hàng đang có khiếu nại — admin sẽ xem xét và đưa ra quyết định ({disputes.length})</p>
+                    <p style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                        Danh sách tranh chấp
+                    </p>
+                    <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                        {disputes.length} tranh chấp
+                    </p>
                 </div>
-                <button onClick={() => fetchDisputes()}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 transition shadow-sm">
-                    <RefreshCw size={14} /> Làm mới
+                <button
+                    onClick={() => void fetchDisputes()}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: "white",
+                        border: "1.5px solid #e8ecf4",
+                        borderRadius: 8,
+                        padding: "7px 14px",
+                        fontSize: 13,
+                        color: "#64748b",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                    }}
+                >
+                    <RefreshCw size={13} /> Làm mới
                 </button>
             </div>
 
-            {/* Disputes list */}
-            <div className="space-y-3">
-                {disputes.map((dispute) => (
-                    <div key={dispute.orderId}
-                        className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-orange-100 transition-all overflow-hidden p-4">
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {disputes.map((dispute) => {
+                    const isPending =
+                        dispute.status === "OPEN" || dispute.status === "INVESTIGATING";
+                    const isResolved =
+                        dispute.status === "RESOLVED_REFUND" ||
+                        dispute.status === "RESOLVED_RELEASE";
+                    const isRejected = dispute.status === "REJECTED";
 
-                        <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                    // Nhãn trạng thái từ góc nhìn Seller
+                    const statusLabel = isPending
+                        ? "Đang xử lý"
+                        : isResolved
+                        ? dispute.status === "RESOLVED_REFUND"
+                            ? "Hoàn tiền cho Buyer"
+                            : "Giữ lại cho bạn"
+                        : isRejected
+                        ? "Đã từ chối"
+                        : dispute.status;
+
+                    const statusColor = isPending
+                        ? "#f59e0b"
+                        : dispute.status === "RESOLVED_RELEASE"
+                        ? "#10b981"
+                        : dispute.status === "RESOLVED_REFUND"
+                        ? "#ef4444"
+                        : isRejected
+                        ? "#64748b"
+                        : "#64748b";
+
+                    const statusBg = isPending
+                        ? "#fffbeb"
+                        : dispute.status === "RESOLVED_RELEASE"
+                        ? "#f0fdf4"
+                        : dispute.status === "RESOLVED_REFUND"
+                        ? "#fef2f2"
+                        : isRejected
+                        ? "#f8fafc"
+                        : "#f8fafc";
+
+                    const borderColor = isPending
+                        ? "#fde68a"
+                        : dispute.status === "RESOLVED_RELEASE"
+                        ? "#bbf7d0"
+                        : dispute.status === "RESOLVED_REFUND"
+                        ? "#fecaca"
+                        : "#e8ecf4";
+
+                    return (
+                        <div
+                            key={dispute.orderId}
+                            className="seller-dispute-card"
+                            style={{
+                                background: "white",
+                                border: `1.5px solid ${borderColor}`,
+                                borderRadius: 16,
+                                padding: "18px 20px",
+                                cursor: "pointer",
+                            }}
+                            onClick={() => navigate(`/orders/${dispute.orderId}/dispute`)}
+                        >
+                            {/* Header */}
                             <div
                                 style={{
-                                    width: 40,
-                                    height: 40,
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    justifyContent: "space-between",
+                                    marginBottom: 14,
+                                }}
+                            >
+                                <div style={{ display: "flex", gap: 12, flex: 1, minWidth: 0 }}>
+                                    <div
+                                        style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 12,
+                                            background: statusBg,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: statusColor,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        {isPending ? (
+                                            <AlertTriangle size={20} />
+                                        ) : (
+                                            <CheckCircle size={20} />
+                                        )}
+                                    </div>
+                                    <div style={{ minWidth: 0 }}>
+                                        <p
+                                            style={{
+                                                fontSize: 15,
+                                                fontWeight: 700,
+                                                color: "#0f172a",
+                                                marginBottom: 2,
+                                            }}
+                                        >
+                                            Đơn #{dispute.orderId} — {dispute.bikeTitle}
+                                        </p>
+                                        <p style={{ fontSize: 12, color: "#64748b" }}>
+                                            Người mua: <strong>{dispute.reporterName}</strong>
+                                            {dispute.buyerContactPhone && (
+                                                <> · {dispute.buyerContactPhone}</>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span
+                                    style={{
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        padding: "5px 10px",
+                                        borderRadius: 20,
+                                        background: statusBg,
+                                        color: statusColor,
+                                        whiteSpace: "nowrap",
+                                        flexShrink: 0,
+                                        marginLeft: 8,
+                                    }}
+                                >
+                                    {isPending && "⏳ "}
+                                    {dispute.status === "RESOLVED_RELEASE" && "✓ "}
+                                    {dispute.status === "RESOLVED_REFUND" && "✕ "}
+                                    {isRejected && "— "}
+                                    {statusLabel}
+                                </span>
+                            </div>
+
+                            {/* Reason */}
+                            <div
+                                style={{
+                                    background: "#f8fafc",
                                     borderRadius: 10,
-                                    background: dispute.status === "DISPUTED" ? "#fef2f2" : "#f0fdf4",
+                                    padding: "10px 14px",
+                                    marginBottom: 12,
+                                }}
+                            >
+                                <p
+                                    style={{
+                                        fontSize: 11,
+                                        color: "#94a3b8",
+                                        fontWeight: 600,
+                                        marginBottom: 4,
+                                    }}
+                                >
+                                    Lý do khiếu nại:
+                                </p>
+                                <p style={{ fontSize: 13, color: "#0f172a", lineHeight: 1.5 }}>
+                                    {dispute.reason.length > 120
+                                        ? dispute.reason.substring(0, 120) + "..."
+                                        : dispute.reason}
+                                </p>
+                            </div>
+
+                            {/* Info grid */}
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 1fr 1fr",
+                                    gap: 12,
+                                    marginBottom: 12,
+                                }}
+                            >
+                                <div>
+                                    <p
+                                        style={{
+                                            fontSize: 10,
+                                            color: "#94a3b8",
+                                            fontWeight: 600,
+                                            textTransform: "uppercase",
+                                            marginBottom: 3,
+                                        }}
+                                    >
+                                        Giá trị đơn
+                                    </p>
+                                    <p
+                                        style={{
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: "#f97316",
+                                        }}
+                                    >
+                                        {fmtMoney(dispute.amountPoints)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p
+                                        style={{
+                                            fontSize: 10,
+                                            color: "#94a3b8",
+                                            fontWeight: 600,
+                                            textTransform: "uppercase",
+                                            marginBottom: 3,
+                                        }}
+                                    >
+                                        Ngày khiếu nại
+                                    </p>
+                                    <p
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            color: "#0f172a",
+                                        }}
+                                    >
+                                        {fmtDate(dispute.createdAt)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p
+                                        style={{
+                                            fontSize: 10,
+                                            color: "#94a3b8",
+                                            fontWeight: 600,
+                                            textTransform: "uppercase",
+                                            marginBottom: 3,
+                                        }}
+                                    >
+                                        Trạng thái đơn
+                                    </p>
+                                    <p
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            color: "#0f172a",
+                                        }}
+                                    >
+                                        {dispute.orderStatus === "REFUNDED"
+                                            ? "Đã hoàn tiền"
+                                            : dispute.orderStatus === "COMPLETED"
+                                            ? "Đã hoàn thành"
+                                            : dispute.orderStatus === "DISPUTED"
+                                            ? "Tranh chấp"
+                                            : dispute.orderStatus}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Resolution result */}
+                            {(isResolved || isRejected) && (
+                                <div
+                                    style={{
+                                        background:
+                                            dispute.status === "RESOLVED_RELEASE"
+                                                ? "#f0fdf4"
+                                                : "#fef2f2",
+                                        border: `1px solid ${
+                                            dispute.status === "RESOLVED_RELEASE"
+                                                ? "#dcfce7"
+                                                : "#fecaca"
+                                        }`,
+                                        borderRadius: 10,
+                                        padding: "12px 14px",
+                                        marginBottom: 12,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                            marginBottom: 4,
+                                        }}
+                                    >
+                                        <CheckCircle
+                                            size={14}
+                                            color={
+                                                dispute.status === "RESOLVED_RELEASE"
+                                                    ? "#10b981"
+                                                    : "#ef4444"
+                                            }
+                                        />
+                                        <p
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color:
+                                                    dispute.status === "RESOLVED_RELEASE"
+                                                        ? "#15803d"
+                                                        : "#dc2626",
+                                            }}
+                                        >
+                                            Kết quả: {statusLabel}
+                                        </p>
+                                    </div>
+                                    {dispute.resolutionNote && (
+                                        <p
+                                            style={{
+                                                fontSize: 12,
+                                                color: "#64748b",
+                                                lineHeight: 1.4,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            Ghi chú Admin: {dispute.resolutionNote}
+                                        </p>
+                                    )}
+                                    {dispute.resolvedAt && (
+                                        <p
+                                            style={{
+                                                fontSize: 11,
+                                                color: "#94a3b8",
+                                                marginTop: 6,
+                                            }}
+                                        >
+                                            Xử lý ngày: {fmtDate(dispute.resolvedAt)}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* View detail */}
+                            <div
+                                style={{
+                                    width: "100%",
+                                    padding: "10px 12px",
+                                    background: "#fff7ed",
+                                    border: "1.5px solid #fed7aa",
+                                    borderRadius: 10,
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "#ea580c",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    color: dispute.status === "DISPUTED" ? "#ef4444" : "#10b981",
-                                    flexShrink: 0,
+                                    gap: 6,
                                 }}
                             >
-                                {dispute.status === "DISPUTED" ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
-                            </div>
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-                                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        Đơn #{dispute.orderId}
-                                    </p>
-                                    <span
-                                        style={{
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                            padding: "4px 8px",
-                                            borderRadius: 4,
-                                            background: dispute.status === "DISPUTED" ? "#fef2f2" : "#f0fdf4",
-                                            color: dispute.status === "DISPUTED" ? "#ef4444" : "#10b981",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {dispute.status === "DISPUTED" ? "🚨 Đang xử lý" : "✓ Đã giải quyết"}
-                                    </span>
-                                </div>
-
-                                <p style={{ fontSize: 12, color: "#64748b", marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    {dispute.bikeTitle}
-                                </p>
-
-                                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                                    <p style={{ fontSize: 11, color: "#94a3b8" }}>Mua: {dispute.buyerName}</p>
-                                    <p style={{ fontSize: 11, color: "#94a3b8" }}>Bán: {dispute.sellerName}</p>
-                                </div>
+                                <Eye size={14} /> Xem chi tiết
                             </div>
                         </div>
-
-                        {/* Reason */}
-                        <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px", marginBottom: 10 }}>
-                            <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 3 }}>Lý do:</p>
-                            <p style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.4 }}>
-                                {dispute.reason.length > 80 ? dispute.reason.substring(0, 80) + "..." : dispute.reason}
-                            </p>
-                        </div>
-
-                        {/* Info row */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 10 }}>
-                            <div>
-                                <p style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 2 }}>Giá trị</p>
-                                <p style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{fmtMoney(dispute.orderAmount)}</p>
-                            </div>
-                            <div>
-                                <p style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", marginBottom: 2 }}>Ngày khiếu nại</p>
-                                <p style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{fmtDate(dispute.createdAt)}</p>
-                            </div>
-                        </div>
-
-                        {/* Resolution */}
-                        {dispute.resolvedAt && (
-                            <div
-                                style={{
-                                    background: "#f0fdf4",
-                                    border: "1px solid #dcfce7",
-                                    borderRadius: 8,
-                                    padding: "10px",
-                                    marginBottom: 10,
-                                }}
-                            >
-                                <p style={{ fontSize: 11, color: "#15803d", fontWeight: 600, marginBottom: 3 }}>✓ Quyết định xử lý</p>
-                                <p style={{ fontSize: 12, fontWeight: 600, color: "#10b981" }}>
-                                    {dispute.resolution === "REFUND" ? "Hoàn tiền cho Buyer" : dispute.resolution === "KEPT" ? "Giữ lại cho Seller" : dispute.resolution}
-                                </p>
-                                <p style={{ fontSize: 10, color: "#22c55e", marginTop: 4 }}>
-                                    Ngày xử lý: {fmtDate(dispute.resolvedAt)}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Action button */}
-                        <button
-                            onClick={() => navigate(`/orders/${dispute.orderId}/dispute`)}
-                            style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                background: "#eff6ff",
-                                color: "#2563eb",
-                                border: "1.5px solid #bfdbfe",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 6,
-                                transition: "all .2s",
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#dbeafe";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#eff6ff";
-                            }}
-                        >
-                            <Eye size={14} /> Xem chi tiết
-                        </button>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

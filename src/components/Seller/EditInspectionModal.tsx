@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, AlertCircle, CheckCircle, Edit3 } from "lucide-react";
+import { X, AlertCircle, CheckCircle2, Edit3 } from "lucide-react";
 import { updateInspectionAPI } from "../../services/Seller/inspectionService";
 import AddressFields, {
     type AddressParts,
@@ -43,13 +43,15 @@ export default function EditInspectionModal({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showOutOfArea, setShowOutOfArea] = useState(false);
 
     useEffect(() => {
         if (!isOpen) return;
         setError(null);
-        setSuccess(false);
+        setShowConfirmModal(false);
+        setShowSuccessModal(false);
         // Address from BE is a plain string — put it in `detail`, selects start empty
         // so user can re-select if needed, or just keep the detail field
         setForm({
@@ -83,7 +85,7 @@ export default function EditInspectionModal({
                 },
                 token
             );
-            setSuccess(true);
+            setShowSuccessModal(true);
             onSuccess();
         } catch (e) {
             setError((e as Error).message || "Cập nhật thất bại.");
@@ -122,13 +124,7 @@ export default function EditInspectionModal({
                             </div>
                         )}
 
-                        {success ? (
-                            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 flex gap-2">
-                                <CheckCircle size={18} className="flex-shrink-0 mt-0.5" />
-                                Cập nhật yêu cầu kiểm định thành công.
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
+                        <div className="space-y-4">
                                 {/* Ngày ưu tiên */}
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 mb-1.5 block">Ngày ưu tiên</label>
@@ -174,23 +170,80 @@ export default function EditInspectionModal({
                                         className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none" />
                                 </div>
                             </div>
-                        )}
                     </div>
 
                     <div className="border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
                         <button onClick={onClose}
                             className="rounded-xl border border-gray-200 bg-white px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
-                            {success ? "Đóng" : "Hủy bỏ"}
+                            Hủy bỏ
                         </button>
-                        {!success && (
-                            <button onClick={handleSubmit} disabled={loading}
-                                className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 text-sm font-semibold text-white transition">
-                                {loading ? "Đang lưu..." : "Lưu thay đổi"}
-                            </button>
-                        )}
+                        <button onClick={() => setShowConfirmModal(true)} disabled={loading}
+                            className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 text-sm font-semibold text-white transition flex items-center gap-2">
+                            {loading && (
+                                <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                            )}
+                            {loading ? "Đang lưu..." : "Lưu thay đổi"}
+                        </button>
                     </div>
                 </div>
             </div>
+
+            {/* Confirm modal */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border border-blue-100">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-100 px-6 py-8 text-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white border border-blue-200 mb-4 shadow-sm">
+                                <Edit3 size={28} className="text-blue-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-blue-900 mb-2">Xác nhận lưu thay đổi?</h2>
+                            <p className="text-blue-700 text-sm">Thông tin yêu cầu kiểm định sẽ được cập nhật.</p>
+                        </div>
+                        <div className="px-6 py-4 flex justify-center gap-3">
+                            <button
+                                onClick={() => setShowConfirmModal(false)}
+                                disabled={loading}
+                                className="rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
+                            >
+                                Quay lại
+                            </button>
+                            <button
+                                onClick={() => { setShowConfirmModal(false); void handleSubmit(); }}
+                                disabled={loading}
+                                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-6 py-2.5 text-sm font-semibold text-white transition flex items-center gap-2"
+                            >
+                                {loading && (
+                                    <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                )}
+                                Xác nhận lưu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success modal */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border border-emerald-100">
+                        <div className="bg-gradient-to-r from-emerald-50 to-teal-100 px-6 py-8 text-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white border border-emerald-200 mb-4 shadow-sm">
+                                <CheckCircle2 size={32} className="text-emerald-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-emerald-900 mb-2">Cập nhật thành công!</h2>
+                            <p className="text-emerald-700 text-sm">Yêu cầu kiểm định đã được cập nhật.</p>
+                        </div>
+                        <div className="px-6 py-4 flex justify-center">
+                            <button
+                                onClick={() => { setShowSuccessModal(false); onClose(); }}
+                                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-8 py-2.5 text-sm font-semibold text-white transition"
+                            >
+                                Hoàn tất
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

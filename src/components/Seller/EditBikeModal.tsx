@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, CheckCircle2 } from "lucide-react";
 import { updateBikeAPI } from "../../services/Seller/bikeManagementService";
 import { getBrandsAPI, getCategoriesAPI } from "../../services/Seller/catalogService";
 import { uploadToCloudinary } from "../../services/cloudinaryService";
@@ -34,6 +34,7 @@ const MIN_YEAR = 1900;export default function EditBikeModal({ bike, token, onClo
     const [brandsLoading, setBrandsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
     const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
     const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File; isNew?: boolean }[]>([]);
@@ -218,11 +219,7 @@ const MIN_YEAR = 1900;export default function EditBikeModal({ bike, token, onClo
             };
 
             await updateBikeAPI(bike.id, payload, token);
-            setSuccess("Cập nhật xe thành công!");
-            setTimeout(() => {
-                onSuccess();
-                onClose();
-            }, 1500);
+            setShowSuccessModal(true);
         } catch (e) {
             setError((e as Error).message || "Cập nhật xe thất bại.");
         } finally {
@@ -449,12 +446,42 @@ const MIN_YEAR = 1900;export default function EditBikeModal({ bike, token, onClo
                     <button
                         onClick={handleSubmit}
                         disabled={loading || brandsLoading}
-                        className="rounded-lg bg-blue-600 text-white px-6 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                        className="rounded-lg bg-blue-600 text-white px-6 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                     >
+                        {loading && (
+                            <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        )}
                         {loading ? "Đang cập nhật..." : brandsLoading ? "Đang tải..." : "Cập nhật"}
                     </button>
                 </div>
             </div>
+
+            {/* Success modal */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border border-emerald-100">
+                        <div className="bg-gradient-to-r from-emerald-50 to-teal-100 px-6 py-8 text-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white border border-emerald-200 mb-4 shadow-sm">
+                                <CheckCircle2 size={32} className="text-emerald-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-emerald-900 mb-2">Cập nhật thành công!</h2>
+                            <p className="text-emerald-700 text-sm">Thông tin xe đã được cập nhật.</p>
+                        </div>
+                        <div className="px-6 py-4 flex justify-center">
+                            <button
+                                onClick={() => {
+                                    setShowSuccessModal(false);
+                                    onSuccess();
+                                    onClose();
+                                }}
+                                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 px-8 py-2.5 text-sm font-semibold text-white transition"
+                            >
+                                Hoàn tất
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

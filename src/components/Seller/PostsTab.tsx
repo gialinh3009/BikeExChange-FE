@@ -237,16 +237,25 @@ export default function PostsTab({
                                             className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition">
                                             <Eye size={12} /> Xem
                                         </button>
+                                        {bike.status !== "SOLD" && bike.status !== "RESERVED" && (
                                         <button onClick={() => onEditBike(bike)}
                                             className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
                                             <Edit2 size={12} /> Sửa
                                         </button>
+<<<<<<< Updated upstream
                                         {bike.status === "ACTIVE" && (
                                             <button onClick={() => onDeleteBike(bike)}
                                                 className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
                                                 <Trash2 size={12} /> Xóa
                                             </button>
                                         )}
+=======
+                                        )}
+                                        <button onClick={() => onDeleteBike(bike)}
+                                            className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition">
+                                            <Trash2 size={12} /> Xóa
+                                        </button>
+>>>>>>> Stashed changes
                                     </div>
                                 </div>
                             </div>
