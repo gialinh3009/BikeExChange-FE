@@ -150,11 +150,23 @@ export async function getDisputeDetailAPI(orderId, token) {
 }
 
 /**
- * Get dispute detail for a specific order
+ * Get dispute detail for a specific order (buyer perspective)
  * Fetches all disputes and filters by orderId
  */
 export async function getDisputeByOrderIdAPI(orderId, token) {
   const disputes = await getMyDisputesAPI(token);
+  const list = Array.isArray(disputes) ? disputes : disputes.data ?? [];
+  const dispute = list.find(d => Number(d.orderId) === Number(orderId));
+  if (!dispute) throw new Error("Không tìm thấy tranh chấp cho đơn hàng này");
+  return dispute;
+}
+
+/**
+ * Get dispute detail for a specific order (seller perspective)
+ * Fetches seller disputes and filters by orderId
+ */
+export async function getSellerDisputeByOrderIdAPI(orderId, token) {
+  const disputes = await getSellerDisputesAPI(token);
   const list = Array.isArray(disputes) ? disputes : disputes.data ?? [];
   const dispute = list.find(d => Number(d.orderId) === Number(orderId));
   if (!dispute) throw new Error("Không tìm thấy tranh chấp cho đơn hàng này");
