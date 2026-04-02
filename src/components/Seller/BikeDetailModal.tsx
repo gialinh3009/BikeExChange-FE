@@ -2,6 +2,23 @@ import { useState, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, Edit2, Trash2 } from "lucide-react";
 import { getBikeDetailAPI } from "../../services/Seller/bikeManagementService";
 
+const CONDITION_LABELS: Record<string, string> = {
+    NEW: "Mới",
+    LIKE_NEW: "Như mới",
+    GOOD: "Tốt",
+    FAIR: "Khá",
+    POOR: "Cũ",
+    // EditBikeModal uses Vietnamese directly — pass through as-is
+    "Mới": "Mới",
+    "Rất tốt": "Rất tốt",
+    "Tốt": "Tốt",
+    "Bình thường": "Bình thường",
+    "Đã qua sử dụng": "Đã qua sử dụng",
+};
+
+const formatCondition = (c?: string | null) =>
+    c ? (CONDITION_LABELS[c] ?? c) : "—";
+
 type BikeBrowseItem = {
     id: number;
     title: string;
@@ -195,7 +212,7 @@ export default function BikeDetailModal({ bike, onClose, onEdit, onDelete }: Bik
                         <div className="border-b border-gray-100 pb-4">
                             <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Tình trạng</div>
                             <div className="text-base font-semibold text-gray-900">
-                                {displayBike.condition || "—"}
+                                {formatCondition(displayBike.condition)}
                             </div>
                         </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Plus } from "lucide-react";
 import { updateBikeAPI } from "../../services/Seller/bikeManagementService";
-import { getBrandsAPI } from "../../services/Seller/catalogService";
+import { getBrandsAPI, getCategoriesAPI } from "../../services/Seller/catalogService";
 import { uploadToCloudinary } from "../../utils/cloudinaryUpload";
 
 type BikeBrowseItem = {
@@ -27,18 +27,15 @@ interface EditBikeModalProps {
     onSuccess: () => void;
 }
 
-const BIKE_TYPES = ["Road", "MTB", "Gravel", "Touring", "Hybrid", "Fixie"];
-const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "48cm", "50cm", "52cm", "54cm", "56cm", "58cm"];
 const CONDITIONS = ["Mới", "Rất tốt", "Tốt", "Bình thường", "Đã qua sử dụng"];
 const CURRENT_YEAR = new Date().getFullYear();
-const MIN_YEAR = 1900;
-
-export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditBikeModalProps) {
+const MIN_YEAR = 1900;export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditBikeModalProps) {
     const [loading, setLoading] = useState(false);
     const [brandsLoading, setBrandsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
+    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
     const [images, setImages] = useState<{ name: string; dataUrl: string; file?: File; isNew?: boolean }[]>([]);
     const [form, setForm] = useState({
         title: "",
@@ -48,9 +45,8 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
         year: "",
         pricePoints: "",
         condition: "Tốt",
-        bikeType: "Road",
-        frameSize: "M",
-        categoryIds: [] as number[],
+        bikeType: "",
+        categoryId: undefined as number | undefined,
     });
 
     useEffect(() => {
@@ -62,7 +58,7 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
             setBrandsLoading(true);
 
             try {
-                const brandsRes: any = await getBrandsAPI();
+                const [brandsRes, catsRes]: [any, any] = await Promise.all([getBrandsAPI(), getCategoriesAPI()]);
                 if (!mounted) return;
 
                 const brandData = Array.isArray(brandsRes) ? brandsRes : (brandsRes?.data || []);
@@ -70,6 +66,10 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                     .map((b: any) => ({ id: b.id, name: b.name }))
                     .filter((b: any) => b.id && b.name);
                 setBrands(normalizedBrands);
+
+                const catData = Array.isArray(catsRes) ? catsRes : (catsRes?.data || []);
+                const normalizedCats = catData.map((c: any) => ({ id: c.id, name: c.name })).filter((c: any) => c.id && c.name);
+                setCategories(normalizedCats);
 
                 const matchedBrand = normalizedBrands.find(
                     (b: { id: number; name: string }) =>
@@ -84,9 +84,8 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                     year: bike.year?.toString() || "",
                     pricePoints: bike.pricePoints?.toString() || "",
                     condition: bike.condition || "Tốt",
-                    bikeType: bike.bikeType || "Road",
-                    frameSize: bike.frameSize || "M",
-                    categoryIds: [],
+                    bikeType: bike.bikeType || "",
+                    categoryId: undefined,
                 });
 
                 if (bike.media && bike.media.length > 0) {
@@ -210,10 +209,10 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                 model: form.model,
                 condition: form.condition,
                 bikeType: form.bikeType,
-                frameSize: form.frameSize,
+                frameSize: "",
                 pricePoints: Number(form.pricePoints.replace(/[^\d]/g, "")),
                 year: form.year ? Number(form.year) : null,
-                categoryIds: form.categoryIds.length > 0 ? form.categoryIds : [],
+                categoryIds: form.categoryId ? [form.categoryId] : [],
                 media: media,
             };
 
@@ -382,17 +381,14 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                         <div className="grid grid-cols-2 gap-4 mt-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Loại xe</label>
-                                <select
+                                <input
+                                    type="text"
                                     value={form.bikeType}
                                     onChange={(e) => setForm({ ...form, bikeType: e.target.value })}
+                                    placeholder="Tự động điền khi chọn danh mục"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    {BIKE_TYPES.map((type) => (
-                                        <option key={type} value={type}>
-                                            {type}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Tự điền khi chọn danh mục, hoặc nhập thủ công.</p>
                             </div>
 
                             <div>
@@ -403,27 +399,29 @@ export default function EditBikeModal({ bike, token, onClose, onSuccess }: EditB
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                     {CONDITIONS.map((cond) => (
-                                        <option key={cond} value={cond}>
-                                            {cond}
-                                        </option>
+                                        <option key={cond} value={cond}>{cond}</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
 
                         <div className="mt-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Kích thước khung</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
                             <select
-                                value={form.frameSize}
-                                onChange={(e) => setForm({ ...form, frameSize: e.target.value })}
+                                value={form.categoryId ?? ""}
+                                onChange={(e) => {
+                                    const id = e.target.value ? Number(e.target.value) : undefined;
+                                    const catName = id ? (categories.find(c => c.id === id)?.name ?? "") : "";
+                                    setForm({ ...form, categoryId: id, bikeType: catName || form.bikeType });
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                {FRAME_SIZES.map((size) => (
-                                    <option key={size} value={size}>
-                                        {size}
-                                    </option>
+                                <option value="">-- Chọn danh mục --</option>
+                                {categories.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                            <p className="text-xs text-gray-400 mt-1">Chọn danh mục sẽ tự động điền vào ô Loại xe.</p>
                         </div>
 
                         <div className="mt-4">

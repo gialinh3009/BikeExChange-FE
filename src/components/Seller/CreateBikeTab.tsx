@@ -46,8 +46,6 @@ interface CreateBikeTabProps {
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1900;
-const BIKE_TYPES = ["Road", "Mountain", "City/Urban", "BMX", "Gravel", "Folding", "Electric", "Kids", "Highway"];
-const FRAME_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const CONDITIONS = ["NEW", "LIKE_NEW", "GOOD", "FAIR", "POOR"];
 const CONDITION_LABELS: Record<string, string> = { NEW: "Mới", LIKE_NEW: "Như mới", GOOD: "Tốt", FAIR: "Khá", POOR: "Cũ" };
 
@@ -61,8 +59,8 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
     const [categories, setCategories] = useState<Category[]>([]);
     const [brands, setBrands] = useState<Brand[]>([]);
     const [form, setForm] = useState({
-        title: "", bikeType: "Road", brandId: undefined as number | undefined,
-        model: "", frameSize: "M", condition: "GOOD", year: "", priceVnd: "", description: "",
+        title: "", bikeType: "", brandId: undefined as number | undefined,
+        model: "", frameSize: "", condition: "GOOD", year: "", priceVnd: "", description: "",
         categoryId: undefined as number | undefined,
     });
 
@@ -226,7 +224,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                 pricePoints: Number(form.priceVnd.replace(/[^\d]/g, "")),
                 condition: form.condition,
                 bikeType: form.bikeType,
-                frameSize: form.frameSize,
+                frameSize: "",
                 categoryIds: form.categoryId ? [form.categoryId] : [],
                 media,
             };
@@ -238,7 +236,7 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
 
             closeConfirm();
             setSuccessInfo({ usedFreePost: willUseFreePost, fee: postingFee ?? undefined });
-            setForm({ title: "", bikeType: "Road", brandId: undefined, model: "", frameSize: "M", condition: "GOOD", year: "", priceVnd: "", description: "", categoryId: undefined });
+            setForm({ title: "", bikeType: "", brandId: undefined, model: "", frameSize: "", condition: "GOOD", year: "", priceVnd: "", description: "", categoryId: undefined });
             setImages([]);
             onBikeCreated();
             onWalletRefresh();
@@ -453,10 +451,13 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-semibold text-gray-700 block">Loại xe</label>
-                            <select value={form.bikeType} onChange={e => setForm(p => ({ ...p, bikeType: e.target.value }))}
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-gray-50 focus:bg-white transition">
-                                {BIKE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                            <input
+                                value={form.bikeType}
+                                onChange={e => setForm(p => ({ ...p, bikeType: e.target.value }))}
+                                placeholder="Tự động điền khi chọn danh mục"
+                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-gray-50 focus:bg-white transition"
+                            />
+                            <p className="text-[11px] text-gray-500">Tự điền khi chọn danh mục, hoặc nhập thủ công.</p>
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-semibold text-gray-700 block">Hãng <span className="text-red-500">*</span></label>
@@ -471,13 +472,6 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
                             <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))}
                                 placeholder="Escape 3"
                                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-gray-50 focus:bg-white transition" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-semibold text-gray-700 block">Kích thước khung</label>
-                            <select value={form.frameSize} onChange={e => setForm(p => ({ ...p, frameSize: e.target.value }))}
-                                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-gray-50 focus:bg-white transition">
-                                {FRAME_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-semibold text-gray-700 block">Tình trạng</label>
@@ -505,11 +499,18 @@ export default function CreateBikeTab({ token, wallet, onBikeCreated, onWalletRe
 
                     <div className="mt-6 rounded-2xl border border-emerald-100 bg-white/80 p-4">
                         <label className="text-sm font-semibold text-gray-700 mb-2 block">Danh mục</label>
-                        <select value={form.categoryId ?? ""} onChange={e => setForm(p => ({ ...p, categoryId: e.target.value ? Number(e.target.value) : undefined }))}
+                        <select
+                            value={form.categoryId ?? ""}
+                            onChange={e => {
+                                const id = e.target.value ? Number(e.target.value) : undefined;
+                                const catName = id ? (categories.find(c => c.id === id)?.name ?? "") : "";
+                                setForm(p => ({ ...p, categoryId: id, bikeType: catName || p.bikeType }));
+                            }}
                             className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-gray-50 focus:bg-white transition">
                             <option value="">-- Chọn danh mục --</option>
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
+                        <p className="text-[11px] text-gray-500 mt-1">Chọn danh mục sẽ tự động điền vào ô Loại xe.</p>
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-emerald-100 bg-white/80 p-4">

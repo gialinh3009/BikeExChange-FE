@@ -10,6 +10,9 @@ type FilterKey = "all" | "income" | "expense";
 interface SellerTransactionHistoryTabProps {
   token: string;
   userId?: number;
+  onViewBike?: (bikeId: number) => void;
+  onViewInspection?: (bikeId: number) => void;
+  onViewPostFeeNoId?: (createdAt?: string) => void;
 }
 
 const fmtMoney = (p: number) => `${new Intl.NumberFormat("vi-VN").format(Number(p) || 0)} VND`;
@@ -22,7 +25,7 @@ const fmtDateTime = (iso?: string) => {
   });
 };
 
-export default function SellerTransactionHistoryTab({ token, userId }: SellerTransactionHistoryTabProps) {
+export default function SellerTransactionHistoryTab({ token, userId, onViewBike, onViewInspection, onViewPostFeeNoId }: SellerTransactionHistoryTabProps) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterKey>("all");
   const [loading, setLoading] = useState(false);
@@ -152,14 +155,19 @@ export default function SellerTransactionHistoryTab({ token, userId }: SellerTra
           {filtered.map((trans, idx) => {
             const isOrderLink      = !!trans.resolvedOrderId;
             const isPostLink       = trans.linkType === "post"       && !!trans.resolvedBikeId;
+            const isPostFeeNoId    = !!trans.isPostFee && !trans.resolvedBikeId;
             const isInspectionLink = trans.linkType === "inspection" && !!trans.resolvedBikeId;
-            const isClickable      = isOrderLink || isPostLink || isInspectionLink;
+            const isClickable      = isOrderLink || isPostLink || isPostFeeNoId || isInspectionLink;
             const handleClick = () => {
               if (isOrderLink)           navigate(`/seller/orders/${trans.resolvedOrderId}`);
-              else if (isPostLink)       navigate(`/bikes/${trans.resolvedBikeId}`);
-              else if (isInspectionLink) navigate(`/seller?tab=inspection`);
+              else if (isPostLink)       onViewBike ? onViewBike(trans.resolvedBikeId!) : navigate(`/bikes/${trans.resolvedBikeId}`);
+              else if (isPostFeeNoId)    onViewPostFeeNoId ? onViewPostFeeNoId(trans.createdAt) : navigate(`/seller?tab=posts`);
+              else if (isInspectionLink) onViewInspection ? onViewInspection(trans.resolvedBikeId!) : navigate(`/seller?tab=inspection`);
             };
-            const linkLabel = isOrderLink ? "Xem đơn hàng" : isPostLink ? "Xem bài đăng" : isInspectionLink ? "Xem kiểm định" : null;
+            const linkLabel = isOrderLink ? "Xem đơn hàng"
+              : (isPostLink || isPostFeeNoId) ? "Xem bài đăng"
+              : isInspectionLink ? "Xem kiểm định"
+              : null;
             const imgUrl = trans.resolvedBikeId ? bikeImages.get(trans.resolvedBikeId) : undefined;
 
             return (

@@ -1,4 +1,4 @@
-import { Bike, Clock, ShieldCheck, X, RefreshCw, AlertCircle } from "lucide-react";
+import { Bike, Clock, ShieldCheck, X, RefreshCw, AlertCircle, Edit3, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getInspectionFeeAPI } from "../../services/settingsService";
 
@@ -23,12 +23,16 @@ interface InspectionTabProps {
     onRequestInspection: (bike: BikeItem) => void;
     onViewBikeDetail: (bike: BikeItem) => void;
     canRequestInspection: (bike: BikeItem) => boolean;
+    onEditInspectionByBike?: (bikeId: number) => void;
+    onCancelInspectionByBike?: (bikeId: number) => void;
+    cancelLoadingBikeId?: number | null;
 }
 
 export default function InspectionTab({
     bikes, bikesLoading, bikesError, inspectionFilter,
     onFilterChange, onRefresh, onViewInspection,
     onRequestInspection, onViewBikeDetail, canRequestInspection,
+    onEditInspectionByBike, onCancelInspectionByBike, cancelLoadingBikeId,
 }: InspectionTabProps) {
     const [inspectionFee, setInspectionFee] = useState<number | null>(null);
 
@@ -202,11 +206,30 @@ export default function InspectionTab({
                                             <ShieldCheck size={12} /> Xem báo cáo
                                         </button>
                                     )}
-                                    {isPending && (
+                                    {isPending && status !== "REQUESTED" && (
                                         <button onClick={() => bike.id && onViewInspection(bike.id)}
                                             className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
                                             <Clock size={12} /> Xem trạng thái
                                         </button>
+                                    )}
+                                    {/* REQUESTED: show inline edit + cancel + view */}
+                                    {status === "REQUESTED" && (
+                                        <>
+                                            <button onClick={() => bike.id && onViewInspection(bike.id)}
+                                                className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+                                                <Clock size={12} /> Xem chi tiết
+                                            </button>
+                                            <button onClick={() => bike.id && onEditInspectionByBike?.(bike.id)}
+                                                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition">
+                                                <Edit3 size={12} /> Chỉnh sửa đơn KĐ
+                                            </button>
+                                            <button
+                                                onClick={() => bike.id && onCancelInspectionByBike?.(bike.id)}
+                                                disabled={cancelLoadingBikeId === bike.id}
+                                                className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 transition">
+                                                <Trash2 size={12} /> {cancelLoadingBikeId === bike.id ? "Đang hủy..." : "Hủy đơn KĐ"}
+                                            </button>
+                                        </>
                                     )}
                                     {(isNone || isRejected) && canRequestInspection(bike) && (
                                         <button onClick={() => onRequestInspection(bike)}
