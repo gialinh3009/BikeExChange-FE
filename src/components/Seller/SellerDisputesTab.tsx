@@ -158,7 +158,7 @@ export default function SellerDisputesTab({ token }: SellerDisputesTabProps) {
                             key={dispute.orderId}
                             className="seller-dispute-card"
                             style={{ background: "white", border: `1.5px solid ${borderColor}`, borderRadius: 16, padding: "18px 20px", cursor: "pointer" }}
-                            onClick={() => navigate(`/seller/orders/${dispute.orderId}`)}
+                            onClick={() => navigate(`/seller/orders/${dispute.orderId}/dispute`)}
                         >
                             {/* Header row */}
                             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>

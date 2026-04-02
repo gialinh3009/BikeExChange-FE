@@ -29,6 +29,7 @@ import ForgotPassword from "../components/home/ForgotPassword";
 import ResetPassword from "../components/home/ResetPassword";
 import SellerPage from "../components/Seller/SellerPage";
 import SellerOrderDetailPage from "../components/Seller/SellerOrderDetailPage";
+import SellerDisputeDetailPage from "../components/Seller/SellerDisputeDetailPage";
 import BuyerPage from "../components/Buyer/BuyerPage";
 import PaymentSuccess from "../components/Buyer/PaymentSuccess";
 import ProfilePage from "../components/Buyer/Profilepage";
@@ -160,6 +161,7 @@ export default function AppRoutes({ user, onLogout }: AppRoutesProps) {
       <Route element={<PrivateRoute roles={["SELLER"]} />}>
         <Route path="/seller" element={<SellerPage />} />
         <Route path="/seller/orders/:id" element={<SellerOrderDetailPage />} />
+        <Route path="/seller/orders/:id/dispute" element={<SellerDisputeDetailPage />} />
       </Route>
 
       {/* Inspector */}
