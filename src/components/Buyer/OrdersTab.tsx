@@ -309,6 +309,7 @@ export default function OrdersTab({ token, navigate, mode = "all" }: Props) {
         switch (order.status) {
 
             case "ESCROWED":
+            case "ACCEPTED":
                 return (
                     <button
                         style={btnStyle("#ef4444", "#fef2f2", "#fecaca")}
