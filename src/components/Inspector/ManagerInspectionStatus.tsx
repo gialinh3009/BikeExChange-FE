@@ -1,45 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  RefreshCw,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  AlertCircle,
-  ClipboardCheck,
-  UserCheck,
-} from "lucide-react";
 import { getInspectionsByStatusAPI } from "../../services/Admin/inspectorService";
 
 const STATUS_TABS = [
-  { key: "ALL", label: "Tất cả", icon: ClipboardCheck, color: "text-gray-600", bg: "bg-gray-100" },
-  { key: "REQUESTED", label: "Yêu cầu", icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
-  { key: "ASSIGNED", label: "Đã phân công", icon: UserCheck, color: "text-blue-600", bg: "bg-blue-100" },
-  { key: "IN_PROGRESS", label: "Đang kiểm định", icon: RefreshCw, color: "text-indigo-600", bg: "bg-indigo-100" },
-  { key: "INSPECTED", label: "Đã kiểm định", icon: ClipboardCheck, color: "text-purple-600", bg: "bg-purple-100" },
-  { key: "APPROVED", label: "Đã duyệt", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
-  { key: "REJECTED", label: "Từ chối", icon: XCircle, color: "text-red-600", bg: "bg-red-100" },
+  { key: "ALL", label: "Tất cả" },
+  { key: "REQUESTED", label: "Yêu cầu" },
+  { key: "ASSIGNED", label: "Đã phân công" },
+  { key: "IN_PROGRESS", label: "Đang kiểm định" },
+  { key: "INSPECTED", label: "Đã kiểm định" },
+  { key: "APPROVED", label: "Đã duyệt" },
+  { key: "REJECTED", label: "Từ chối" },
 ];
 
-const STATUS_CLS: Record<string, string> = {
-  REQUESTED: "bg-amber-100 text-amber-700",
-  ASSIGNED: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-indigo-100 text-indigo-700",
-  INSPECTED: "bg-purple-100 text-purple-700",
-  APPROVED: "bg-emerald-100 text-emerald-700",
-  REJECTED: "bg-red-100 text-red-600",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  REQUESTED: "Yêu cầu",
-  ASSIGNED: "Đã phân công",
-  IN_PROGRESS: "Đang kiểm định",
-  INSPECTED: "Đã kiểm định",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Từ chối",
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  REQUESTED:   { label: "Yêu cầu",         color: "#d97706", bg: "#fef3c7" },
+  ASSIGNED:    { label: "Đã phân công",     color: "#2563eb", bg: "#dbeafe" },
+  IN_PROGRESS: { label: "Đang kiểm định",   color: "#7c3aed", bg: "#ede9fe" },
+  INSPECTED:   { label: "Đã kiểm định",     color: "#0891b2", bg: "#cffafe" },
+  APPROVED:    { label: "Đã duyệt",         color: "#16a34a", bg: "#dcfce7" },
+  REJECTED:    { label: "Từ chối",          color: "#dc2626", bg: "#fee2e2" },
 };
 
 interface Inspection {
@@ -69,10 +47,59 @@ interface PageInfo {
   size: number;
 }
 
+const COLUMNS = [
+  "ID",
+  "Xe đạp",
+  "Chủ xe",
+  "Kiểm định viên",
+  "Ngày ưu tiên",
+  "Phí (điểm)",
+  "Trạng thái",
+  "Ngày tạo",
+];
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status,
+    color: "#6b7280",
+    bg: "#f3f4f6",
+  };
+  return (
+    <span
+      style={{
+        backgroundColor: cfg.bg,
+        color: cfg.color,
+        padding: "3px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: 0.3,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export default function ManagerInspectionStatus() {
   const [activeStatus, setActiveStatus] = useState("ALL");
   const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [pageInfo, setPageInfo] = useState<PageInfo>({ totalElements: 0, totalPages: 0, number: 0, size: 20 });
+  const [pageInfo, setPageInfo] = useState<PageInfo>({
+    totalElements: 0,
+    totalPages: 0,
+    number: 0,
+    size: 20,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -82,6 +109,7 @@ export default function ManagerInspectionStatus() {
     setLoading(true);
     setError(null);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await getInspectionsByStatusAPI({ status: activeStatus, page, size: 20 } as any);
       setInspections(res.data.content ?? []);
       setPageInfo({
@@ -90,8 +118,9 @@ export default function ManagerInspectionStatus() {
         number: res.data.number ?? 0,
         size: res.data.size ?? 20,
       });
-    } catch (err: any) {
-      setError(err.message || "Có lỗi xảy ra khi tải dữ liệu.");
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e.message || "Có lỗi xảy ra khi tải dữ liệu.");
     } finally {
       setLoading(false);
     }
@@ -114,53 +143,98 @@ export default function ManagerInspectionStatus() {
       (item.inspectorName ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  };
-
   return (
-    <div className="space-y-5">
+    <div
+      style={{
+        padding: "28px 32px",
+        fontFamily: "'Segoe UI', sans-serif",
+        minHeight: "100vh",
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          marginBottom: 24,
+        }}
+      >
         <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <RefreshCw size={20} className="text-amber-500" />
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#0f172a",
+              margin: 0,
+            }}
+          >
             Quản lý trạng thái kiểm định
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p
+            style={{
+              color: "#64748b",
+              marginTop: 4,
+              fontSize: 14,
+              margin: "4px 0 0",
+            }}
+          >
             Theo dõi và lọc yêu cầu kiểm định theo trạng thái
           </p>
         </div>
         <button
           onClick={fetchData}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "1px solid #e2e8f0",
+            background: "#fff",
+            color: loading ? "#94a3b8" : "#334155",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "all 0.15s",
+          }}
         >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           Làm mới
         </button>
       </div>
 
       {/* Status Tabs */}
-      <div className="flex flex-wrap gap-2">
+      <div
+        style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}
+      >
         {STATUS_TABS.map((tab) => {
-          const Icon = tab.icon;
           const isActive = activeStatus === tab.key;
           return (
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                isActive
-                  ? "bg-amber-500 text-white border-amber-500 shadow-sm"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-amber-300 hover:text-amber-700"
-              }`}
+              style={{
+                padding: "7px 18px",
+                borderRadius: 999,
+                border: isActive ? "none" : "1px solid #e2e8f0",
+                background: isActive ? "#0f172a" : "#fff",
+                color: isActive ? "#fff" : "#475569",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
             >
-              <Icon size={14} />
               {tab.label}
               {isActive && pageInfo.totalElements > 0 && (
-                <span className="ml-1 bg-white/20 text-white text-xs px-1.5 py-0.5 rounded-full">
+                <span
+                  style={{
+                    marginLeft: 6,
+                    background: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    fontSize: 11,
+                    padding: "1px 7px",
+                    borderRadius: 999,
+                  }}
+                >
                   {pageInfo.totalElements}
                 </span>
               )}
@@ -170,136 +244,276 @@ export default function ManagerInspectionStatus() {
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div style={{ marginBottom: 16 }}>
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo xe, chủ xe, kiểm định viên..."
-          className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-amber-400 bg-white"
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            padding: "9px 14px",
+            borderRadius: 8,
+            border: "1px solid #e2e8f0",
+            fontSize: 14,
+            outline: "none",
+            boxSizing: "border-box",
+            fontFamily: "inherit",
+            background: "#fff",
+          }}
+          onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+          onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
         />
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold text-gray-800">Danh sách kiểm định</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {loading ? "Đang tải..." : `${pageInfo.totalElements} yêu cầu`}
-            </p>
-          </div>
+      {/* Error */}
+      {error && (
+        <div
+          style={{
+            background: "#fee2e2",
+            color: "#dc2626",
+            borderRadius: 8,
+            padding: "12px 16px",
+            marginBottom: 20,
+            fontSize: 14,
+          }}
+        >
+          {error}
         </div>
+      )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-16 gap-2 text-amber-500">
-            <Loader2 size={20} className="animate-spin" />
-            <span className="text-sm">Đang tải dữ liệu...</span>
-          </div>
-        )}
-
-        {/* Error */}
-        {!loading && error && (
-          <div className="flex flex-col items-center justify-center py-16 gap-2 text-red-500">
-            <AlertCircle size={32} />
-            <p className="text-sm font-medium">{error}</p>
-            <button
-              onClick={fetchData}
-              className="text-xs text-amber-600 hover:underline mt-1"
-            >
-              Thử lại
-            </button>
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
-            <ClipboardCheck size={32} />
-            <p className="text-sm">Không có yêu cầu kiểm định nào</p>
-          </div>
-        )}
-
-        {/* Data */}
-        {!loading && !error && filtered.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">ID</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Xe đạp</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Chủ xe</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Kiểm định viên</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Ngày ưu tiên</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Phí (điểm)</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Trạng thái</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 text-xs">Ngày tạo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
-                    <td className="px-5 py-3.5 text-gray-400 font-mono text-xs">#{item.id}</td>
-                    <td className="px-5 py-3.5">
-                      <p className="font-medium text-gray-800">{item.bikeTitle}</p>
-                      {item.notes && (
-                        <p className="text-xs text-gray-400 mt-0.5 italic truncate max-w-[200px]">
-                          "{item.notes}"
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-600">{item.ownerName}</td>
-                    <td className="px-5 py-3.5 text-gray-600">
-                      {item.inspectorName ?? (
-                        <span className="text-gray-300 italic">Chưa phân công</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-600">{formatDate(item.preferredDate)}</td>
-                    <td className="px-5 py-3.5 text-gray-600">{item.feePoints}</td>
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                          STATUS_CLS[item.status] ?? "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {STATUS_LABELS[item.status] ?? item.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-400 text-xs">{formatDate(item.createdAt)}</td>
-                  </tr>
+      {/* Table Card */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+          overflow: "hidden",
+          border: "1px solid #e2e8f0",
+        }}
+      >
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}
+          >
+            <thead>
+              <tr
+                style={{
+                  background: "#f1f5f9",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                {COLUMNS.map((col) => (
+                  <th
+                    key={col}
+                    style={{
+                      padding: "11px 16px",
+                      textAlign: "left",
+                      fontWeight: 600,
+                      color: "#475569",
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {col}
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={COLUMNS.length}
+                    style={{
+                      textAlign: "center",
+                      padding: 48,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          border: "3px solid #e2e8f0",
+                          borderTopColor: "#3b82f6",
+                          borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                        }}
+                      />
+                      Đang tải dữ liệu...
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={COLUMNS.length}
+                    style={{
+                      textAlign: "center",
+                      padding: 48,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    Không có yêu cầu kiểm định nào.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((item, idx) => (
+                  <tr
+                    key={item.id}
+                    style={{
+                      borderBottom: "1px solid #f1f5f9",
+                      background: idx % 2 === 0 ? "#fff" : "#fafafa",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "#f0f7ff")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background =
+                        idx % 2 === 0 ? "#fff" : "#fafafa")
+                    }
+                  >
+                    <td
+                      style={{
+                        padding: "11px 16px",
+                        color: "#94a3b8",
+                        fontWeight: 500,
+                      }}
+                    >
+                      #{item.id}
+                    </td>
+                    <td style={{ padding: "11px 16px" }}>
+                      <div style={{ fontWeight: 600, color: "#0f172a" }}>
+                        {item.bikeTitle}
+                      </div>
+                      {item.notes && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#94a3b8",
+                            fontStyle: "italic",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: 200,
+                          }}
+                        >
+                          "{item.notes}"
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: "11px 16px", color: "#334155" }}>
+                      {item.ownerName}
+                    </td>
+                    <td
+                      style={{
+                        padding: "11px 16px",
+                        color: item.inspectorName ? "#334155" : "#94a3b8",
+                      }}
+                    >
+                      {item.inspectorName ?? "Chưa phân công"}
+                    </td>
+                    <td style={{ padding: "11px 16px", color: "#334155" }}>
+                      {formatDate(item.preferredDate)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "11px 16px",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                      }}
+                    >
+                      {item.feePoints.toLocaleString()}
+                    </td>
+                    <td style={{ padding: "11px 16px" }}>
+                      <StatusBadge status={item.status} />
+                    </td>
+                    <td style={{ padding: "11px 16px", color: "#334155" }}>
+                      {formatDate(item.createdAt)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Pagination */}
         {!loading && !error && pageInfo.totalPages > 1 && (
-          <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-gray-400">
-              Trang {pageInfo.number + 1} / {pageInfo.totalPages} · {pageInfo.totalElements} yêu cầu
-            </p>
-            <div className="flex items-center gap-2">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 20px",
+              borderTop: "1px solid #e2e8f0",
+              background: "#f8fafc",
+            }}
+          >
+            <span style={{ fontSize: 13, color: "#64748b" }}>
+              Trang {pageInfo.number + 1} / {pageInfo.totalPages} &middot;{" "}
+              {pageInfo.totalElements} yêu cầu
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="p-1.5 rounded-lg border border-gray-200 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #e2e8f0",
+                  background: page === 0 ? "#f1f5f9" : "#fff",
+                  color: page === 0 ? "#94a3b8" : "#334155",
+                  cursor: page === 0 ? "not-allowed" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
               >
-                <ChevronLeft size={14} />
+                ← Trước
               </button>
               <button
-                onClick={() => setPage((p) => Math.min(pageInfo.totalPages - 1, p + 1))}
+                onClick={() =>
+                  setPage((p) => Math.min(pageInfo.totalPages - 1, p + 1))
+                }
                 disabled={page >= pageInfo.totalPages - 1}
-                className="p-1.5 rounded-lg border border-gray-200 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #e2e8f0",
+                  background:
+                    page >= pageInfo.totalPages - 1 ? "#f1f5f9" : "#fff",
+                  color:
+                    page >= pageInfo.totalPages - 1 ? "#94a3b8" : "#334155",
+                  cursor:
+                    page >= pageInfo.totalPages - 1
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
               >
-                <ChevronRight size={14} />
+                Sau →
               </button>
             </div>
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

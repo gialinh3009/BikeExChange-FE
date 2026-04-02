@@ -6,7 +6,6 @@ import {
   rejectInspectionAPI,
 } from "../../services/Inspector/inspectionServices";
 
-
 interface Inspection {
   id: number;
   bikeId: number;
@@ -27,7 +26,6 @@ interface Inspection {
   completedAt: string | null;
 }
 
-
 const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string }
@@ -41,7 +39,6 @@ const STATUS_CONFIG: Record<
   REJECTED: { label: "Từ chối", color: "#dc2626", bg: "#fee2e2" },
   CANCELLED: { label: "Đã hủy", color: "#6b7280", bg: "#f3f4f6" },
 };
-
 
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] ?? {
@@ -67,7 +64,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-
 function formatDate(dateStr: string | null) {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("vi-VN", {
@@ -77,12 +73,12 @@ function formatDate(dateStr: string | null) {
   });
 }
 
-
 export default function ManagerInspection() {
   // State for detail modal (number | null)
   const [detailId, setDetailId] = useState<number | null>(null);
   // Get token from localStorage
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,13 +86,15 @@ export default function ManagerInspection() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string | null>("REQUESTED");
-  const [loadingStatus, setLoadingStatus] = useState<Record<number, string>>({});
+  const [loadingStatus, setLoadingStatus] = useState<Record<number, string>>(
+    {},
+  );
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [confirmAssignId, setConfirmAssignId] = useState<number | null>(null);
   const PAGE_SIZE = 20;
-
 
   const fetchData = () => {
     setLoading(true);
@@ -112,21 +110,18 @@ export default function ManagerInspection() {
       .finally(() => setLoading(false));
   };
 
-
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter]);
 
-
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   };
-
-
   const handleReject = async () => {
     if (!rejectTarget || !rejectReason.trim()) return;
+
     setRejecting(true);
     try {
       await rejectInspectionAPI(rejectTarget, rejectReason.trim());
@@ -140,9 +135,10 @@ export default function ManagerInspection() {
       setRejecting(false);
     }
   };
-
-
-  const handleAssign = async (id: number) => {
+  const handleAssignConfirmed = async () => {
+    if (confirmAssignId === null) return;
+    const id = confirmAssignId;
+    setConfirmAssignId(null);
     setLoadingStatus((prev) => ({ ...prev, [id]: "ASSIGNED" }));
     try {
       await updateInspectionStatusAPI(id, "ASSIGNED");
@@ -159,7 +155,6 @@ export default function ManagerInspection() {
     }
   };
 
-
   const COLUMNS = [
     "ID",
     "Xe",
@@ -172,16 +167,90 @@ export default function ManagerInspection() {
     "Thao tác",
   ];
 
-
   return (
     <div
       style={{
         padding: "28px 32px",
         fontFamily: "'Segoe UI', sans-serif",
-        background: "#f8fafc",
         minHeight: "100vh",
       }}
     >
+      {/* Confirm Assign Modal */}
+      {confirmAssignId !== null && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 380,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+              padding: "24px",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 8px",
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#0f172a",
+              }}
+            >
+              Xác nhận phân công
+            </h3>
+            <p style={{ margin: "0 0 20px", fontSize: 14, color: "#475569" }}>
+              Bạn có chắc chắn muốn phân công kiểm định{" "}
+              <strong>#{confirmAssignId}</strong> không?
+            </p>
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                onClick={() => setConfirmAssignId(null)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 8,
+                  border: "1px solid #e2e8f0",
+                  background: "#fff",
+                  color: "#475569",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleAssignConfirmed}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reject Modal */}
       {rejectTarget !== null && (
         <div
@@ -321,6 +390,29 @@ export default function ManagerInspection() {
         </div>
       )}
 
+      {/* Detail Modal */}
+      {detailId !== null && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div style={{ position: "relative", width: "100%", maxWidth: 650 }}>
+            <InspectorInspectionDetail
+              inspectionId={detailId}
+              token={token}
+              onClose={() => setDetailId(null)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -344,7 +436,6 @@ export default function ManagerInspection() {
         </div>
       )}
 
-
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1
@@ -357,9 +448,10 @@ export default function ManagerInspection() {
         </p>
       </div>
 
-
       {/* Filter Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <div
+        style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}
+      >
         {[
           { value: "REQUESTED", label: "Chờ duyệt" },
           { value: "ASSIGNED", label: "Đã phân công" },
@@ -369,7 +461,10 @@ export default function ManagerInspection() {
           return (
             <button
               key={tab.value ?? "ALL"}
-              onClick={() => { setStatusFilter(tab.value); setPage(0); }}
+              onClick={() => {
+                setStatusFilter(tab.value);
+                setPage(0);
+              }}
               style={{
                 padding: "7px 18px",
                 borderRadius: 999,
@@ -388,7 +483,6 @@ export default function ManagerInspection() {
         })}
       </div>
 
-
       {/* Error */}
       {error && (
         <div
@@ -404,7 +498,6 @@ export default function ManagerInspection() {
           ⚠️ {error}
         </div>
       )}
-
 
       {/* Table */}
       <div
@@ -502,9 +595,7 @@ export default function ManagerInspection() {
                         borderBottom: "1px solid #f1f5f9",
                         background: idx % 2 === 0 ? "#fff" : "#fafafa",
                         transition: "background 0.15s",
-                        cursor: "pointer",
                       }}
-                      onClick={() => setDetailId(item.id)}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.background = "#f0f7ff")
                       }
@@ -513,29 +604,6 @@ export default function ManagerInspection() {
                           idx % 2 === 0 ? "#fff" : "#fafafa")
                       }
                     >
-                            {/* Detail Modal */}
-                            {detailId !== null && (
-                              <div
-                                style={{
-                                  position: "fixed",
-                                  inset: 0,
-                                  zIndex: 10000,
-                                  background: "rgba(0,0,0,0.35)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  padding: 16,
-                                }}
-                              >
-                                <div style={{ position: "relative", width: "100%", maxWidth: 650 }}>
-                                  <InspectorInspectionDetail
-                                    inspectionId={detailId}
-                                    token={token}
-                                    onClose={() => setDetailId(null)}
-                                  />
-                                </div>
-                              </div>
-                            )}
                       <td
                         style={{
                           padding: "11px 16px",
@@ -586,14 +654,36 @@ export default function ManagerInspection() {
                         {formatDate(item.createdAt)}
                       </td>
 
-
                       {/* Action */}
                       <td style={{ padding: "11px 16px" }}>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <div
+                          style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+                        >
+                          {/* Chi tiết */}
+                          <button
+                            onClick={() => setDetailId(item.id)}
+                            style={{
+                              padding: "5px 11px",
+                              borderRadius: 6,
+                              border: "none",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              whiteSpace: "nowrap",
+                              cursor: "pointer",
+                              background: "#f1f5f9",
+                              color: "#334155",
+                              transition: "background 0.15s",
+                            }}
+                          >
+                            Chi tiết
+                          </button>
+
                           {/* Phân công */}
                           <button
-                            disabled={item.status === "ASSIGNED" || isProcessing}
-                            onClick={() => handleAssign(item.id)}
+                            disabled={
+                              item.status === "ASSIGNED" || isProcessing
+                            }
+                            onClick={() => setConfirmAssignId(item.id)}
                             style={{
                               padding: "5px 11px",
                               borderRadius: 6,
@@ -606,7 +696,9 @@ export default function ManagerInspection() {
                                   ? "not-allowed"
                                   : "pointer",
                               background:
-                                item.status === "ASSIGNED" ? "#e2e8f0" : "#2563eb",
+                                item.status === "ASSIGNED"
+                                  ? "#e2e8f0"
+                                  : "#2563eb",
                               color:
                                 item.status === "ASSIGNED" ? "#94a3b8" : "#fff",
                               opacity: isProcessing && !isAssigning ? 0.5 : 1,
@@ -632,10 +724,11 @@ export default function ManagerInspection() {
                             Phân công
                           </button>
 
-
                           {/* Từ chối */}
                           <button
-                            disabled={item.status === "REJECTED" || isProcessing}
+                            disabled={
+                              item.status === "REJECTED" || isProcessing
+                            }
                             onClick={() => {
                               setRejectTarget(item.id);
                               setRejectReason("");
@@ -652,7 +745,9 @@ export default function ManagerInspection() {
                                   ? "not-allowed"
                                   : "pointer",
                               background:
-                                item.status === "REJECTED" ? "#e2e8f0" : "#dc2626",
+                                item.status === "REJECTED"
+                                  ? "#e2e8f0"
+                                  : "#dc2626",
                               color:
                                 item.status === "REJECTED" ? "#94a3b8" : "#fff",
                               opacity: isProcessing ? 0.5 : 1,
@@ -670,7 +765,6 @@ export default function ManagerInspection() {
             </tbody>
           </table>
         </div>
-
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -725,7 +819,6 @@ export default function ManagerInspection() {
         )}
       </div>
 
-
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
@@ -733,7 +826,3 @@ export default function ManagerInspection() {
     </div>
   );
 }
-
-
-
-
