@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-    ChevronLeft, Heart, MapPin, Calendar,
+    ChevronLeft, Heart, Calendar,
     Star, MessageSquare, CheckCircle, Image as ImageIcon,
     ShieldCheck, Zap,  User,
 } from "lucide-react";
@@ -239,10 +239,7 @@ export default function BikedetailPage() {
         { label: "Model",      value: bike.model },
         { label: "Năm SX",     value: bike.year?.toString() },
         { label: "Loại xe",    value: bike.bikeType },
-        { label: "Cỡ khung",   value: bike.frameSize },
         { label: "Tình trạng", value: condLabel, color: condColor },
-        { label: "Số km",      value: bike.mileage !== undefined ? `${bike.mileage.toLocaleString()} km` : undefined },
-        { label: "Địa điểm",   value: bike.location && bike.location !== "Not specified" ? bike.location : undefined },
     ].filter(s => s.value);
 
     return (
@@ -285,12 +282,6 @@ export default function BikedetailPage() {
                                             </span>
                                         )}
                                     </div>
-                                    {bike.location && bike.location !== "Not specified" && (
-                                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                            <MapPin size={13} color="#94a3b8" />
-                                            <span style={{ fontSize: 13, color: "#94a3b8" }}>{bike.location}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
@@ -532,11 +523,6 @@ export default function BikedetailPage() {
                                 </p>
                             )}
                             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                                {bike.location && bike.location !== "Not specified" && (
-                                    <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 13 }}>
-                                        <MapPin size={13} color="#2563eb" /> {bike.location}
-                                    </span>
-                                )}
                                 {bike.createdAt && (
                                     <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b", fontSize: 13 }}>
                                         <Calendar size={13} color="#94a3b8" /> {timeAgo(bike.createdAt)}
