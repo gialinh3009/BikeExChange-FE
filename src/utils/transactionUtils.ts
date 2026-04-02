@@ -20,6 +20,7 @@ export type EnrichedTransaction = RawTransaction & {
   resolvedOrderId?: number;
   resolvedBikeId?: number;
   linkType?: "post" | "inspection";
+  isPostFee?: boolean;   // true for all bike post fee transactions (even if bikeId is null)
   income: boolean;
 };
 
@@ -46,9 +47,7 @@ export function parseBikeIdFromRef(ref?: string): number | null {
     if (m) return Number(m[1]);
   }
   return null;
-}
-
-async function fetchBikeTitle(bikeId: number, token: string): Promise<string> {
+}async function fetchBikeTitle(bikeId: number, token: string): Promise<string> {
   try {
     const data = await getBikeDetailAPI(bikeId, token);
     return data?.title || data?.bikeTitle || `Xe #${bikeId}`;
@@ -86,12 +85,25 @@ export async function enrichTransaction(trans: RawTransaction, token: string): P
 
   if (typeUpper === "SPEND") {
     const bikeId = parseBikeIdFromRef(ref);
-    const bikeName = bikeId ? await fetchBikeTitle(bikeId, token) : null;
+    // bikeId could be null if BE stored "BIKE_POST_FEE_null" (free-post case bug)
+    const validBikeId = bikeId && bikeId > 0 ? bikeId : null;
+    const bikeName = validBikeId ? await fetchBikeTitle(validBikeId, token) : null;
     if (/BIKE_POST_FEE/i.test(ref) || /Post fee/i.test(ref)) {
-      return { ...trans, income, resolvedLabel: bikeName ? `Bài đăng của xe ${bikeName}` : "Phí đăng bài", resolvedBikeId: bikeId ?? undefined, linkType: "post" };
+      return {
+        ...trans, income,
+        resolvedLabel: bikeName ? `Phí đăng bài — ${bikeName}` : "Phí đăng bài",
+        resolvedBikeId: validBikeId ?? undefined,
+        linkType: validBikeId ? "post" : undefined,
+        isPostFee: true,
+      };
     }
     if (/Inspection/i.test(ref)) {
-      return { ...trans, income, resolvedLabel: bikeName ? `Phí kiểm định xe ${bikeName}` : "Phí kiểm định", resolvedBikeId: bikeId ?? undefined, linkType: "inspection" };
+      return {
+        ...trans, income,
+        resolvedLabel: bikeName ? `Phí Kiểm Định — ${bikeName}` : "Phí Kiểm Định",
+        resolvedBikeId: validBikeId ?? undefined,
+        linkType: validBikeId ? "inspection" : undefined,
+      };
     }
     if (/Seller Upgrade/i.test(ref)) return { ...trans, income, resolvedLabel: "Phí nâng cấp tài khoản" };
     return { ...trans, income, resolvedLabel: bikeName ? `Chi phí xe ${bikeName}` : "Khoản chi" };
@@ -106,7 +118,11 @@ export async function enrichTransaction(trans: RawTransaction, token: string): P
   }
 
   if (typeUpper === "WITHDRAW") return { ...trans, income: false, resolvedLabel: "Rút tiền" };
-  if (typeUpper === "ESCROW_HOLD") return { ...trans, income: false, resolvedLabel: "Phí Kiểm Định", resolvedBikeId: parseBikeIdFromRef(ref) ?? undefined, linkType: "inspection" };
+  if (typeUpper === "ESCROW_HOLD") {
+    const bikeId = parseBikeIdFromRef(ref);
+    const validBikeId = bikeId && bikeId > 0 ? bikeId : null;
+    return { ...trans, income: false, resolvedLabel: "Phí Kiểm Định", resolvedBikeId: validBikeId ?? undefined, linkType: validBikeId ? "inspection" as const : undefined };
+  }
   if (typeUpper === "ESCROW_RELEASE") return { ...trans, income: true, resolvedLabel: "Giải phóng tiền đặt cọc" };
 
   return { ...trans, income, resolvedLabel: trans.description || trans.type || "Giao dịch" };

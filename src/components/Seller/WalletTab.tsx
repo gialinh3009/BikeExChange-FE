@@ -29,6 +29,9 @@ type EscrowedOrder = {
 interface WalletTabProps {
     token: string;
     userId?: number;
+    onViewBike?: (bikeId: number) => void;
+    onViewInspection?: (bikeId: number) => void;
+    onViewPostFeeNoId?: (createdAt?: string) => void;
 }
 
 const HOLDING_STATUSES = ["ESCROWED", "ACCEPTED", "SHIPPED", "DELIVERED", "RETURN_REQUESTED", "DISPUTED"];
@@ -78,7 +81,7 @@ const statusIcon  = (s?: string) => s === "SUCCESS" ? CheckCircle : s === "FAILE
 const statusColor = (s?: string) => s === "SUCCESS" ? "#16a34a" : s === "FAILED" ? "#e11d48" : "#d97706";
 const statusLabel = (s?: string) => s === "SUCCESS" ? "Thành công" : s === "FAILED" ? "Thất bại" : "Chờ";
 
-export default function WalletTab({ token, userId }: WalletTabProps) {
+export default function WalletTab({ token, userId, onViewBike, onViewInspection, onViewPostFeeNoId }: WalletTabProps) {
     const navigate = useNavigate();
     const [wallet, setWallet] = useState<WalletData>({ availablePoints: 0, frozenPoints: 0, remainingFreePosts: 0 });
     const [walletLoading, setWalletLoading] = useState(false);
@@ -405,13 +408,15 @@ export default function WalletTab({ token, userId }: WalletTabProps) {
 
                                 const isOrderLink      = !!trans.resolvedOrderId;
                                 const isPostLink       = trans.linkType === "post"       && !!trans.resolvedBikeId;
+                                const isPostFeeNoId    = !!trans.isPostFee && !trans.resolvedBikeId;
                                 const isInspectionLink = trans.linkType === "inspection" && !!trans.resolvedBikeId;
-                                const isClickable      = isOrderLink || isPostLink || isInspectionLink;
+                                const isClickable      = isOrderLink || isPostLink || isPostFeeNoId || isInspectionLink;
 
                                 const handleClick = () => {
                                     if (isOrderLink)           navigate(`/seller/orders/${trans.resolvedOrderId}`);
-                                    else if (isPostLink)       navigate(`/bikes/${trans.resolvedBikeId}`);
-                                    else if (isInspectionLink) navigate(`/seller?tab=inspection`);
+                                    else if (isPostLink)       onViewBike ? onViewBike(trans.resolvedBikeId!) : navigate(`/bikes/${trans.resolvedBikeId}`);
+                                    else if (isPostFeeNoId)    onViewPostFeeNoId ? onViewPostFeeNoId(trans.createdAt) : navigate(`/seller?tab=posts`);
+                                    else if (isInspectionLink) onViewInspection ? onViewInspection(trans.resolvedBikeId!) : navigate(`/seller?tab=inspection`);
                                 };
 
                                 return (
@@ -427,7 +432,7 @@ export default function WalletTab({ token, userId }: WalletTabProps) {
                                             <p style={{ fontSize:13, fontWeight:600, color:"#0f172a", margin:"0 0 2px" }}>
                                                 {info.label}
                                                 {isOrderLink      && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem đơn hàng</span>}
-                                                {isPostLink       && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem bài đăng</span>}
+                                                {(isPostLink || isPostFeeNoId) && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem bài đăng</span>}
                                                 {isInspectionLink && <span style={{ fontSize:11, color:"#3b82f6", fontWeight:400, marginLeft:6 }}>→ Xem kiểm định</span>}
                                             </p>
                                             {info.sub && <p style={{ fontSize:11, color:"#64748b", margin:"0 0 2px" }}>{info.sub}</p>}

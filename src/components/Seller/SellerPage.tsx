@@ -7,6 +7,9 @@ import {
 } from "lucide-react";
 import { listSellerBikesAPI } from "../../services/Seller/bikeManagementService";
 import { requestInspectionAPI, getInspectionDetailByBikeIdAPI, cancelInspectionAPI } from "../../services/Seller/inspectionService";
+import { buildAddressString } from "./AddressFields";
+import { EMPTY_ADDRESS } from "./AddressFields";
+import type { RequestInspectionForm } from "./RequestInspectionModal";
 import { getWalletAPI } from "../../services/Seller/walletService";
 import {
     getBikePostFeeAPI,
@@ -84,6 +87,7 @@ export default function SellerPage() {
     const [bikeDetail, setBikeDetail] = useState<BikeBrowseItem | null>(null);
     const [editBike, setEditBike] = useState<BikeBrowseItem | null>(null);
     const [deleteBike, setDeleteBike] = useState<BikeBrowseItem | null>(null);
+    const [viewOnlyBike, setViewOnlyBike] = useState<BikeBrowseItem | null>(null);
 
     const [bikesLoading, setBikesLoading] = useState(false);
     const [bikesError, setBikesError] = useState<string | null>(null);
@@ -100,19 +104,23 @@ export default function SellerPage() {
     const [requestLoading, setRequestLoading] = useState(false);
     const [requestError, setRequestError] = useState<string | null>(null);
     const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
-    const [requestForm, setRequestForm] = useState({
-        preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "",
+    const [requestForm, setRequestForm] = useState<RequestInspectionForm>({
+        preferredDate: "", preferredTimeSlot: "",
+        addressParts: { provinceCode: "", provinceName: "", districtCode: "", districtName: "", wardCode: "", wardName: "", detail: "" },
+        contactPhone: "", notes: "",
     });
 
     // ── Cancel inspection state ──
     const [cancelLoading, setCancelLoading] = useState(false);
+    const [cancelLoadingBikeId, setCancelLoadingBikeId] = useState<number | null>(null);
 
     // ── Edit inspection state ──
     const [editInspectionOpen, setEditInspectionOpen] = useState(false);
     const [editInspectionId, setEditInspectionId] = useState<number | null>(null);
-    const [editInspectionForm, setEditInspectionForm] = useState({
-        preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "",
-    });
+    const [editInspectionData, setEditInspectionData] = useState<{
+        preferredDate?: string; preferredTimeSlot?: string;
+        address?: string; contactPhone?: string; notes?: string;
+    }>({});
 
     const [wallet, setWallet] = useState<WalletLike | null>(null);
     const [inspectionFee, setInspectionFee] = useState<number | null>(null);
@@ -237,7 +245,13 @@ export default function SellerPage() {
 
     const openRequestForBike = (bike: BikeBrowseItem) => {
         setRequestBike(bike);
-        setRequestForm({ preferredDate: "", preferredTimeSlot: "", address: "", contactPhone: "", notes: "" });
+        setRequestForm({
+            preferredDate: "",
+            preferredTimeSlot: "",
+            addressParts: { ...EMPTY_ADDRESS },
+            contactPhone: user?.phone ?? "",
+            notes: "",
+        });
         setRequestError(null);
         setRequestSuccess(null);
         setRequestOpen(true);
@@ -253,7 +267,7 @@ export default function SellerPage() {
                 bikeId: requestBike.id,
                 preferredDate: requestForm.preferredDate || null,
                 preferredTimeSlot: requestForm.preferredTimeSlot || null,
-                address: requestForm.address || null,
+                address: buildAddressString(requestForm.addressParts) || null,
                 contactPhone: requestForm.contactPhone || null,
                 notes: requestForm.notes || null,
             }, token);
@@ -283,9 +297,74 @@ export default function SellerPage() {
         } finally { setCancelLoading(false); }
     };
 
+    // Direct cancel from InspectionTab card (by bikeId — fetch inspection first)
+    const handleCancelInspectionByBike = async (bikeId: number) => {
+        if (!window.confirm("Bạn có chắc muốn hủy yêu cầu kiểm định này? Phí sẽ được hoàn lại vào ví.")) return;
+        try {
+            setCancelLoadingBikeId(bikeId);
+            const detail = await getInspectionDetailByBikeIdAPI(bikeId, token);
+            const inspectionId = detail?.inspection?.id;
+            if (!inspectionId) throw new Error("Không tìm thấy mã đơn kiểm định.");
+            await cancelInspectionAPI(inspectionId, token);
+            void refreshBikes();
+            void refreshWallet();
+        } catch (e) {
+            alert((e as Error).message || "Không thể hủy yêu cầu kiểm định.");
+        } finally { setCancelLoadingBikeId(null); }
+    };
+
+    // Direct edit from InspectionTab card (by bikeId — fetch inspection first then open edit modal)
+    const handleEditInspectionByBike = async (bikeId: number) => {
+        try {
+            const detail = await getInspectionDetailByBikeIdAPI(bikeId, token);
+            const inspection = detail?.inspection;
+            if (!inspection) throw new Error("Không tìm thấy thông tin đơn kiểm định.");
+            handleOpenEditInspection(inspection);
+        } catch (e) {
+            alert((e as Error).message || "Không thể tải thông tin đơn kiểm định.");
+        }
+    };
+
+    // Open BikeDetailModal by bikeId (used from transaction/wallet tabs — view only)
+    const openBikeDetailById = (bikeId: number) => {
+        setViewOnlyBike({ id: bikeId, title: "", pricePoints: 0, condition: null });
+    };
+
+    // Open BikeDetailModal for post-fee transaction with no bikeId (BIKE_POST_FEE_null bug)
+    // Find the seller's bike closest in time to the transaction
+    const openBikeDetailByPostFee = async (transactionCreatedAt?: string) => {
+        try {
+            // Use already-loaded bikes list first
+            let bikeList = bikes;
+            if (bikeList.length === 0) {
+                const response = await listSellerBikesAPI({ page: 0, size: 200 }, token);
+                let content: BikeBrowseItem[] = [];
+                if (Array.isArray(response)) content = response;
+                else if (Array.isArray(response?.data)) content = response.data;
+                else if (Array.isArray(response?.content)) content = response.content;
+                bikeList = content;
+            }
+            if (bikeList.length === 0) return;
+
+            let target = bikeList[0];
+            if (transactionCreatedAt) {
+                const txTime = new Date(transactionCreatedAt).getTime();
+                target = bikeList.reduce((best, b) => {
+                    if (!b.createdAt) return best;
+                    const diff = Math.abs(new Date(b.createdAt).getTime() - txTime);
+                    const bestDiff = best.createdAt ? Math.abs(new Date(best.createdAt).getTime() - txTime) : Infinity;
+                    return diff < bestDiff ? b : best;
+                }, bikeList[0]);
+            }
+            setViewOnlyBike({ id: target.id, title: target.title, pricePoints: target.pricePoints, condition: target.condition });
+        } catch {
+            // fallback: do nothing
+        }
+    };
+
     const handleOpenEditInspection = (inspection: { id: number; preferredDate?: string; preferredTimeSlot?: string; address?: string; contactPhone?: string; notes?: string }) => {
         setEditInspectionId(inspection.id);
-        setEditInspectionForm({
+        setEditInspectionData({
             preferredDate: inspection.preferredDate ?? "",
             preferredTimeSlot: inspection.preferredTimeSlot ?? "",
             address: inspection.address ?? "",
@@ -494,15 +573,20 @@ export default function SellerPage() {
                         onRequestInspection={openRequestForBike}
                         onViewBikeDetail={setBikeDetail}
                         canRequestInspection={canRequestInspection}
+                        onEditInspectionByBike={(bikeId) => void handleEditInspectionByBike(bikeId)}
+                        onCancelInspectionByBike={(bikeId) => void handleCancelInspectionByBike(bikeId)}
+                        cancelLoadingBikeId={cancelLoadingBikeId}
                     />
                 )}
                 {tab === "history" && <SellerSalesHistoryTab token={token} />}
-                {tab === "transactions" && <SellerTransactionHistoryTab token={token} userId={user?.id} />}
-                {tab === "wallet" && <WalletTab token={token} userId={user?.id} />}
+                {tab === "transactions" && <SellerTransactionHistoryTab token={token} userId={user?.id} onViewBike={openBikeDetailById} onViewInspection={openInspectionForBike} onViewPostFeeNoId={(createdAt) => void openBikeDetailByPostFee(createdAt)} />}
+                {tab === "wallet" && <WalletTab token={token} userId={user?.id} onViewBike={openBikeDetailById} onViewInspection={openInspectionForBike} onViewPostFeeNoId={(createdAt) => void openBikeDetailByPostFee(createdAt)} />}
             </div>
 
             {/* ── Modals (unchanged) ── */}
             <BikeDetailModal bike={bikeDetail} onClose={() => setBikeDetail(null)} onEdit={setEditBike} onDelete={setDeleteBike} />
+            {/* View-only modal — opened from transaction/wallet tabs (no edit/delete) */}
+            <BikeDetailModal bike={viewOnlyBike} onClose={() => setViewOnlyBike(null)} />
             <EditBikeModal bike={editBike} token={token} onClose={() => setEditBike(null)} onSuccess={refreshBikes} />
             <DeleteBikeModal bike={deleteBike} token={token} onClose={() => setDeleteBike(null)} onSuccess={() => {
                     if (deleteBike) {
@@ -530,7 +614,7 @@ export default function SellerPage() {
             <EditInspectionModal
                 isOpen={editInspectionOpen}
                 inspectionId={editInspectionId}
-                initialForm={editInspectionForm}
+                initialData={editInspectionData}
                 token={token}
                 onClose={() => setEditInspectionOpen(false)}
                 onSuccess={() => { setEditInspectionOpen(false); void handleEditInspectionSuccess(); }}

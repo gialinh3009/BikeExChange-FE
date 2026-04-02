@@ -58,10 +58,10 @@ export async function getInspectionReportAPI(bikeId, token) {
 }
 
 // Get inspection detail for a specific bike (by bikeId)
-// Uses GET /inspections?sellerId=X then filters by bikeId, then fetches detail
+// Fetches all inspections for this bike, picks the active one
+// (REQUESTED > ASSIGNED > IN_PROGRESS > INSPECTED > APPROVED > REJECTED)
 export async function getInspectionDetailByBikeIdAPI(bikeId, token) {
-  // Fetch all inspections (large page to get all)
-  const res = await fetch(`${BASE_URL}/inspections?page=0&size=100`, {
+  const res = await fetch(`${BASE_URL}/inspections?page=0&size=200`, {
     headers: authHeader(token),
   });
   const data = await res.json();
@@ -72,11 +72,22 @@ export async function getInspectionDetailByBikeIdAPI(bikeId, token) {
   const pageData = data.data ?? data;
   const items = pageData?.content ?? (Array.isArray(pageData) ? pageData : []);
 
-  // Find inspection matching this bikeId
-  const match = items.find((i) => Number(i.bikeId) === Number(bikeId));
-  if (!match) {
+  // Filter all inspections for this bike
+  const bikeInspections = items.filter((i) => Number(i.bikeId) === Number(bikeId));
+  if (bikeInspections.length === 0) {
     throw new Error("Chưa có yêu cầu kiểm định cho xe này.");
   }
+
+  // Priority order: pick the most relevant active inspection
+  const STATUS_PRIORITY = ["REQUESTED", "ASSIGNED", "IN_PROGRESS", "INSPECTED", "APPROVED", "REJECTED"];
+  const sorted = [...bikeInspections].sort((a, b) => {
+    const pa = STATUS_PRIORITY.indexOf(a.status ?? "REJECTED");
+    const pb = STATUS_PRIORITY.indexOf(b.status ?? "REJECTED");
+    if (pa !== pb) return pa - pb;
+    // Same status: pick newest
+    return (b.id ?? 0) - (a.id ?? 0);
+  });
+  const match = sorted[0];
 
   // Fetch full detail (inspection + report + history)
   const detailRes = await fetch(`${BASE_URL}/inspections/${match.id}`, {
